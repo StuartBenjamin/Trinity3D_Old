@@ -13,6 +13,23 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
+N = 20 # number of radial points
+n_core = 4
+n_edge = .2
+rho_edge = 0.8
+rho_axis = np.linspace(0,rho_edge,N) # radial axis
+drho = 1/N # temp
+n = (n_core-n_edge)*(1 - (rho_axis/rho_edge)**2) + n_edge
+#n = n_core*(1 - rho_axis**2) #+ n_edge  # simple expression
+#n = n_edge * np.ones(N)   ## constant init
+
+### Set up time controls
+alpha = 1
+dtau  = 1e-3
+N_steps = 1000
+N_step_print = 100
+###
+
 # a general class for handling profiles (n, p, F, gamma, Q, etc)
 # with options to evaluate half steps and gradients at init
 class profile():
@@ -118,35 +135,6 @@ def Step(x,a=0.5,m=1):
     else:
         return m
 
-### main
-
-
-# test 0 - can be deleted
-#ax = np.arange(10)
-#n = profile(ax)
-#print(n.profile)
-#print('check upshift')
-#print(n.halfstep_pos())
-#print('check downshift')
-#print(n.halfstep_neg())
-
-
-N = 40 # number of radial points
-n_core = 4
-n_edge = 0.2
-rho_edge = 0.8
-rho_axis = np.linspace(0,rho_edge,N) # radial axis
-drho = 1/N # temp
-n = (n_core-n_edge)*(1 - (rho_axis/rho_edge)**2) + n_edge
-#n = n_core*(1 - rho_axis**2) #+ n_edge  # simple expression
-#n = n_edge * np.ones(N)   ## constant init
-
-### Set up time controls
-alpha = 1 
-dtau  = 1e-4
-N_steps = 1000
-N_step_print = 50
-###
 
 # this should be an init function
 def init_density(n,debug=False):
@@ -174,14 +162,19 @@ area     = profile(np.linspace(0.01,a_minor,N)) # parabolic area, simple torus
 # compute Gamma as a function of critical density scale length
 flux_slope = 1
 critical_gradient = 1.5
+D_neo = .1 # neoclassical particle diffusion 
 
 def calc_Gamma(density,debug=False):
-    Ln    = -density.grad_log.profile # Lninv
-    Gamma     = np.vectorize(ReLU)(Ln, a=critical_gradient, m=flux_slope)
-    dlogGamma = np.vectorize(Step)(Ln, a=critical_gradient, m=flux_slope)
+    Ln_inv     = -density.grad_log.profile # Lninv
+    G_turb     = np.vectorize(ReLU)(Ln_inv, a=critical_gradient, m=flux_slope) 
+    G_neo      = - D_neo * density.grad.profile
+    dlogG_turb = np.vectorize(Step)(Ln_inv, a=critical_gradient, m=flux_slope)
+    #dlogG_neo  = D_neo * density.grad.profile # negligible
+
+    gamma = G_turb + G_neo
     
-    Gamma     = profile(Gamma,grad=True,half=True)
-    dlogGamma = profile(dlogGamma,grad=True,half=True)
+    Gamma     = profile(gamma,grad=True,half=True)
+    dlogGamma = profile(dlogG_turb,grad=True,half=True)
     
     if (debug):
         Gamma.plot(new_fig=True,label=r'$\Gamma$')
@@ -298,7 +291,8 @@ N_radial_mat = N-1
 def time_step_LHS(psi_n_plus,psi_n_minus,psi_n_zero,debug=False):
     M = tri_diagonal(psi_n_zero.profile[arg_middle], 
                     -psi_n_plus.profile[arg_middle], 
-                    -psi_n_minus.profile[arg_middle])
+                    -psi_n_minus.profile[arg_middle]) # ! something might be wrong here, looks like it should be 1:, unlike the other rows
+                    #-psi_n_minus.profile[1:])
     M[0,1] -= psi_n_minus.profile[0]  # for boundary condition, add the second value of psi, to matrix element in second column of first row
     I = np.identity(N_radial_mat)
     
@@ -321,6 +315,7 @@ def time_step_RHS(density,F,psi_n_plus,debug=False):
     
     boundary = np.zeros(N_radial_mat)
     boundary[-1] =  psi_n_plus.profile[-2] * n_edge # !! which psi_j is this? -1 or -2?
+    #boundary[-1] =  psi_n_plus.profile[-1] * n_edge # !! which psi_j is this? -1 or -2?
        # I think it should be -2 of the (full) psi profile, but -1 of the update vector
     
     bvec =  n_prev + dtau*(1 - alpha)*force + dtau*source + dtau*alpha*boundary
@@ -373,23 +368,37 @@ density            = init_density(n,debug=_debug)
 #n_prev = density.profile[arg_middle] # for plotting
 #density = update_density(n_next,debug=False)
 
+
+def diagnostic_1():
+
+    plt.subplot(1,2,1)
+    density.plot(label='T = {:.2e}'.format(Time))
+    print('  Plot: t =',j)
+    plt.subplot(1,2,2)
+    #dlogGamma.plot(label='T = {:.2e}'.format(Time))
+    Gamma.plot(label='T = {:.2e}'.format(Time))
+
+def diagnostic_2():
+
+    print('  Plot: t =',j)
+    plt.subplot(2,3,1)
+    density.plot(label='T = {:.2e}'.format(Time))
+    plt.subplot(2,3,2)
+    Gamma.plot(label='T = {:.2e}'.format(Time))
+    plt.subplot(2,3,4)
+    psi_n_plus.plot(label='T = {:.2e}'.format(Time))
+    plt.subplot(2,3,5)
+    psi_n_zero.plot(label='T = {:.2e}'.format(Time))
+    plt.subplot(2,3,6)
+    psi_n_minus.plot(label='T = {:.2e}'.format(Time))
+
 plt.figure()
-#plt.plot(rho_axis[arg_middle], n_prev,'.-')
-#plt.plot(rho_axis[arg_middle], n_next,'.-')
 
 j = 0 
 Time = 0
 while (j < N_steps):
 
     Gamma, dlogGamma   = calc_Gamma(density           , debug=_debug)
-    if not ( j % N_step_print):
-        if not (j < 100 or j > 600):
-            plt.subplot(1,2,1)
-            density.plot(label='T = {:.2e}'.format(Time))
-            print('  Plot: t =',j)
-            plt.subplot(1,2,2)
-            #dlogGamma.plot(label='T = {:.2e}'.format(Time))
-            Gamma.plot(label='T = {:.2e}'.format(Time))
     F                  = calc_F(density,Gamma         , debug=_debug)
     An_pos, An_neg, Bn = calc_AB_n(density,F,dlogGamma, debug=_debug)
     psi_n_plus, psi_n_minus, psi_n_zero = calc_psi_n(density,F,An_pos,An_neg,Bn, debug=_debug)
@@ -398,18 +407,60 @@ while (j < N_steps):
     
     Ainv = np.linalg.inv(Amat) # can also use scipy, or special tridiag method
     n_next = Ainv @ bvec
+
+
+    if not ( j % N_step_print):
+#        if not (j < 100 or j > 600):
+        #diagnostic_1()
+        diagnostic_2()
+     
     density = update_density(n_next,debug=_debug)
+    #print(j, np.shape(Ainv), np.shape(bvec), np.shape(n_next), np.shape(density.profile))
     Time += dtau
-#    plt.plot(rho_axis[arg_middle], n_next,'.-',label='T = {}'.format(Time))
     j += 1
 
-plt.title('Gamma(rho)')
-plt.legend()
-plt.grid()
 
-plt.subplot(1,2,1)
-plt.title(r'$\alpha = {} :: d\tau = {:.3e}$'.format(alpha,dtau))
-plt.legend()
-plt.ylim(0,4.2)
-plt.grid()
+def plot_1():
+    plt.subplot(1,2,1)
+    plt.title(r'$\alpha = {} :: d\tau = {:.3e}$'.format(alpha,dtau))
+    plt.legend()
+    plt.ylim(0,4.2)
+    plt.grid()
+    
+    plt.subplot(1,2,2)
+    plt.title('Gamma(rho)')
+    plt.legend()
+    plt.grid()
+
+def plot_2():
+    plt.subplot(2,3,1)
+    plt.title(r'$\alpha = {} :: d\tau = {:.3e}$'.format(alpha,dtau))
+    #plt.legend()
+    plt.ylim(0,4.2)
+    plt.grid()
+    
+    plt.subplot(2,3,2)
+    plt.title('Gamma(rho)')
+    #plt.legend()
+    plt.legend(bbox_to_anchor=(1.05, 1.0), loc='upper left')
+    plt.grid()
+    
+    plt.subplot(2,3,4)
+    plt.title('psi_+')
+    #plt.legend()
+    plt.grid()
+    
+    plt.subplot(2,3,5)
+    plt.title('psi_0')
+    #plt.legend()
+    plt.grid()
+    
+    plt.subplot(2,3,6)
+    plt.title('psi_-')
+    #plt.legend()
+    plt.grid()
+
+
+plot_2()
+#plot_1()
 plt.show()
