@@ -10,37 +10,45 @@ import diagnostics as dgn
 ### main
 
 
-
-
+# go into the trinity engine
+ 
+## Set initial conditions
 N = 20 # number of radial points
 n_core = 4
 n_edge = 0.2
-rho_edge = 0.8
+rho_edge = 0.8    # rho = r/a : normalized radius
 rho_axis = np.linspace(0,rho_edge,N) # radial axis
 drho = 1/N # temp
+# sample profile initial conditions
 n = (n_core-n_edge)*(1 - (rho_axis/rho_edge)**2) + n_edge
 #n = n_core*(1 - rho_axis**2) #+ n_edge  # simple expression
 #n = n_edge * np.ones(N)   ## constant init
 
 ### Set up time controls
-alpha = 0.3
-dtau  = 1e-4
-N_steps = 1000
-N_step_print = 100
+alpha = 0.3          # explicit to implicit mixer
+dtau  = 1e-4         # step size 
+N_steps = 1000       # total Time = dtau * N_steps
+N_prints = 10
+N_step_print = N_steps // N_prints   # how often to print # thanks Sarah!
+#N_step_print = 100   # how often to print
 ###
-
-trl.rho_axis = rho_axis
-
-T  = 2 # constant temp profile
-Ba = 3 # average field on LCFS
-R_major = 4 # meter
-a_minor = 1 # meter
-pressure = trl.profile(n*T)
-area     = trl.profile(np.linspace(0.01,a_minor,N)) # parabolic area, simple torus
 
 
 # temp fix, pass global param into library
-#    we should make this a class object instead
+#    this is what should be in the "Trinity Engine"
+trl.rho_axis = rho_axis
+
+
+### will be static > dynamic profile
+T  = 2 # constant temp profile 
+pressure = trl.profile(n*T)
+### will be from VMEC
+Ba = 3 # average field on LCFS
+R_major = 4 # meter
+a_minor = 1 # meter
+area     = trl.profile(np.linspace(0.01,a_minor,N)) # parabolic area, simple torus
+
+
 trl.R_major = R_major
 trl.a_minor = a_minor
 trl.pressure = pressure
@@ -52,11 +60,10 @@ trl.alpha = alpha
 trl.n_edge = n_edge
 
 
-
-# run calcs
+### Run Trinity!
 _debug = False
-density            = trl.init_density(n,debug=_debug)
 
+density            = trl.init_density(n,debug=_debug)
 plt.figure()
 
 j = 0 

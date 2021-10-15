@@ -39,18 +39,20 @@ class profile():
         self.axis    = rho_axis
         # assumes fixed radial griding, which (if irregular) could also be a profile, defined as a function of index
 
+        # pre-calculate gradients, half steps, or full steps
         if (grad):
             self.grad     =  profile(self.gradient())
             self.grad_log =  profile(self.log_gradient())
 
-        if (half):
+        if (half): # defines half step
             self.plus  = profile(self.halfstep_pos())
             self.minus = profile(self.halfstep_neg())
 
-        if (full):
+        if (full): # defines full stup
             self.plus1  = profile(self.fullstep_pos())
             self.minus1 = profile(self.fullstep_neg())
 
+    # pos/neg are forward and backwards
     def halfstep_neg(self):
         # x_j\pm 1/2 = (x_j + x_j \pm 1) / 2
         xj = self.profile
@@ -83,7 +85,6 @@ class profile():
         xj = self.profile
         xp = np.roll(xj,-1)
         xm = np.roll(xj, 1)
-
 
         dx = 1/len(xj) # assumes spacing is from (0,1)
         deriv = (xp - xm) / (2*dx)
@@ -181,7 +182,8 @@ def calc_F(density,Gamma,debug=False):
 
 # A and B profiles, for density evolution (there are different A,B for pressure)
 def calc_AB_n(density,F,dlogGamma, debug=False):
-    # original Barnes equations
+
+    # original Barnes equations (7.60, 7.61)
     An_pos = profile( - (R_major/a_minor) * F.plus.profile / drho \
                          * density.profile / density.plus.profile**2 \
                          * dlogGamma.plus.profile )
@@ -284,7 +286,7 @@ def time_step_RHS(density,F,psi_n_plus,debug=False):
     #force  =  - (R_major/drho/area.profile[arg_middle]) * F.grad.profile[arg_middle]
     N = len(density.profile)
     N_radial_mat = N-1
-    source = np.vectorize(mf.Gaussian)(rho_axis[:-1], A=50,sigma=0.5)
+    source = np.vectorize(mf.Gaussian)(rho_axis[:-1], A=35,sigma=0.3)
     #source = np.zeros(N_radial_mat) # temp, update with step or Gaussian?
     
     boundary = np.zeros(N_radial_mat)
@@ -298,13 +300,7 @@ def time_step_RHS(density,F,psi_n_plus,debug=False):
 
 def update_density(n_next,debug=False):
 
-    n = np.concatenate([ [n_next[1]], n_next[1:], [n_edge] ])
-    #n = np.concatenate([  n_next, [n_edge] ])
-    #n = np.concatenate([ [n_next[0]], n_next, [n_edge] ])
-
-    # temp fix to make n positive
-    eps = 1e-4
-#    n = np.abs(n) + eps # temp fix for (n < 0) 
+    n = np.concatenate([ [n_next[1]], n_next[1:], [n_edge] ]) # check if legit
     density = profile(n, grad=True, half=True, full=True)
 
     if (debug):
