@@ -286,8 +286,8 @@ def time_step_RHS(density,F,psi_n_plus,debug=False):
     #force  =  - (R_major/drho/area.profile[arg_middle]) * F.grad.profile[arg_middle]
     N = len(density.profile)
     N_radial_mat = N-1
-    source = np.vectorize(mf.Gaussian)(rho_axis[:-1], A=35,sigma=0.3)
-    #source = np.zeros(N_radial_mat) # temp, update with step or Gaussian?
+    source = np.vectorize(mf.Gaussian)(rho_axis[:-1], A=Sn_height,sigma=Sn_width)
+    #source = np.vectorize(mf.Gaussian)(rho_axis[:-1], A=35,sigma=0.3)
     
     boundary = np.zeros(N_radial_mat)
     boundary[-1] =  psi_n_plus.profile[-2] * n_edge # !! which psi_j is this? -1 or -2?
