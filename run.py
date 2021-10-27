@@ -13,7 +13,7 @@ import diagnostics as dgn
 # go into the trinity engine
  
 ## Set initial conditions
-N = 20 # number of radial points
+N = 10 # number of radial points
 n_core = 4
 n_edge = 0.2
 rho_edge = 0.8    # rho = r/a : normalized radius
@@ -25,13 +25,19 @@ n = (n_core-n_edge)*(1 - (rho_axis/rho_edge)**2) + n_edge
 #n = n_edge * np.ones(N)   ## constant init
 
 ### Set up time controls
-alpha = 0.3          # explicit to implicit mixer
-dtau  = 1e-4         # step size 
-N_steps = 1000       # total Time = dtau * N_steps
+alpha = 0          # explicit to implicit mixer
+dtau  = 1e-5         # step size 
+N_steps = 5000       # total Time = dtau * N_steps
 N_prints = 10
 N_step_print = N_steps // N_prints   # how often to print # thanks Sarah!
 #N_step_print = 100   # how often to print
 ###
+
+
+### Set up source
+# denisty source
+trl.Sn_width = 0.1
+trl.Sn_height = 0
 
 
 # temp fix, pass global param into library
@@ -64,7 +70,7 @@ trl.n_edge = n_edge
 _debug = False
 
 density            = trl.init_density(n,debug=_debug)
-plt.figure()
+d2 = dgn.diagnostic_2()
 
 j = 0 
 Time = 0
@@ -81,18 +87,12 @@ while (j < N_steps):
     n_next = Ainv @ bvec
     if not ( j % N_step_print):
         print('  Plot: t =',j)
-        dgn.diagnostic_1(density,Gamma,Time)
+        d2.plot(density,Gamma,Time)
     density = trl.update_density(n_next,debug=_debug)
     Time += dtau
     j += 1
 
-plt.title('Gamma(rho)')
-plt.legend()
-plt.grid()
+tlabel = r'$\alpha = {} :: d\tau = {:.3e}$'.format(alpha,dtau)
+d2.label(title=tlabel)
 
-plt.subplot(1,2,1)
-plt.title(r'$\alpha = {} :: d\tau = {:.3e}$'.format(alpha,dtau))
-plt.legend()
-plt.ylim(0,4.2)
-plt.grid()
 plt.show()
