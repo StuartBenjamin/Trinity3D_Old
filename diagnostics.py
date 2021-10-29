@@ -1,17 +1,12 @@
 import matplotlib.pyplot as plt
 
-# plot the density and flux profile
-#    OLD, to be deleted
-def diagnostic_1(density, Gamma, Time):
-
-    plt.subplot(1,2,1)
-    density.plot(label='T = {:.2e}'.format(Time))
-    plt.subplot(1,2,2)
-    Gamma.plot(label='T = {:.2e}'.format(Time))
+def quick_plot(axis, f, T):
+    axis.plot( f.axis, f.profile, '.-', label=T )
+    # can shift the plus/minus curves
 
 
 # plot the density and flux profile
-class diagnostic_2:
+class diagnostic_1:
     
     def __init__(self,win=(8,4)):
         fig, axs = plt.subplots(1,2,figsize=win)
@@ -23,14 +18,70 @@ class diagnostic_2:
         self.axs[0].plot( density.axis, density.profile,'.-',label=tlabel )
         self.axs[1].plot( Gamma.axis,   Gamma.profile,  '.-',label=tlabel )
 
-    def label(self, title=''):
+    def label(self, title='', n_max=4.2):
 
         a0,a1 = self.axs
         
         a0.set_title(title)
-        a0.set_ylim(0,4.2)
+        a0.set_ylim(0,n_max)
         a0.grid()
         
         a1.set_title('Gamma(rho)')
         a1.legend()
         a1.grid()
+
+# plot two general profiles
+class diagnostic_2:
+    
+    def __init__(self,win=(8,4)):
+        fig, axs = plt.subplots(1,2,figsize=win)
+        self.axs = axs
+
+    def plot(self, f, g, Time):
+
+        tlabel = 'T = {:.2e}'.format(Time)
+        a0, a1 = self.axs
+        quick_plot(a0, f, tlabel)
+        quick_plot(a1, g, tlabel)
+
+    def label(self, t0='', t1=''):
+
+        a0,a1 = self.axs
+        
+        a0.set_title(t0)
+        a0.grid()
+        
+        a1.set_title(t1)
+        a1.legend()
+        a1.grid()
+
+# plot a function and its two shifts 
+class diagnostic_3:
+    
+    def __init__(self,win=(10,4)):
+        fig, axs = plt.subplots(1,3,figsize=win)
+        self.axs = axs
+
+    def plot(self, f, time):
+
+        a0,a1,a2 = self.axs
+        tlabel = 'T = {:.2e}'.format(time)
+
+        quick_plot(a0, f,       tlabel)
+        quick_plot(a1, f.plus,  tlabel)
+        quick_plot(a2, f.minus, tlabel)
+
+    def label(self, tag='F'):
+
+        a0,a1,a2 = self.axs
+        
+        a0.set_title(r'$%s$'%tag)
+        a0.grid()
+        
+        a1.set_title(r'$%s_+$'%tag)
+        a1.grid()
+
+        a2.set_title(r'$%s_-$'%tag)
+        a2.grid()
+
+        a2.legend()

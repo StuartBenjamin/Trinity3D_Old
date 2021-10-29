@@ -90,6 +90,10 @@ class profile():
         deriv = (xp - xm) / (2*dx)
         deriv[0]  = deriv[1]
         deriv[-1] = deriv[-2]
+        #deriv[0]  = ( -3./2* xj[0] + 2*xj[1] - 1./2* xj[2])  /dx
+        #deriv[0]  = (xj[1] - xj[0])  /dx
+        #deriv[-1] = (xj[-1] - xj[-2])/dx
+        deriv[-1]  = ( 3./2* xj[-1] - 2*xj[-2] + 1./2* xj[-3])  /dx
 
         return deriv
         # can recursively make gradient also a profile class
@@ -147,6 +151,8 @@ def calc_Gamma(density,debug=False):
     dlogG_turb = np.vectorize(mf.Step)(Ln_inv, a=critical_gradient, m=flux_slope)
     #dlogG_neo  = D_neo * density.grad.profile # negligible
 
+    gamma = G_neo
+    gamma = G_turb
     gamma = G_turb + G_neo
     
     Gamma     = profile(gamma,grad=True,half=True)
@@ -164,7 +170,8 @@ def calc_Gamma(density,debug=False):
 
 # compute F profile, given density and Gamma
 def calc_F(density,Gamma,debug=False):
-    F = area.profile / Ba**2 * Gamma.profile * pressure.profile**(3/2) / density.profile**(1/2)
+    F = area.profile / Ba**2 * Gamma.profile * temperature.profile**(3/2) * density.profile
+    #F = area.profile / Ba**2 * Gamma.profile * pressure.profile**(3/2) / density.profile**(1/2)
     F = profile(F,half=True,grad=True)
     
     # set inner boundary condition
@@ -257,8 +264,7 @@ def tri_diagonal(a,b,c):
 # 2) or append the boundaries as ancillary to the main array?
 # the first is more intuitive, but the second may be more efficient
 arg_middle = np.s_[:-1]
-#arg_middle = np.s_[1:-1]
-#N_radial_mat = N-1 ## moved inside functions
+#arg_middle = np.s_[1:] # should I drop the Dirchlet boundary or Neumann?
 
 def time_step_LHS(psi_n_plus,psi_n_minus,psi_n_zero,debug=False):
     M = tri_diagonal(psi_n_zero.profile[arg_middle], 
@@ -282,7 +288,10 @@ def time_step_LHS(psi_n_plus,psi_n_minus,psi_n_zero,debug=False):
 ### Define RHS
 def time_step_RHS(density,F,psi_n_plus,debug=False):
     n_prev = density.profile[arg_middle]
-    force  =  - (1/drho/area.profile[arg_middle]) * F.grad.profile[arg_middle]
+
+    dFdrho = (F.plus.profile - F.minus.profile)/2
+    force  =  - (1/drho/area.profile[arg_middle]) * dFdrho[arg_middle]
+    #force  =  - (1/drho/area.profile[arg_middle]) * F.grad.profile[arg_middle]
     #force  =  - (R_major/drho/area.profile[arg_middle]) * F.grad.profile[arg_middle]
     N = len(density.profile)
     N_radial_mat = N-1
