@@ -151,9 +151,9 @@ def calc_Gamma(density,debug=False):
     dlogG_turb = np.vectorize(mf.Step)(Ln_inv, a=critical_gradient, m=flux_slope)
     #dlogG_neo  = D_neo * density.grad.profile # negligible
 
-    gamma = G_neo
     gamma = G_turb
-    gamma = G_turb + G_neo
+    gamma = G_neo
+    #gamma = G_turb + G_neo
     
     Gamma     = profile(gamma,grad=True,half=True)
     dlogGamma = profile(dlogG_turb,grad=True,half=True)

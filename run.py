@@ -15,7 +15,7 @@ import diagnostics as dgn
 ## Set initial conditions
 N = 10 # number of radial points
 n_core = 4
-n_edge = 0.2
+n_edge = .5 
 rho_edge = 0.8    # rho = r/a : normalized radius
 rho_axis = np.linspace(0,rho_edge,N) # radial axis
 drho = 1/N # temp
@@ -27,9 +27,9 @@ T0  = 2 # constant temp profile
 T = T0 * np.ones(N)
 
 ### Set up time controls
-alpha = 1          # explicit to implicit mixer
-dtau  = 1         # step size 
-N_steps = 1000       # total Time = dtau * N_steps
+alpha = 0          # explicit to implicit mixer
+dtau  = 1e-3         # step size 
+N_steps = 10000       # total Time = dtau * N_steps
 N_prints = 10
 N_step_print = N_steps // N_prints   # how often to print # thanks Sarah!
 #N_step_print = 100   # how often to print
