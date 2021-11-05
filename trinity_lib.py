@@ -12,7 +12,7 @@ class Trinity_Engine():
                        n_edge = 0.2,
                        rho_edge = 0.8):
 
-        self.N        = N
+        self.N        = N       # Sarah, nice catch, this was a bug
         self.n_core   = n_core
         self.n_edge   = n_edge
         self.rho_edge = rho_edge
@@ -149,6 +149,7 @@ def calc_Gamma(density,debug=False):
     G_turb     = np.vectorize(mf.ReLU)(Ln_inv, a=critical_gradient, m=flux_slope) 
     G_neo      = - D_neo * density.grad.profile
     dlogG_turb = np.vectorize(mf.Step)(Ln_inv, a=critical_gradient, m=flux_slope)
+    ### Is this actually dlogGamma? if Gamma is ReLU, dGamma is step
     #dlogG_neo  = D_neo * density.grad.profile # negligible
 
     gamma = G_turb
@@ -193,6 +194,7 @@ def calc_F(density,Gamma,debug=False):
 def calc_AB_gen(w,Flux,dlogFlux, debug=False):
 
     # original Barnes equations (7.60, 7.61)
+    # The (R/a) can be removed, if we use (a/L) instead of R/L
     A_pos = profile( - (R_major/a_minor) * Flux.plus.profile / drho \
                          * w.profile / w.plus.profile**2 \
                          * dlogFlux.plus.profile )
@@ -205,8 +207,8 @@ def calc_AB_gen(w,Flux,dlogFlux, debug=False):
                   * (    Flux.plus.profile  \
                          * w.plus1.profile / w.plus.profile**2 \
                          * dlogFlux.plus.profile \
-                      +  F.minus.profile  \
-                         * w.minus1.profile / Flux.minus.profile**2 \
+                      +  Flux.minus.profile  \
+                         * w.minus1.profile / w.minus.profile**2 \
                          * dlogFlux.minus.profile  \
                     ) )
 
