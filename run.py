@@ -27,9 +27,9 @@ T0  = 2 # constant temp profile
 T = T0 * np.ones(N)
 
 ### Set up time controls
-alpha = 0          # explicit to implicit mixer
-dtau  = 1e-3         # step size 
-N_steps = 10000       # total Time = dtau * N_steps
+alpha = 1          # explicit to implicit mixer
+dtau  = 10         # step size 
+N_steps  = 100       # total Time = dtau * N_steps
 N_prints = 10
 N_step_print = N_steps // N_prints   # how often to print # thanks Sarah!
 #N_step_print = 100   # how often to print
@@ -44,6 +44,7 @@ trl.Sn_height = 0
 
 # temp fix, pass global param into library
 #    this is what should be in the "Trinity Engine"
+trl.N_radial_points = N
 trl.rho_axis = rho_axis
 
 
@@ -84,11 +85,23 @@ while (j < N_steps):
     F                  = trl.calc_F(density,Gamma         , debug=_debug)
     An_pos, An_neg, Bn = trl.calc_AB_n(density,F,dlogGamma, debug=_debug)
     psi_n_plus, psi_n_minus, psi_n_zero = trl.calc_psi_n(density,F,An_pos,An_neg,Bn, debug=_debug)
-    Amat = trl.time_step_LHS(psi_n_plus,psi_n_minus,psi_n_zero)
-    bvec = trl.time_step_RHS(density,F,psi_n_plus)
-    
+    Amat0 = trl.time_step_LHS(psi_n_plus,psi_n_minus,psi_n_zero)
+    bvec0 = trl.time_step_RHS(density,F,psi_n_plus)
+    psi_nn = trl.calc_psi_nn(density,F,An_pos,An_neg,Bn)
+    Amat   = trl.time_step_LHS3( psi_nn )
+         # eventually this will take 9 input matrices
+         # it would be even better to keep all self contained in a "Trinity-Engine"
+    bvec = trl.time_step_RHS3(density,F,psi_nn)
+    #print(psi_n_plus.profile[-2])
+    #print( psi_nn[-2,-1])
+    #print(bvec)
+    #print(bvec0)
+    #print(Amat0)
+    #print(Amat)
     Ainv = np.linalg.inv(Amat) # can also use scipy, or special tridiag method
-    n_next = Ainv @ bvec
+    y_next = Ainv @ bvec
+    #n_next = Ainv @ bvec
+    n_next, Ti_next, Te_next = np.reshape(y_next,(3,N-1) )
     if not ( j % N_step_print):
         print('  Plot: t =',j)
         d1.plot(density,Gamma,Time)
