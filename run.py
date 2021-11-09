@@ -85,10 +85,6 @@ while (j < N_steps):
     Gamma, dlogGamma   = trl.calc_Gamma(density           , debug=_debug)
     F                  = trl.calc_F(density,Gamma         , debug=_debug)
     An_pos, An_neg, Bn = trl.calc_AB_gen(density,F,dlogGamma, debug=_debug)
-    #psi_n_plus, psi_n_minus, psi_n_zero = trl.calc_psi_n(density,F,An_pos,An_neg,Bn, debug=_debug)
-    #An_pos0, An_neg0, Bn0 = trl.calc_AB_n(density,F,dlogGamma, debug=_debug)
-    #Amat0 = trl.time_step_LHS(psi_n_plus,psi_n_minus,psi_n_zero)
-    #bvec0 = trl.time_step_RHS(density,F,psi_n_plus)
     psi_nn = trl.calc_psi_nn(density,F,An_pos,An_neg,Bn)
     Amat   = trl.time_step_LHS3( psi_nn )
          # eventually this will take 9 input matrices

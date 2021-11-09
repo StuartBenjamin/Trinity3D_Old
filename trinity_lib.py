@@ -264,29 +264,6 @@ def calc_AB_n(density,F,dlogGamma, debug=False):
 #                     * T**(3/2) / Ba**2 \   # need to make T.profile
 #                     * Gamma.plus.grad.profile )
 
-# compute psi, the matrix elements for tridiagonal inversion
-def calc_psi_n(density,F,An_pos,An_neg,Bn,debug=False):
-    # need to implement <|grad rho|>
-    psi_n_plus  = profile( - (An_pos.profile - F.plus.profile / density.plus.profile / 4) \
-                             / (area.profile * drho ) )
-    
-    psi_n_minus = profile( - (An_neg.profile + F.minus.profile / density.minus.profile / 4) \
-                             / (area.profile * drho ) )
-    
-    psi_n_zero  = profile( - (Bn.profile \
-                            + ( F.minus.profile / density.minus.profile \
-                                - F.plus.profile / density.plus.profile )/ 4) \
-                            / (area.profile * drho ) )
-
-    if (debug):
-        psi_n_plus.plot(new_fig=True, label=r'$\psi^n_+$')
-        psi_n_minus.plot(label=r'$\psi^n_-$')
-        psi_n_zero.plot(label=r'$\psi^n_0$')
-        plt.legend()
-        #plt.yscale('log')
-
-    return psi_n_plus, psi_n_minus, psi_n_zero 
-
 
 # calulates the density contribution to n^m+1 
 # returns a tridiagonal matrix
@@ -335,40 +312,16 @@ def tri_diagonal(a,b,c):
 # 1) should I treat the main equation as the middle of an array
 # 2) or append the boundaries as ancillary to the main array?
 # the first is more intuitive, but the second may be more efficient
-arg_middle = np.s_[:-1]
-#arg_middle = np.s_[1:] # should I drop the Dirchlet boundary or Neumann?
+arg_middle = np.s_[:-1] # the purpose of this expression is to remove "magic numbers" where we drop the last point due to Dirchlet boundary condition
 
-# old
-def time_step_LHS(psi_n_plus,psi_n_minus,psi_n_zero,debug=False):
-    M = tri_diagonal(psi_n_zero.profile[arg_middle], 
-                    -psi_n_plus.profile[arg_middle], 
-                    -psi_n_minus.profile[arg_middle])
-    M[0,1] -= psi_n_minus.profile[0]  # for boundary condition, add the second value of psi, to matrix element in second column of first row
-    N = len(psi_n_plus.profile)
-    N_radial_mat = N-1
-    I = np.identity(N_radial_mat)
-    
-    Amat = I + dtau*alpha * M
-   
-    if (debug):
-        plt.figure()
-        plt.imshow(Amat)
-        #plt.show()
-
-    return Amat
-
+# the "3" appended to LHS and RHS represents the statevector y = (n,pi,pe)
+#    this could be removed later
 def time_step_LHS3(psi_nn,debug=False):
     
     N_block = N_radial_points - 1
     I = np.identity(N_block)
     Z = I*0 # block of 0s
 
-    #psi_nn = tri_diagonal(psi_n_zero.profile[arg_middle], 
-    #                -psi_n_plus.profile[arg_middle], 
-    #                -psi_n_minus.profile[arg_middle])
-    #psi_nn[0,1] -= psi_n_minus.profile[0]  # for boundary condition, add the second value of psi, to matrix element in second column of first row
-
-    
     ## build block-diagonal matrices
     b_nn = psi_nn[:-1, :-1]          # drop the last point for Dirchlet boundary
     M = np.block([[ b_nn, Z, Z ],
@@ -406,28 +359,7 @@ def time_step_RHS3(density,F,psi_nn,debug=False):
     b3 = np.concatenate( [bvec, temp, temp] )
     return b3
 
-# old
-def time_step_RHS(density,F,psi_n_plus,debug=False):
-    n_prev = density.profile[arg_middle]
 
-    dFdrho = (F.plus.profile - F.minus.profile)/2
-    force  =  - (1/drho/area.profile[arg_middle]) * dFdrho[arg_middle]
-    #force  =  - (1/drho/area.profile[arg_middle]) * F.grad.profile[arg_middle]
-    #force  =  - (R_major/drho/area.profile[arg_middle]) * F.grad.profile[arg_middle]
-    N = len(density.profile)
-    N_radial_mat = N-1
-    source = np.vectorize(mf.Gaussian)(rho_axis[:-1], A=Sn_height,sigma=Sn_width)
-    #source = np.vectorize(mf.Gaussian)(rho_axis[:-1], A=35,sigma=0.3)
-    
-    boundary = np.zeros(N_radial_mat)
-    boundary[-1] =  psi_n_plus.profile[-2] * n_edge # !! which psi_j is this? -1 or -2?
-       # I think it should be -2 of the (full) psi profile, but -1 of the update vector
-    
-    bvec =  n_prev + dtau*(1 - alpha)*force + dtau*source + dtau*alpha*boundary
-    #bvec = n_prev + dtau*(1 - alpha)*force + dtau*source + dtau*boundary # makes problems
-    return bvec
-
-# old
 def update_density(n_next,debug=False):
 
     n = np.concatenate([ [n_next[1]], n_next[1:], [n_edge] ]) # check if legit
