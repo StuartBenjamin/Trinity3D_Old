@@ -41,8 +41,8 @@ class profile():
 
         # pre-calculate gradients, half steps, or full steps
         if (grad):
-            self.grad     =  profile(self.gradient())
-            self.grad_log =  profile(self.log_gradient())
+            self.grad     =  profile(self.gradient(), half=half, full=full)
+            self.grad_log =  profile(self.log_gradient(), half=half, full=full)
 
         if (half): # defines half step
             self.plus  = profile(self.halfstep_pos())
@@ -144,20 +144,26 @@ flux_slope = 1
 critical_gradient = 1.5
 D_neo = .1 # neoclassical particle diffusion 
 
+# toy function for calculating Gamma (as ReLU)
+# also returns d log ( Gamma ) / d ( 1 / Ln ), with ambiguous normalization
 def calc_Gamma(density,debug=False):
     Ln_inv     = -density.grad_log.profile # Lninv
     G_turb     = np.vectorize(mf.ReLU)(Ln_inv, a=critical_gradient, m=flux_slope) 
     G_neo      = - D_neo * density.grad.profile
-    dlogG_turb = np.vectorize(mf.Step)(Ln_inv, a=critical_gradient, m=flux_slope)
+#    dlogG_turb = np.vectorize(mf.Step)(Ln_inv, a=critical_gradient, m=flux_slope) 
+    #dlogG_turb = np.vectorize(mf.Step)(Ln_inv, a=critical_gradient, m=flux_slope) / density.profile
     ### Is this actually dlogGamma? if Gamma is ReLU, dGamma is step
     #dlogG_neo  = D_neo * density.grad.profile # negligible
+    #dlogGamma = profile(dlogG_turb,grad=True,half=True)
 
-    gamma = G_turb
-    gamma = G_neo
-    #gamma = G_turb + G_neo
+    # for debugging turublent and neoclassical transport 
+        # for debugging turublent and neoclassical transport separately
+#    gamma = G_turb
+#    gamma = G_neo
+    gamma = G_turb + G_neo
     
     Gamma     = profile(gamma,grad=True,half=True)
-    dlogGamma = profile(dlogG_turb,grad=True,half=True)
+    dlogGamma = Gamma.grad_log
     
     if (debug):
         Gamma.plot(new_fig=True,label=r'$\Gamma$')

@@ -21,15 +21,16 @@ rho_axis = np.linspace(0,rho_edge,N) # radial axis
 drho = 1/N # temp
 # sample profile initial conditions
 n = (n_core-n_edge)*(1 - (rho_axis/rho_edge)**2) + n_edge
-#n = n_core*(1 - rho_axis**2) #+ n_edge  # simple expression
-#n = n_edge * np.ones(N)   ## constant init
 T0  = 2 # constant temp profile 
 T = T0 * np.ones(N)
 
 ### Set up time controls
 alpha = 1          # explicit to implicit mixer
-dtau  = 10         # step size 
-N_steps  = 10       # total Time = dtau * N_steps
+dtau  = 1e5         # step size 
+N_steps  = 1000       # total Time = dtau * N_steps
+#alpha = 0          # explicit to implicit mixer
+#dtau  = 1e-3         # step size 
+#N_steps  = 10000       # total Time = dtau * N_steps
 N_prints = 10
 N_step_print = N_steps // N_prints   # how often to print # thanks Sarah!
 #N_step_print = 100   # how often to print
