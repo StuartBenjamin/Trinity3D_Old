@@ -122,6 +122,7 @@ class profile():
 
 
 # Initialize Trinity profiles
+#def init_profile(n,debug=False):
 def init_density(n,debug=False):
     density = profile(n, grad=True, half=True, full=True)
 
@@ -135,35 +136,35 @@ def init_density(n,debug=False):
         plt.grid()
 
     return density
+init_profile = init_density
 
-
-def init_pressure_i(pi,debug=False):
-    pressure_i = profile(pi, grad=True, half=True, full=True)
-
-    if (debug):
-        pressure_i.plot(new_fig=True, label=r'$p_i$')
-        pressure_i.grad.plot(label=r'$ \nabla p_i$')
-        pressure_i.grad_log.plot(label=r'$\nabla \log p_i$')
-        plt.xlabel('radius')
-        plt.legend()
-        plt.title(r'$p_i(0) = {:.1f} :: p_i(1) = {:.1f}$'.format(pi_core, pi_edge) )
-        plt.grid()
-
-    return pressure_i
-
-def init_pressure_e(pe,debug=False):
-    pressure_e = profile(pe, grad=True, half=True, full=True)
-
-    if (debug):
-        pressure_e.plot(new_fig=True, label=r'$p_e$')
-        pressure_e.grad.plot(label=r'$ \nabla p_e$')
-        pressure_e.grad_log.plot(label=r'$\nabla \log p_e$')
-        plt.xlabel('radius')
-        plt.legend()
-        plt.title(r'$p_e(0) = {:.1f} :: p_e(1) = {:.1f}$'.format(pe_core, pe_edge) )
-        plt.grid()
-
-    return pressure_e
+#def init_pressure_i(pi,debug=False):
+#    pressure_i = profile(pi, grad=True, half=True, full=True)
+#
+#    if (debug):
+#        pressure_i.plot(new_fig=True, label=r'$p_i$')
+#        pressure_i.grad.plot(label=r'$ \nabla p_i$')
+#        pressure_i.grad_log.plot(label=r'$\nabla \log p_i$')
+#        plt.xlabel('radius')
+#        plt.legend()
+#        plt.title(r'$p_i(0) = {:.1f} :: p_i(1) = {:.1f}$'.format(pi_core, pi_edge) )
+#        plt.grid()
+#
+#    return pressure_i
+#
+#def init_pressure_e(pe,debug=False):
+#    pressure_e = profile(pe, grad=True, half=True, full=True)
+#
+#    if (debug):
+#        pressure_e.plot(new_fig=True, label=r'$p_e$')
+#        pressure_e.grad.plot(label=r'$ \nabla p_e$')
+#        pressure_e.grad_log.plot(label=r'$\nabla \log p_e$')
+#        plt.xlabel('radius')
+#        plt.legend()
+#        plt.title(r'$p_e(0) = {:.1f} :: p_e(1) = {:.1f}$'.format(pe_core, pe_edge) )
+#        plt.grid()
+#
+#    return pressure_e
 
 
 ### Calculate Transport Coefficients for Density
@@ -173,6 +174,7 @@ flux_slope = 1
 critical_gradient = 1.5
 D_neo = .1 # neoclassical particle diffusion 
 
+# old
 # toy function for calculating Gamma (as ReLU)
 # also returns d log ( Gamma ) / d ( 1 / Ln ), with ambiguous normalization
 def calc_Gamma(density,debug=False):
@@ -203,7 +205,7 @@ def calc_Gamma(density,debug=False):
 
     return Gamma,dlogGamma
 
-
+# old
 # compute F profile, given density and Gamma
 def calc_F(density,Gamma,debug=False):
     F = area.profile / Ba**2 * Gamma.profile * temperature.profile**(3/2) * density.profile
@@ -326,37 +328,47 @@ def calc_psi_nn(density,F,An_pos,An_neg,Bn,debug=False):
 
 
 ### from Sarah 11/8
-D_neo = .1 # neoclassical particle diffusion
+D_neo  = .1 # neoclassical particle diffusion
 Pi_neo = .1 # keep neoclassical pressure same as diffusion for now
 Pe_neo = .1
+
+n_flux_slope        = 1
+n_critical_gradient = 1.5
+pi_flux_slope        = 1
+pi_critical_gradient = .5
+pe_flux_slope        = 1
+pe_critical_gradient = 1.5
 
 def calc_Flux(density,pressure_i,pressure_e,debug=False):
     Ln_inv     = -density.grad_log.profile # Lninv
     Lpi_inv    = -pressure_i.grad_log.profile
     Lpe_inv    = -pressure_e.grad_log.profile
-    G_turb     = np.vectorize(mf.ReLU)(Ln_inv, a=critical_gradient, m=flux_slope)
-    Qi_turb    = np.vectorize(mf.ReLU)(Lpi_inv, a=critical_gradient, m=flux_slope)
-    Qe_turb    = np.vectorize(mf.ReLU)(Lpe_inv, a=critical_gradient, m=flux_slope)
-    G_neo      = - D_neo * density.grad.profile
+    G_turb     = np.vectorize(mf.ReLU)(Ln_inv, a=n_critical_gradient, m=n_flux_slope)
+    Qi_turb    = np.vectorize(mf.ReLU)(Lpi_inv, a=pi_critical_gradient, m=pi_flux_slope)
+    Qe_turb    = np.vectorize(mf.ReLU)(Lpe_inv, a=pe_critical_gradient, m=pe_flux_slope)
+    G_neo      = - D_neo  * density.grad.profile
     Qi_neo     = - Pi_neo * pressure_i.grad.profile
     Qp_neo     = - Pe_neo * pressure_e.grad.profile
-    dlogG_turb = np.vectorize(mf.Step)(Ln_inv, a=critical_gradient, m=flux_slope)
-    dlogQi_turb = np.vectorize(mf.Step)(Lpi_inv, a=critical_gradient, m=flux_slope)
-    dlogQe_turb = np.vectorize(mf.Step)(Lpe_inv, a=critical_gradient, m=flux_slope)
+    #dlogG_turb = np.vectorize(mf.Step)(Ln_inv, a=critical_gradient, m=flux_slope)
+    #dlogQi_turb = np.vectorize(mf.Step)(Lpi_inv, a=critical_gradient, m=flux_slope)
+    #dlogQe_turb = np.vectorize(mf.Step)(Lpe_inv, a=critical_gradient, m=flux_slope)
     #dlogG_neo  = D_neo * density.grad.profile # negligible
 
-    gamma = G_neo
-    gamma = G_turb
+    #gamma = G_neo
+    #gamma = G_turb
     gamma = G_turb + G_neo
-    q_i   = Qi_turb + Qi_neo
-    q_e   = Qe_turb + Qi_neo
+    qi   = Qi_turb + Qi_neo
+    qe   = Qe_turb + Qi_neo
 
     Gamma     = profile(gamma,grad=True,half=True)
-    Q_i       = profile(q_i,grad=True,half=True)
-    Q_e       = profile(q_e,grad=True,half=True)
-    dlogGamma = profile(dlogG_turb,grad=True,half=True)
-    dlogQ_i = profile(dlogQi_turb,grad=True,half=True)
-    dlogQ_e = profile(dlogQe_turb,grad=True,half=True)
+    Qi       = profile(qi,grad=True,half=True)
+    Qe       = profile(qe,grad=True,half=True)
+    dlogGamma = Gamma.grad_log
+    dlogQi    = Qi.grad_log
+    dlogQe    = Qe.grad_log
+    #dlogGamma = profile(dlogG_turb,grad=True,half=True)
+    #dlogQ_i = profile(dlogQi_turb,grad=True,half=True)
+    #dlogQ_e = profile(dlogQe_turb,grad=True,half=True)
 
     if (debug):
         Gamma.plot(new_fig=True,label=r'$\Gamma$')
@@ -369,16 +381,17 @@ def calc_Flux(density,pressure_i,pressure_e,debug=False):
         plt.legend()
         plt.title(r'$Tcrit = {:.1f} ::  m = {:.1f}$'.format(critical_gradient, flux_slope) )
 
-    return Gamma,dlogGamma,Q_i,dlogQ_i,Q_e,dlogQ_e
+    return Gamma,dlogGamma,   Qi,dlogQi,   Qe,dlogQe
 
 
 # compute F profile (normalized flux)
 #    given density, pressure_i, pressure_e, Gamma,and the Qs
 def calc_F3(density,pressure_i,pressure_e,Gamma,Q_i,Q_e,debug=False):
-    Fn = area.profile / Ba**2 * Gamma.profile * temperature.profile**(3/2) * density.profile
+    Fn = area.profile / Ba**2 * Gamma.profile * pressure_i.profile**(1.5) / density.profile**(0.5)
+    # these F's for heat flux are not correct (but they are not used right now)
     Fpi = area.profile / Ba**2 * Q_i.profile * temperature.profile**(3/2) * pressure_i.profile
     Fpe = area.profile / Ba**2 * Q_e.profile * temperature.profile**(3/2) * pressure_e.profile
-    #F = area.profile / Ba**2 * Gamma.profile * pressure.profile**(3/2) / density.profile**(1/2)
+    # Sarah the F's for density should all use the same Gamma
     Fn = profile(Fn,half=True,grad=True)
     Fpi = profile(Fpi,half=True,grad=True)
     Fpe = profile(Fpe,half=True,grad=True)
@@ -483,51 +496,41 @@ def calc_AB(density,pressure_i, pressure_e,Fn,Fpi,Fpe,dlogGamma,dlogQ_i,dlogQ_e,
 #                     * Gamma.plus.grad.profile )
 
 # compute psi, the matrix elements for tridiagonal inversion
-def calc_psi(density, pressure_i, pressure_e,Fn,Fpi,Fpe,A_pos,A_neg,B,Ai_pos,Ai_neg,Bi, \
+def calc_psi(density, pressure_i, pressure_e,Fn,Fpi,Fpe, \
+                   An_pos,An_neg,Bn, Ai_pos,Ai_neg,Bi, \
                    Ae_pos,Ae_neg,Be,debug=False):
-    # need to implement <|grad rho|>
-    psi_n_plus  = profile( - (A_pos.profile - Fn.plus.profile / density.plus.profile / 4) \
-                             / (area.profile * drho ) )
 
-    psi_n_minus = profile( - (A_neg.profile + Fn.minus.profile / density.minus.profile / 4) \
-                             / (area.profile * drho ) )
+    # geometric factor
+    grho = 1 # need to implement <|grad rho|>, by reading surface area from VMEC
+    geometry_factor = - grho / area.profile * drho
 
-    psi_n_zero  = profile( - (B.profile \
+    # tri diagonal matrix elements
+    psi_nn_plus  = profile( geometry_factor * (An_pos.profile - Fn.plus.profile  / density.plus.profile / 4) )
+    psi_nn_minus = profile( geometry_factor * (An_neg.profile + Fn.minus.profile / density.minus.profile / 4) )
+    psi_nn_zero  = profile( geometry_factor * (Bn.profile \
                             + ( Fn.minus.profile / density.minus.profile \
-                                - Fn.plus.profile / density.plus.profile )/ 4) \
-                            / (area.profile * drho ) )
+                               -Fn.plus.profile  / density.plus.profile )/ 4) )
 
-    psi_pi_plus = profile( - (Ai_pos.profile + 3*Fpi.plus.profile / pressure_i.plus.profile / 4) \
-                             / (area.profile * drho ) )
+    psi_npi_plus  = profile( geometry_factor * (Ai_pos.profile + 3*Fn.plus.profile / pressure_i.plus.profile / 4) )
+    psi_npi_minus = profile( geometry_factor * (Ai_neg.profile - 3*Fn.minus.profile / pressure_i.minus.profile / 4) )
+    psi_npi_zero  = profile( geometry_factor * (Bi.profile \
+                             - 3./4*(Fn.minus.profile / pressure_i.minus.profile \
+                                   - Fn.plus.profile  / pressure_i.plus.profile )   ) )
 
-    psi_pi_minus = profile( - (Ai_neg.profile - 3*Fpi.minus.profile / pressure_i.minus.profile / 4) \
-                             / (area.profile * drho ) )
-
-    psi_pi_zero  = profile( - (Bi.profile \
-                            - ( 3*Fpi.minus.profile / pressure_i.minus.profile \
-                                - Fpi.plus.profile / pressure_i.plus.profile )/ 4) \
-                            / (area.profile * drho ) )
-
-    psi_pe_plus = profile( - Ae_pos.profile \
-                             / (area.profile * drho ) )
-
-    psi_pe_minus = profile( - Ae_neg.profile \
-                             / (area.profile * drho ) )
-
-    psi_pe_zero  = profile( - Be.profile \
-                            / (area.profile * drho ) )
-
+    psi_npe_plus  = profile( geometry_factor * Ae_pos.profile )
+    psi_npe_minus = profile( geometry_factor * Ae_neg.profile )
+    psi_npe_zero  = profile( geometry_factor * Be.profile )
 
     if (debug):
-        psi_n_plus.plot(new_fig=True, label=r'$\psi^n_+$')
-        psi_n_minus.plot(label=r'$\psi^n_-$')
-        psi_n_zero.plot(label=r'$\psi^n_0$')
-        psi_pi_plus.plot(new_fig=True, label=r'$\psi^p_i_+$')
-        psi_pi_minus.plot(label=r'$\psi^p_i_-$')
-        psi_pi_zero.plot(label=r'$\psi^p_i_0$')
-        psi_pe_plus.plot(new_fig=True, label=r'$\psi^p_e_+$')
-        psi_pe_minus.plot(label=r'$\psi^p_e_-$')
-        psi_pe_zero.plot(label=r'$\psi^p_e_0$')
+        psi_nn_plus.plot(new_fig=True, label=r'$\psi^n_+$')
+        psi_nn_minus.plot(label=r'$\psi^n_-$')
+        psi_nn_zero.plot(label=r'$\psi^n_0$')
+        psi_npi_plus.plot(new_fig=True, label=r'$\psi^p_i_+$')
+        psi_npi_minus.plot(label=r'$\psi^p_i_-$')
+        psi_npi_zero.plot(label=r'$\psi^p_i_0$')
+        psi_npe_plus.plot(new_fig=True, label=r'$\psi^p_e_+$')
+        psi_npe_minus.plot(label=r'$\psi^p_e_-$')
+        psi_npe_zero.plot(label=r'$\psi^p_e_0$')
         plt.legend()
         #plt.yscale('log')
 
@@ -536,21 +539,21 @@ def calc_psi(density, pressure_i, pressure_e,Fn,Fpi,Fpe,A_pos,A_neg,B,Ai_pos,Ai_
     # returns a tridiagonal matrix
     # warning! this returns a (N), but we need the N-1 for the block matrix
     # arg_middle drops the last point, which is fixed by Dirchlet BC
-    M_nn = tri_diagonal(psi_n_zero.profile,
-                    -psi_n_plus.profile,
-                    -psi_n_minus.profile)
-    M_nn[0,1] -= psi_n_minus.profile[0]  # for boundary condition, add the second value of psi, to matrix element in second column of first row
+    M_nn = tri_diagonal(psi_nn_zero.profile,
+                       -psi_nn_plus.profile,
+                       -psi_nn_minus.profile)
+    M_nn[0,1] -= psi_nn_minus.profile[0]  # for boundary condition, add the second value of psi, to matrix element in second column of first row
 
     # Not sure of the n-p relationship here so this'll need to be changed
-    M_npi = tri_diagonal(psi_pi_zero.profile,
-                    -psi_pi_zero.profile,
-                    - psi_pi_minus.profile)
-    M_npi[0,1] -= (psi_pi_minus.profile[0])  # for boundary condition, add the second value of psi, to matrix element in second column of first row
+    M_npi = tri_diagonal(psi_npi_zero.profile,
+                        -psi_npi_zero.profile,
+                        -psi_npi_minus.profile)
+    M_npi[0,1] -= (psi_npi_minus.profile[0])  # for boundary condition, add the second value of psi, to matrix element in second column of first row
 
-    M_npe = tri_diagonal(psi_pe_zero.profile,
-                    -psi_pe_zero.profile,
-                    -psi_pe_minus.profile)
-    M_npi[0,1] -= (psi_pe_minus.profile[0])  # for boundary condition, add the second value of psi, to matrix element in second column of first row
+    M_npe = tri_diagonal(psi_npe_zero.profile,
+                        -psi_npe_zero.profile,
+                        -psi_npe_minus.profile)
+    M_npi[0,1] -= (psi_npe_minus.profile[0])  # for boundary condition, add the second value of psi, to matrix element in second column of first row
 
     return M_nn, M_npi, M_npe
 
@@ -587,7 +590,8 @@ def time_step_LHS3(psi_nn,psi_npi,psi_npe,debug=False):
     b_nn  = psi_nn[:-1, :-1]          # drop the last point for Dirchlet boundary
     b_npi = psi_npi[:-1, :-1]
     b_npe = psi_npe[:-1, :-1]
-    M = np.block([[ b_nn, b_npi, b_npe ],
+    #M = np.block([[ b_nn, b_npi, b_npe ],
+    M = np.block([[ b_nn, Z    , Z     ],
                   [Z    , I    , Z     ],
                   [Z    , Z    , I     ]])
     I3 = np.block([[I, Z, Z ],
@@ -612,8 +616,10 @@ def time_step_RHS3(density,pressure_i,pressure_e,Fn,Fpi,Fpe,psi_nn,psi_npi,psi_n
     dFdrho_pi = (Fpi.plus.profile - Fpi.minus.profile)/2
     dFdrho_pe = (Fpe.plus.profile - Fpe.minus.profile)/2
     force_n   =  - (1/drho/area.profile[arg_middle]) * dFdrho_n[arg_middle]
-    force_pi  =  - (1/drho/area.profile[arg_middle]) * dFdrho_pi[arg_middle]
-    force_pe  =  - (1/drho/area.profile[arg_middle]) * dFdrho_pe[arg_middle]
+#    force_pi  =  - (1/drho/area.profile[arg_middle]) * dFdrho_pi[arg_middle]
+#    force_pe  =  - (1/drho/area.profile[arg_middle]) * dFdrho_pe[arg_middle]
+    force_pi = 0
+    force_pe = 0
     N = len(density.profile)
     N_radial_mat = N-1
 
@@ -635,11 +641,6 @@ def time_step_RHS3(density,pressure_i,pressure_e,Fn,Fpi,Fpe,psi_nn,psi_npi,psi_n
     bvec_pi =  pi_prev + dtau*(1 - alpha)*force_pi + dtau*source_pi + dtau*alpha*boundary_pi
     bvec_pe =  pe_prev + dtau*(1 - alpha)*force_pe + dtau*source_pe + dtau*alpha*boundary_pe
 
-    # temp should be the current state (it doesn't change)
-#    temp = temperature.profile[arg_middle] # assume Te = Ti
-#    b3_n  = np.concatenate( [bvec_n, temp, temp] )
-#    b3_pi = np.concatenate( [bvec_pi, temp, temp] )
-#    b3_pe = np.concatenate( [bvec_pe, temp, temp] )
     bvec3 = np.concatenate( [bvec_n, bvec_pi, bvec_pe] )
     return bvec3
 
@@ -705,12 +706,17 @@ def update_density(n_next,debug=False):
 
     return density
 
-# unused
 # updates the state vector (n,Ti,Te)
-def update_state(n_next,debug=False):
+def update_state(y_next,debug=False):
 
+    N = N_radial_points
+    n_next, pi_next, pe_next = np.reshape(y_next,(3,N-1) )
     n = np.concatenate([ [n_next[1]], n_next[1:], [n_edge] ]) # check if legit
+    pi = np.concatenate([ [pi_next[1]], pi_next[1:], [pi_edge] ]) # check if legit
+    pe = np.concatenate([ [pe_next[1]], pe_next[1:], [pe_edge] ]) # check if legit
     density = profile(n, grad=True, half=True, full=True)
+    pressure_i = profile(pi, grad=True, half=True, full=True)
+    pressure_e = profile(pe, grad=True, half=True, full=True)
 
     if (debug):
         density.plot(new_fig=True, label=r'$n$')
@@ -721,4 +727,4 @@ def update_state(n_next,debug=False):
         plt.title(r'$n(0) = {:.1f} :: n(1) = {:.1f}$'.format(n_core, n_edge) )
         plt.grid()
 
-    return density
+    return density, pressure_i, pressure_e

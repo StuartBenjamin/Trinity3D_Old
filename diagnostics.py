@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import numpy as np
 
 def quick_plot(axis, f, T):
     axis.plot( f.axis, f.profile, '.-', label=T )
@@ -85,3 +86,39 @@ class diagnostic_3:
         a2.grid()
 
         a2.legend()
+
+# plot four general profiles
+class diagnostic_4:
+    
+    def __init__(self,win=(6,6)):
+        fig, axs = plt.subplots(2,2,figsize=win)
+        self.axs = np.ravel(axs)
+        self.fig = fig
+
+    def plot(self, f, g, h, i, Time):
+
+        tlabel = 'T = {:.2e}'.format(Time)
+
+        a0, a1, a2, a3 = self.axs
+        quick_plot(a0, f, tlabel)
+        quick_plot(a1, g, tlabel)
+        quick_plot(a2, h, tlabel)
+        quick_plot(a3, i, tlabel)
+
+    def label(self, titles = ['', '', '', '']):
+
+
+        for j in np.arange(4):
+            a = self.axs[j]
+            t = titles[j]
+
+            a.set_title(t)
+            a.grid()
+
+        a.legend()
+
+    def title(self,title):
+        self.fig.suptitle(title)
+        #self.axs[0].suptitle(title)
+        self.fig.tight_layout()
+
