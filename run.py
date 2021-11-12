@@ -34,12 +34,9 @@ pe = T0*n
 T = T0 * np.ones(N)
 
 ### Set up time controls
-#alpha = 1          # explicit to implicit mixer
-#dtau  = 1e5         # step size 
-#N_steps  = 1000       # total Time = dtau * N_steps
 alpha = 1          # explicit to implicit mixer
-dtau  = 10         # step size 
-N_steps  = 1000       # total Time = dtau * N_steps
+dtau  = 0.1         # step size 
+N_steps  = 100       # total Time = dtau * N_steps
 N_prints = 10
 N_step_print = N_steps // N_prints   # how often to print # thanks Sarah!
 #N_step_print = 100   # how often to print
@@ -113,7 +110,8 @@ while (j < N_steps):
     Fn, Fpi, Fpe = trl.calc_F3(density,pressure_i,pressure_e,Gamma,Q_i,Q_e, debug=_debug)
     An_pos, An_neg, Bn, Ai_pos, Ai_neg, Bi, Ae_pos, Ae_neg, Be \
        = trl.calc_AB(density,pressure_i, pressure_e,Fn,Fpi,Fpe,dlogGamma,dlogQ_i,dlogQ_e,debug=_debug)
-    psi_nn, psi_npi, psi_npe = trl.calc_psi(density, pressure_i, pressure_e,Fn,Fpi,Fpe,An_pos,An_neg,Bn,Ai_pos,Ai_neg,Bi, \
+    psi_nn, psi_npi, psi_npe = trl.calc_psi(density, pressure_i, pressure_e, \
+                   Fn,Fpi,Fpe,An_pos,An_neg,Bn,Ai_pos,Ai_neg,Bi, \
                    Ae_pos,Ae_neg,Be)
 
     Amat = trl.time_step_LHS3(psi_nn, psi_npi,psi_npe)
@@ -157,8 +155,10 @@ rlabel = r'$\alpha = {} :: d\tau = {:.3e}$'.format(alpha,dtau)
 #d2.label(t0='grad F',t1='F')
 #d3.label(t0='pi',t1='pe')
 d4_n.label(titles=['density', 'Gamma', 'F', 'grad F'])
+d4_pi.label()
 d4_n.title(rlabel)
 d4_pi.title('Pi')
 d4_pe.title('Pe')
+d4_pe.legend()
 
 plt.show()

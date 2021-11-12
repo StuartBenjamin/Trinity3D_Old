@@ -239,8 +239,8 @@ def calc_AB_gen(w,Flux,dlogFlux, debug=False):
     A_neg = profile( - (R_major/a_minor) * Flux.minus.profile / drho \
                          * w.profile / w.minus.profile**2 \
                          * dlogFlux.minus.profile )
-    
-    B     = profile( - (R_major/a_minor/drho) \
+    # extra (-) was here (??)
+    B     = profile(  (R_major/a_minor/drho) \
                   * (    Flux.plus.profile  \
                          * w.plus1.profile / w.plus.profile**2 \
                          * dlogFlux.plus.profile \
@@ -296,6 +296,7 @@ def calc_AB_n(density,F,dlogGamma, debug=False):
 #                     * Gamma.plus.grad.profile )
 
 
+# old
 # calulates the density contribution to n^m+1 
 # returns a tridiagonal matrix
 # warning! this returns a (N), but we need the N-1 for the block matrix
@@ -417,77 +418,69 @@ def calc_F3(density,pressure_i,pressure_e,Gamma,Q_i,Q_e,debug=False):
 
 
 # A and B profiles for density and pressure
-def calc_AB(density,pressure_i, pressure_e,Fn,Fpi,Fpe,dlogGamma,dlogQ_i,dlogQ_e,debug=False):
+def calc_AB(density,pressure_i, pressure_e,Fn,Fpi,Fpe,dlogGamma,dlogQ_i,dlogQ_e, debug=False):
 
     # original Barnes equations (7.60, 7.61)
+
+    An_pos , An_neg , Bn  = calc_AB_gen(density,    Fn,dlogGamma)
+    Api_pos, Api_neg, Bpi = calc_AB_gen(pressure_i, Fn,dlogGamma) # note: this deriv is wrt to LT not Ln (!)
+    Ape_pos, Ape_neg, Bpe = calc_AB_gen(pressure_e, Fn,dlogGamma)
+
     # density
-    An_pos = profile( - (R_major/a_minor) * Fn.plus.profile / drho \
-                         * density.profile / density.plus.profile**2 \
-                         * dlogGamma.plus.profile )
+#    An_pos = profile( - (R_major/a_minor) * Fn.plus.profile / drho \
+#                         * density.profile / density.plus.profile**2 \
+#                         * dlogGamma.plus.profile )
+#
+#    An_neg = profile( - (R_major/a_minor) * Fn.minus.profile / drho \
+#                         * density.profile / density.minus.profile**2 \
+#                         * dlogGamma.minus.profile )
+#
+#    Bn     = profile( - (R_major/a_minor/drho) \
+#                  * (    Fn.plus.profile  \
+#                         * density.plus1.profile / density.plus.profile**2 \
+#                         * dlogGamma.plus.profile \
+#                      +  Fn.minus.profile  \
+#                         * density.minus1.profile / density.minus.profile**2 \
+#                         * dlogGamma.minus.profile  \
+#                    ) )
+#
+#    # pressure_i
+#    Ai_pos = profile( - (R_major/a_minor) * Fpi.plus.profile / drho \
+#                         * pressure_i.profile / pressure_i.plus.profile**2 \
+#                         * dlogQ_i.plus.profile )
+#
+#    Ai_neg = profile( - (R_major/a_minor) * Fpi.minus.profile / drho \
+#                         * pressure_i.profile / pressure_i.minus.profile**2 \
+#                         * dlogQ_i.minus.profile )
+#
+#    Bi     = profile( - (R_major/a_minor/drho) \
+#                  * (    Fpi.plus.profile  \
+#                         * pressure_i.plus1.profile / pressure_i.plus.profile**2 \
+#                         * dlogQ_i.plus.profile \
+#                      +  Fpi.minus.profile  \
+#                         * pressure_i.minus1.profile / pressure_i.minus.profile**2 \
+#                         * dlogQ_i.minus.profile  \
+#                    ) )
+#
+#    # pressure_e
+#    Ae_pos = profile( - (R_major/a_minor) * Fpe.plus.profile / drho \
+#                         * pressure_e.profile / pressure_e.plus.profile**2 \
+#                         * dlogQ_e.plus.profile )
+#
+#    Ae_neg = profile( - (R_major/a_minor) * Fpe.minus.profile / drho \
+#                         * pressure_e.profile / pressure_e.minus.profile**2 \
+#                         * dlogQ_e.minus.profile )
+#
+#    Be     = profile( - (R_major/a_minor/drho) \
+#                  * (    Fpe.plus.profile  \
+#                         * pressure_e.plus1.profile / pressure_e.plus.profile**2 \
+#                         * dlogQ_e.plus.profile \
+#                      +  Fpe.minus.profile  \
+#                         * pressure_e.minus1.profile / pressure_e.minus.profile**2 \
+#                         * dlogQ_e.minus.profile  \
+#                    ) )
 
-    An_neg = profile( - (R_major/a_minor) * Fn.minus.profile / drho \
-                         * density.profile / density.minus.profile**2 \
-                         * dlogGamma.minus.profile )
-
-    Bn     = profile( - (R_major/a_minor/drho) \
-                  * (    Fn.plus.profile  \
-                         * density.plus1.profile / density.plus.profile**2 \
-                         * dlogGamma.plus.profile \
-                      +  Fn.minus.profile  \
-                         * density.minus1.profile / density.minus.profile**2 \
-                         * dlogGamma.minus.profile  \
-                    ) )
-
-    # pressure_i
-    Ai_pos = profile( - (R_major/a_minor) * Fpi.plus.profile / drho \
-                         * pressure_i.profile / pressure_i.plus.profile**2 \
-                         * dlogQ_i.plus.profile )
-
-    Ai_neg = profile( - (R_major/a_minor) * Fpi.minus.profile / drho \
-                         * pressure_i.profile / pressure_i.minus.profile**2 \
-                         * dlogQ_i.minus.profile )
-
-    Bi     = profile( - (R_major/a_minor/drho) \
-                  * (    Fpi.plus.profile  \
-                         * pressure_i.plus1.profile / pressure_i.plus.profile**2 \
-                         * dlogQ_i.plus.profile \
-                      +  Fpi.minus.profile  \
-                         * pressure_i.minus1.profile / pressure_i.minus.profile**2 \
-                         * dlogQ_i.minus.profile  \
-                    ) )
-
-    # pressure_e
-    Ae_pos = profile( - (R_major/a_minor) * Fpe.plus.profile / drho \
-                         * pressure_e.profile / pressure_e.plus.profile**2 \
-                         * dlogQ_e.plus.profile )
-
-    Ae_neg = profile( - (R_major/a_minor) * Fpe.minus.profile / drho \
-                         * pressure_e.profile / pressure_e.minus.profile**2 \
-                         * dlogQ_e.minus.profile )
-
-    Be     = profile( - (R_major/a_minor/drho) \
-                  * (    Fpe.plus.profile  \
-                         * pressure_e.plus1.profile / pressure_e.plus.profile**2 \
-                         * dlogQ_e.plus.profile \
-                      +  Fpe.minus.profile  \
-                         * pressure_e.minus1.profile / pressure_e.minus.profile**2 \
-                         * dlogQ_e.minus.profile  \
-                    ) )
-
-    if (debug):
-        An_pos.plot(new_fig=True,label=r'$An_+$')
-        An_neg.plot(label=r'$An_-$')
-        Bn.plot(label=r'$B_n$')
-        Ai_pos.plot(new_fig=True,label=r'$Ai_+$')
-        Ai_neg.plot(label=r'$Ai_-$')
-        Bi.plot(label=r'$B_i$')
-        Ae_pos.plot(new_fig=True,label=r'$Ae_+$')
-        Ae_neg.plot(label=r'$Ae_-$')
-        Be.plot(label=r'$B_e$')
-        plt.xlabel('radius')
-        plt.legend()
-
-    return An_pos, An_neg, Bn, Ai_pos, Ai_neg, Bi, Ae_pos, Ae_neg, Be
+    return An_pos, An_neg, Bn, Api_pos, Api_neg, Bpi, Ape_pos, Ape_neg, Bpe
 
 
 # stub for new A,B coefficients that dont use F explicitly
@@ -539,21 +532,26 @@ def calc_psi(density, pressure_i, pressure_e,Fn,Fpi,Fpe, \
     # returns a tridiagonal matrix
     # warning! this returns a (N), but we need the N-1 for the block matrix
     # arg_middle drops the last point, which is fixed by Dirchlet BC
+# bug with (-) sign??
+#    M_nn = tri_diagonal(psi_nn_zero.profile,
+#                       -psi_nn_plus.profile,
+#                       -psi_nn_minus.profile)
+#    M_nn[0,1] -= psi_nn_minus.profile[0]  # for boundary condition, add the second value of psi, to matrix element in second column of first row
     M_nn = tri_diagonal(psi_nn_zero.profile,
-                       -psi_nn_plus.profile,
-                       -psi_nn_minus.profile)
-    M_nn[0,1] -= psi_nn_minus.profile[0]  # for boundary condition, add the second value of psi, to matrix element in second column of first row
+                       psi_nn_plus.profile,
+                       psi_nn_minus.profile)
+    M_nn[0,1] += psi_nn_minus.profile[0]  # for boundary condition, add the second value of psi, to matrix element in second column of first row
 
     # Not sure of the n-p relationship here so this'll need to be changed
     M_npi = tri_diagonal(psi_npi_zero.profile,
-                        -psi_npi_zero.profile,
+                        -psi_npi_plus.profile,
                         -psi_npi_minus.profile)
-    M_npi[0,1] -= (psi_npi_minus.profile[0])  # for boundary condition, add the second value of psi, to matrix element in second column of first row
+#    M_npi[0,1] -= (psi_npi_minus.profile[0])  
 
     M_npe = tri_diagonal(psi_npe_zero.profile,
-                        -psi_npe_zero.profile,
+                        -psi_npe_plus.profile,
                         -psi_npe_minus.profile)
-    M_npi[0,1] -= (psi_npe_minus.profile[0])  # for boundary condition, add the second value of psi, to matrix element in second column of first row
+#    M_npi[0,1] -= (psi_npe_minus.profile[0]) 
 
     return M_nn, M_npi, M_npe
 
@@ -587,17 +585,20 @@ def time_step_LHS3(psi_nn,psi_npi,psi_npe,debug=False):
     Z = I*0 # block of 0s
     
     ## build block-diagonal matrices
-    b_nn  = psi_nn[:-1, :-1]          # drop the last point for Dirchlet boundary
-    b_npi = psi_npi[:-1, :-1]
-    b_npe = psi_npe[:-1, :-1]
-    #M = np.block([[ b_nn, b_npi, b_npe ],
-    M = np.block([[ b_nn, Z    , Z     ],
+    p_nn  = psi_nn[:-1, :-1]          # drop the last point for Dirchlet boundary
+    p_npi = psi_npi[:-1, :-1]
+    p_npe = psi_npe[:-1, :-1]
+    #M = np.block([[ p_nn, p_npi, p_npe ],
+    M = np.block([[ p_nn, 0*p_npi, 0*p_npe ],
+    #M = np.block([[ p_nn, p_npi    , Z     ],
+    #M = np.block([[ p_nn, Z    , p_npe     ],
                   [Z    , I    , Z     ],
                   [Z    , Z    , I     ]])
     I3 = np.block([[I, Z, Z ],
                    [Z, I, Z ],
                    [Z, Z, I ]])
-    Amat = I3 + dtau*alpha * M
+    Amat = I3 - dtau*alpha * M
+    #Amat = I3 + dtau*alpha * M
    
     if (debug):
         plt.figure()
@@ -613,21 +614,22 @@ def time_step_RHS3(density,pressure_i,pressure_e,Fn,Fpi,Fpe,psi_nn,psi_npi,psi_n
     pe_prev = pressure_e.profile[arg_middle]
 
     dFdrho_n  = (Fn.plus.profile - Fn.minus.profile)/2
+    force_n   =  - (1/drho/area.profile[arg_middle]) * dFdrho_n[arg_middle]
+    source_n  = np.vectorize(mf.Gaussian)(rho_axis[:-1], A=Sn_height,sigma=Sn_width)
+
+    # unused for now
     dFdrho_pi = (Fpi.plus.profile - Fpi.minus.profile)/2
     dFdrho_pe = (Fpe.plus.profile - Fpe.minus.profile)/2
-    force_n   =  - (1/drho/area.profile[arg_middle]) * dFdrho_n[arg_middle]
 #    force_pi  =  - (1/drho/area.profile[arg_middle]) * dFdrho_pi[arg_middle]
 #    force_pe  =  - (1/drho/area.profile[arg_middle]) * dFdrho_pe[arg_middle]
     force_pi = 0
     force_pe = 0
-    N = len(density.profile)
-    N_radial_mat = N-1
-
-    source_n  = np.vectorize(mf.Gaussian)(rho_axis[:-1], A=Sn_height,sigma=Sn_width)
     source_pi = np.vectorize(mf.Gaussian)(rho_axis[:-1], A=Spi_height,sigma=Spi_width)
     source_pe = np.vectorize(mf.Gaussian)(rho_axis[:-1], A=Spe_height,sigma=Spe_width)
 
     # init boundary condition
+    N = len(density.profile)
+    N_radial_mat = N-1
     boundary_n  = np.zeros(N_radial_mat)
     boundary_pi = np.zeros(N_radial_mat)
     boundary_pe = np.zeros(N_radial_mat)
@@ -640,8 +642,9 @@ def time_step_RHS3(density,pressure_i,pressure_e,Fn,Fpi,Fpe,psi_nn,psi_npi,psi_n
     bvec_n  =  n_prev + dtau*(1 - alpha)*force_n + dtau*source_n + dtau*alpha*boundary_n
     bvec_pi =  pi_prev + dtau*(1 - alpha)*force_pi + dtau*source_pi + dtau*alpha*boundary_pi
     bvec_pe =  pe_prev + dtau*(1 - alpha)*force_pe + dtau*source_pe + dtau*alpha*boundary_pe
-
-    bvec3 = np.concatenate( [bvec_n, bvec_pi, bvec_pe] )
+    
+    # there was a major bug here with the pressure parts of RHS state vector
+    bvec3 = np.concatenate( [bvec_n, 0*bvec_pi, 0*bvec_pe] )
     return bvec3
 
 # old

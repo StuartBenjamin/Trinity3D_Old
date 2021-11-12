@@ -107,7 +107,6 @@ class diagnostic_4:
 
     def label(self, titles = ['', '', '', '']):
 
-
         for j in np.arange(4):
             a = self.axs[j]
             t = titles[j]
@@ -115,10 +114,14 @@ class diagnostic_4:
             a.set_title(t)
             a.grid()
 
-        a.legend()
-
     def title(self,title):
         self.fig.suptitle(title)
-        #self.axs[0].suptitle(title)
         self.fig.tight_layout()
+
+    def legend(self,j=3):
+        a = self.axs[j]
+        a.legend()
+
+# I could probably generalize the diagnostic function,
+# such that the window size is variably set in INIT
 
