@@ -19,6 +19,7 @@ pi_core = 8
 pi_edge = 2
 pe_core = 3
 pe_edge = .3
+
 # set up grid
 N = 10 # number of radial points
 rho_edge = 0.8    # rho = r/a : normalized radius
@@ -26,17 +27,19 @@ rho_axis = np.linspace(0,rho_edge,N) # radial axis
 drho = 1/N # temp
 # sample profile initial conditions
 n  = (n_core - n_edge)*(1 - (rho_axis/rho_edge)**2) + n_edge
-#pi = (pi_core-pi_edge)*(1 - (rho_axis/rho_edge)**2) + pi_edge
-#pe = (pe_core-pe_edge)*(1 - (rho_axis/rho_edge)**2) + pe_edge
 T0  = 2 # constant temp profile, could be retired
 pi = T0*n
 pe = T0*n
+#pi = (pi_core-pi_edge)*(1 - (rho_axis/rho_edge)**2) + pi_edge
+#pe = (pe_core-pe_edge)*(1 - (rho_axis/rho_edge)**2) + pe_edge
 T = T0 * np.ones(N)
 
 ### Set up time controls
 alpha = 1          # explicit to implicit mixer
-dtau  = 0.1         # step size 
-N_steps  = 100       # total Time = dtau * N_steps
+dtau  = 10         # step size 
+#alpha = 0          # explicit to implicit mixer
+#dtau  = 0.05         # step size 
+N_steps  = 1000       # total Time = dtau * N_steps
 N_prints = 10
 N_step_print = N_steps // N_prints   # how often to print # thanks Sarah!
 #N_step_print = 100   # how often to print
@@ -86,9 +89,10 @@ trl.pe_edge = pe_edge
 
 
 ### Run Trinity!
-_debug = False
+_debug = False # this knob is being phased out
 
-density     = trl.init_density(n,debug=_debug)
+density     = trl.init_profile(n,debug=_debug)
+#density     = trl.init_density(n,debug=_debug)
 pressure_i  = trl.init_profile(pi,debug=_debug)
 pressure_e  = trl.init_profile(pe,debug=_debug)
 
@@ -118,26 +122,11 @@ while (j < N_steps):
     bvec = trl.time_step_RHS3(density,pressure_i,pressure_e,Fn,Fpi,Fpe,psi_nn,psi_npi,psi_npe)
 
 
-#    Gamma, dlogGamma   = trl.calc_Gamma(density           , debug=_debug)
-#    F                  = trl.calc_F(density,Gamma         , debug=_debug)
-#    An_pos, An_neg, Bn = trl.calc_AB_gen(density,F,dlogGamma, debug=_debug)
-#    psi_nn = trl.calc_psi_nn(density,F,An_pos,An_neg,Bn)
-#    Amat   = trl.time_step_LHS3( psi_nn )
-         # eventually this will take 9 input matrices
-         # it would be even better to keep all self contained in a "Trinity-Engine"
-#    bvec = trl.time_step_RHS3(density,F,psi_nn)
-
 
     Ainv = np.linalg.inv(Amat) # can also use scipy, or special tridiag method
     y_next = Ainv @ bvec
-    #n_next, Ti_next, Te_next = np.reshape(y_next,(3,N-1) )
     if not ( j % N_step_print):
         print('  Plot: t =',j)
-        #d1.plot(density,Gamma,Time)
-        #d2.plot(Fpi.grad, Fpi, Time)
-        #d2.plot(Fn.grad, Fn, Time)
-        #d3.plot(pressure_i, pressure_e, Time)
-        #d2.plot(F.grad, F, Time)
         d4_n.plot(  density, Gamma, Fn, Fn.grad, Time )
         d4_pi.plot( pressure_i, Q_i, Fpi, Fpi.grad, Time )
         d4_pe.plot( pressure_e, Q_e, Fpe, Fpe.grad, Time )
@@ -151,9 +140,6 @@ while (j < N_steps):
     j += 1
 
 rlabel = r'$\alpha = {} :: d\tau = {:.3e}$'.format(alpha,dtau)
-#d1.label(title=rlabel)
-#d2.label(t0='grad F',t1='F')
-#d3.label(t0='pi',t1='pe')
 d4_n.label(titles=['density', 'Gamma', 'F', 'grad F'])
 d4_pi.label()
 d4_n.title(rlabel)

@@ -90,7 +90,7 @@ class diagnostic_3:
 # plot four general profiles
 class diagnostic_4:
     
-    def __init__(self,win=(6,6)):
+    def __init__(self,win=(5,5)):
         fig, axs = plt.subplots(2,2,figsize=win)
         self.axs = np.ravel(axs)
         self.fig = fig
