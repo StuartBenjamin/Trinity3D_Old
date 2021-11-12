@@ -36,13 +36,10 @@ T = T0 * np.ones(N)
 
 ### Set up time controls
 alpha = 1          # explicit to implicit mixer
-dtau  = 10         # step size 
-#alpha = 0          # explicit to implicit mixer
-#dtau  = 0.05         # step size 
+dtau  = 1e3         # step size 
 N_steps  = 1000       # total Time = dtau * N_steps
 N_prints = 10
 N_step_print = N_steps // N_prints   # how often to print # thanks Sarah!
-#N_step_print = 100   # how often to print
 ###
 
 

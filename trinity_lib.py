@@ -122,21 +122,11 @@ class profile():
 
 
 # Initialize Trinity profiles
-def init_profile(n,debug=False):
-#def init_density(n,debug=False):
-    density = profile(n, grad=True, half=True, full=True)
+#     with default gradients, half steps, and full steps
+def init_profile(x,debug=False):
 
-    if (debug):
-        density.plot(new_fig=True, label=r'$n$')
-        density.grad.plot(label=r'$ \nabla n$')
-        density.grad_log.plot(label=r'$\nabla \log n$')
-        plt.xlabel('radius')
-        plt.legend()
-        plt.title(r'$n(0) = {:.1f} :: n(1) = {:.1f}$'.format(n_core, n_edge) )
-        plt.grid()
-
-    return density
-#init_profile = init_density
+    X = profile(x, grad=True, half=True, full=True)
+    return X
 
 
 
@@ -349,12 +339,12 @@ def calc_psi(density, pressure_i, pressure_e,Fn,Fpi,Fpe, \
 
     # Not sure of the n-p relationship here so this'll need to be changed
     M_npi = tri_diagonal(psi_npi_zero.profile,
-                        -psi_npi_plus.profile,
-                        -psi_npi_minus.profile)
+                         psi_npi_plus.profile,
+                         psi_npi_minus.profile)
 
     M_npe = tri_diagonal(psi_npe_zero.profile,
-                        -psi_npe_plus.profile,
-                        -psi_npe_minus.profile)
+                         psi_npe_plus.profile,
+                         psi_npe_minus.profile)
 
 # I'm not sure if these need to be here, since they don't multiply n
 #    M_npi[0,1] -= (psi_npi_minus.profile[0])  
