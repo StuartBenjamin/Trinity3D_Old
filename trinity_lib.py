@@ -136,9 +136,9 @@ class Trinity_Engine():
                    cg_pi = 0.5,
                    cg_pe = 1.5,
                    # slope of flux(Ln) after onset
-                   s_n  = 1.5, 
-                   s_pi = 0.5,
-                   s_pe = 1.5 ):
+                   s_n  = 1, 
+                   s_pi = 1,
+                   s_pe = 1 ):
 
         ### calc gradients
         grad_n  = self.density.grad.profile 
@@ -161,7 +161,8 @@ class Trinity_Engine():
         gamma = G_turb + G_neo
         qi    = Qi_turb + Qi_neo
         qe    = Qe_turb + Qi_neo
-    
+   
+        # this block could be merged into the 'save'
         Gamma     = profile(gamma,grad=True,half=True)
         Qi        = profile(qi,   grad=True,half=True)
         Qe        = profile(qe,   grad=True,half=True)
@@ -178,19 +179,18 @@ class Trinity_Engine():
         self.dlogQi    = dlogQi
         self.dlogQe    = dlogQe
 
-    def calc_F3(self):
+    def normalize_fluxes(self):
 
         # load
         density    = self.density
         pressure_i = self.pressure_i
         pressure_e = self.pressure_e
-        Gamma      = self.Gamma
-        Q_i        = self.Q_i
-        Q_e        = self.Q_e
+        Gamma = self.Gamma
+        Qi    = self.Qi
+        Qe    = self.Qe
 
         # calc
-        Fn, Fpi, Fpe \
-            =calc_F3(density,pressure_i,pressure_e,Gamma,Q_i,Q_e)
+        Fn, Fpi, Fpe = calc_F3(density,pressure_i,pressure_e,Gamma,Qi,Qe)
 
         # save
         self.Fn  = Fn
@@ -385,10 +385,10 @@ Pi_neo = .1 # keep neoclassical pressure same as diffusion for now
 Pe_neo = .1
 
 n_flux_slope        = 1
-n_critical_gradient = 1.5
 pi_flux_slope        = 1
-pi_critical_gradient = .5
 pe_flux_slope        = 1
+n_critical_gradient = 1.5
+pi_critical_gradient = .5
 pe_critical_gradient = 1.5
 
 def calc_Flux(density,pressure_i,pressure_e,debug=False):

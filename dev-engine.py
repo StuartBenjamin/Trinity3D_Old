@@ -110,16 +110,22 @@ while (j < N_steps):
 
 #    Gamma, dlogGamma, Q_i, dlogQ_i, Q_e, dlogQ_e \
 #                            = trl.calc_Flux(density,pressure_i,pressure_e, debug=_debug)
+#    Fn, Fpi, Fpe = trl.calc_F3(density,pressure_i,pressure_e,Gamma,Q_i,Q_e, debug=_debug)
 
     engine.model_flux()
     Gamma     = engine.Gamma
     dlogGamma = engine.dlogGamma   
     Q_i       = engine.Qi
     Q_e       = engine.Qe
-    dlogQ_i    = engine.dlogQi
-    dlogQ_e    = engine.dlogQe
+    dlogQ_i   = engine.dlogQi
+    dlogQ_e   = engine.dlogQe
 
+    engine.normalize_fluxes()
+    Fn  = engine.Fn
+    Fpi = engine.Fpi
+    Fpe = engine.Fpe
     Fn, Fpi, Fpe = trl.calc_F3(density,pressure_i,pressure_e,Gamma,Q_i,Q_e, debug=_debug)
+
     An_pos, An_neg, Bn, Ai_pos, Ai_neg, Bi, Ae_pos, Ae_neg, Be \
        = trl.calc_AB(density,pressure_i, pressure_e,Fn,Fpi,Fpe,dlogGamma,dlogQ_i,dlogQ_e,debug=_debug)
     psi_nn, psi_npi, psi_npe = trl.calc_psi(density, pressure_i, pressure_e, \
@@ -144,6 +150,9 @@ while (j < N_steps):
     #density, pressure_i, pressure_e = trl.update_state(y_next)
     pressure_i = trl.init_profile( density.profile * T0 )
     pressure_e = trl.init_profile( density.profile * T0 )
+
+    engine.y_next = y_next
+    engine.update()
     Time += dtau
     j += 1
 
