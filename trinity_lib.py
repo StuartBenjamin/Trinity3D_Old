@@ -4,27 +4,227 @@ import matplotlib.pyplot as plt
 import models as mf # model functions
 
 
-# these parameters are set by the run
+# This class contains TRINITY calculations and stores partial results as member objects
+# There is a sub class for fluxes of each (n, pi, pe) evolution
 
 class Trinity_Engine():
-    def __init__(self, N = 40, # number of radial points
+    def __init__(self, N = 10, # number of radial points
                        n_core = 4,
                        n_edge = 0.2,
+                       T0 = 2,
+                       R_major = 4,
+                       a_minor = 1,
+                       Ba = 3,
+                       alpha = 1,          # explicit to implicit mixer
+                       dtau  = 0.5,        # step size 
+                       N_steps  = 1000,    # total Time = dtau * N_steps
+                       N_prints = 10,
                        rho_edge = 0.8):
 
-        self.N        = N       # Sarah, nice catch, this was a bug
+        self.N_radial = N  
         self.n_core   = n_core
         self.n_edge   = n_edge
         self.rho_edge = rho_edge
         self.rho_axis = np.linspace(0,rho_edge,N) # radial axis
 
-# they are clumsily pasted for now,
-# but should be read into some class
+        ### will be from VMEC
+        self.Ba      = Ba # average field on LCFS
+        self.R_major = R_major # meter
+        self.a_minor = a_minor # meter
+        self.area     = profile(np.linspace(0.01,a_minor,N)) # parabolic area, simple torus
 
-## Actually, ths "parameters" class should be expanded into a "model" class
-#  and we can have it take care of all the calculations
+
+        ### init profiles
+        #     temporary profiles
+        n  = (n_core - n_edge)*(1 - (rho_axis/rho_edge)**2) + n_edge
+        self.n  = n
+        self.T0 = T0 # constant temp profile, could be retired
+        pi = T0*n
+        pe = T0*n
+        # save
+        self.density     = init_profile(n)
+        self.pressure_i  = init_profile(pi)
+        self.pressure_e  = init_profile(pe)
+        # should I split this out? decide later
+
+        ### init transport variables
+        zeros =  profile( np.zeros(N) )
+        self.Gamma     = zeros 
+        self.Qi        = zeros
+        self.Qe        = zeros
+        self.dlogGamma = zeros
+        self.dlogQi    = zeros
+        self.dlogQe    = zeros
 
 
+    def evolve_time(self):
+   
+        self.calc_Flux()
+        self.calc_F3()
+
+        # load
+        #density    = self.density
+        #pressure_i = self.pressure_i
+        #pressure_e = self.pressure_e
+
+        # calc
+#        Gamma, dlogGamma, Q_i, dlogQ_i, Q_e, dlogQ_e \
+#                = calc_Flux(density,pressure_i,pressure_e)
+#        Fn, Fpi, Fpe \
+#                = calc_F3(density,pressure_i,pressure_e,Gamma,Q_i,Q_e)
+#        An_pos, An_neg, Bn, Ai_pos, Ai_neg, Bi, Ae_pos, Ae_neg, Be \
+#                = calc_AB(density,pressure_i, pressure_e,\
+#                          Fn,Fpi,Fpe,dlogGamma,dlogQ_i,dlogQ_e)
+#        psi_nn, psi_npi, psi_npe \
+#                = calc_psi(density, pressure_i, pressure_e, \
+#                       Fn,Fpi,Fpe,An_pos,An_neg,Bn,Ai_pos,Ai_neg,Bi, \
+#                       Ae_pos,Ae_neg,Be)
+#
+#        Amat = time_step_LHS3(psi_nn, psi_npi,psi_npe)
+#        bvec = time_step_RHS3(density,pressure_i,pressure_e,\
+#                              Fn,Fpi,Fpe,psi_nn,psi_npi,psi_npe)
+#
+#        # can also use scipy, or special tridiag method
+#        Ainv = np.linalg.inv(Amat) 
+#        y_next = Ainv @ bvec
+       
+        # save
+        self.Gamma     = Gamma
+        self.dlogGamma = dlogGamma
+        self.Q_i       = Q_i
+        self.dlogQ_i   = dlogQ_i
+        self.Q_e       = Q_e
+        self.dlogQ_e   = dlogQ_e 
+        self.Fn        = Fn
+        self.Fpi       = Fpi
+        self.Fpe       = Fpe 
+        self.An_pos    = An_pos
+        self.An_neg    = An_neg
+        self.Bn        = Bn
+        self.Ai_pos    = Ai_pos
+        self.Ai_neg    = Ai_neg
+        self.Bi        = Bi
+        self.Ae_pos    = Ae_pos
+        self.Ae_neg    = Ae_neg
+        self.Be        = Be 
+        self.psi_nn    = psi_nn
+        self.psi_npi   = psi_npi
+        self.psi_npe   = psi_npe 
+        self.y_next    = y_next
+
+    def update(self):
+
+        density, foo, bar = update_state(self.y_next)
+        #density, pressure_i, pressure_e = trl.update_state(y_next)
+        pressure_i = init_profile( density.profile * self.T0 )
+        pressure_e = init_profile( density.profile * self.T0 )
+
+        self.density    = density
+        self.pressure_i = pressure_i
+        self.pressure_e = pressure_e
+
+
+    # this is a toy model of Flux based on ReLU + neoclassical
+    #     to be replaced by GX or STELLA import module
+    def model_flux(self,
+                   # neoclassical diffusion coefficient
+                   D_n  = .1, 
+                   D_pi = .1, 
+                   D_pe = .1,
+                   # critical gradient
+                   cg_n  = 1.5, 
+                   cg_pi = 0.5,
+                   cg_pe = 1.5,
+                   # slope of flux(Ln) after onset
+                   s_n  = 1.5, 
+                   s_pi = 0.5,
+                   s_pe = 1.5 ):
+
+        ### calc gradients
+        grad_n  = self.density.grad.profile 
+        grad_pi = self.pressure_i.grad.profile
+        grad_pe = self.pressure_e.grad.profile
+        Ln_inv  = - self.density.grad_log.profile 
+        Lpi_inv = - self.pressure_i.grad_log.profile
+        Lpe_inv = - self.pressure_e.grad_log.profile
+        # should add a or R for normalization (fix later)
+
+        ### model functions
+        relu = np.vectorize(mf.ReLU)
+        G_turb  = relu(Ln_inv,  a=n_critical_gradient,  m=n_flux_slope)
+        Qi_turb = relu(Lpi_inv, a=pi_critical_gradient, m=pi_flux_slope)
+        Qe_turb = relu(Lpe_inv, a=pe_critical_gradient, m=pe_flux_slope)
+        G_neo   = - D_neo  * grad_n
+        Qi_neo  = - Pi_neo * grad_pi
+        Qe_neo  = - Pe_neo * grad_pe
+    
+        gamma = G_turb + G_neo
+        qi    = Qi_turb + Qi_neo
+        qe    = Qe_turb + Qi_neo
+    
+        Gamma     = profile(gamma,grad=True,half=True)
+        Qi        = profile(qi,   grad=True,half=True)
+        Qe        = profile(qe,   grad=True,half=True)
+        # this is incorrect, it takes grad log wrt to x instead of Ln(x) 
+        dlogGamma = Gamma.grad_log
+        dlogQi    = Qi.grad_log
+        dlogQe    = Qe.grad_log
+    
+        # save
+        self.Gamma     = Gamma
+        self.dlogGamma = dlogGamma   
+        self.Qi        = Qi
+        self.Qe        = Qe
+        self.dlogQi    = dlogQi
+        self.dlogQe    = dlogQe
+
+    def calc_F3(self):
+
+        # load
+        density    = self.density
+        pressure_i = self.pressure_i
+        pressure_e = self.pressure_e
+        Gamma      = self.Gamma
+        Q_i        = self.Q_i
+        Q_e        = self.Q_e
+
+        # calc
+        Fn, Fpi, Fpe \
+            =calc_F3(density,pressure_i,pressure_e,Gamma,Q_i,Q_e)
+
+        # save
+        self.Fn  = Fn
+        self.Fpi = Fpi
+        self.Fpe = Fpe
+
+# the class computes and stores normalized flux F, AB coefficients, and psi for the tridiagonal matrix
+# it will need a flux Q, and profiles nT
+# it should know whether ions or electrons are being computed, or density...
+class transport():
+
+    def __init__(self):
+
+        self.flux = 0 # this is Gamma,Q
+        self.Flux = 0 # this is normalized flux F,G
+
+        # plus,minus,zero : these are the A,B coefficients
+        self.Cp = 0
+        self.Cm = 0
+        self.Cz = 0
+
+
+    def F_density(self):
+        pass
+
+    # ion pressure
+    def F_pi(self):
+        pass
+
+    # electron pressure
+    def F_pe(self):
+        pass
+
+    # can extend to Ti/Te as necessary
 
 
 # a general class for handling profiles (n, p, F, gamma, Q, etc)
@@ -347,6 +547,7 @@ def calc_psi(density, pressure_i, pressure_e,Fn,Fpi,Fpe, \
                          psi_npe_minus.profile)
 
 # I'm not sure if these need to be here, since they don't multiply n
+#    (!!!) LOOK HERE, if hunting for bugs
 #    M_npi[0,1] -= (psi_npi_minus.profile[0])  
 #    M_npe[0,1] -= (psi_npe_minus.profile[0]) 
 

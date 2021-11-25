@@ -86,6 +86,11 @@ trl.pe_edge = pe_edge
 ### Run Trinity!
 _debug = False # this knob is being phased out
 
+engine = trl.Trinity_Engine(alpha=alpha,
+                            dtau=dtau,
+                            N_steps=N_steps)
+
+
 density     = trl.init_profile(n,debug=_debug)
 #density     = trl.init_density(n,debug=_debug)
 pressure_i  = trl.init_profile(pi,debug=_debug)
@@ -103,9 +108,17 @@ j = 0
 Time = 0
 while (j < N_steps):
 
-    # new functions from Sarah
-    Gamma, dlogGamma, Q_i, dlogQ_i, Q_e, dlogQ_e \
-                             = trl.calc_Flux(density,pressure_i,pressure_e, debug=_debug)
+#    Gamma, dlogGamma, Q_i, dlogQ_i, Q_e, dlogQ_e \
+#                            = trl.calc_Flux(density,pressure_i,pressure_e, debug=_debug)
+
+    engine.model_flux()
+    Gamma     = engine.Gamma
+    dlogGamma = engine.dlogGamma   
+    Q_i       = engine.Qi
+    Q_e       = engine.Qe
+    dlogQ_i    = engine.dlogQi
+    dlogQ_e    = engine.dlogQe
+
     Fn, Fpi, Fpe = trl.calc_F3(density,pressure_i,pressure_e,Gamma,Q_i,Q_e, debug=_debug)
     An_pos, An_neg, Bn, Ai_pos, Ai_neg, Bi, Ae_pos, Ae_neg, Be \
        = trl.calc_AB(density,pressure_i, pressure_e,Fn,Fpi,Fpe,dlogGamma,dlogQ_i,dlogQ_e,debug=_debug)
