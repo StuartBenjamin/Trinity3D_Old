@@ -10,7 +10,7 @@ import models as mf # model functions
 class Trinity_Engine():
     def __init__(self, N = 10, # number of radial points
                        n_core = 4,
-                       n_edge = 0.2,
+                       n_edge = 0.5,
                        T0 = 2,
                        R_major = 4,
                        a_minor = 1,
@@ -26,6 +26,8 @@ class Trinity_Engine():
         self.n_edge   = n_edge
         self.rho_edge = rho_edge
         self.rho_axis = np.linspace(0,rho_edge,N) # radial axis
+        self.drho     = 1/N # for now assume equal spacing, 
+                            #    could be computed in general
 
         ### will be from VMEC
         self.Ba      = Ba # average field on LCFS
@@ -56,61 +58,15 @@ class Trinity_Engine():
         self.dlogQi    = zeros
         self.dlogQe    = zeros
 
+        ### init flux coefficients
+        self.Cn_n  = 0
+        self.Cn_pi = 0 
+        self.Cn_pe = 0
 
+
+    # unused, archaic, can be delated
     def evolve_time(self):
-   
-        self.calc_Flux()
-        self.calc_F3()
-
-        # load
-        #density    = self.density
-        #pressure_i = self.pressure_i
-        #pressure_e = self.pressure_e
-
-        # calc
-#        Gamma, dlogGamma, Q_i, dlogQ_i, Q_e, dlogQ_e \
-#                = calc_Flux(density,pressure_i,pressure_e)
-#        Fn, Fpi, Fpe \
-#                = calc_F3(density,pressure_i,pressure_e,Gamma,Q_i,Q_e)
-#        An_pos, An_neg, Bn, Ai_pos, Ai_neg, Bi, Ae_pos, Ae_neg, Be \
-#                = calc_AB(density,pressure_i, pressure_e,\
-#                          Fn,Fpi,Fpe,dlogGamma,dlogQ_i,dlogQ_e)
-#        psi_nn, psi_npi, psi_npe \
-#                = calc_psi(density, pressure_i, pressure_e, \
-#                       Fn,Fpi,Fpe,An_pos,An_neg,Bn,Ai_pos,Ai_neg,Bi, \
-#                       Ae_pos,Ae_neg,Be)
-#
-#        Amat = time_step_LHS3(psi_nn, psi_npi,psi_npe)
-#        bvec = time_step_RHS3(density,pressure_i,pressure_e,\
-#                              Fn,Fpi,Fpe,psi_nn,psi_npi,psi_npe)
-#
-#        # can also use scipy, or special tridiag method
-#        Ainv = np.linalg.inv(Amat) 
-#        y_next = Ainv @ bvec
-       
-        # save
-        self.Gamma     = Gamma
-        self.dlogGamma = dlogGamma
-        self.Q_i       = Q_i
-        self.dlogQ_i   = dlogQ_i
-        self.Q_e       = Q_e
-        self.dlogQ_e   = dlogQ_e 
-        self.Fn        = Fn
-        self.Fpi       = Fpi
-        self.Fpe       = Fpe 
-        self.An_pos    = An_pos
-        self.An_neg    = An_neg
-        self.Bn        = Bn
-        self.Ai_pos    = Ai_pos
-        self.Ai_neg    = Ai_neg
-        self.Bi        = Bi
-        self.Ae_pos    = Ae_pos
-        self.Ae_neg    = Ae_neg
-        self.Be        = Be 
-        self.psi_nn    = psi_nn
-        self.psi_npi   = psi_npi
-        self.psi_npe   = psi_npe 
-        self.y_next    = y_next
+        pass
 
     def update(self):
 
@@ -197,34 +153,92 @@ class Trinity_Engine():
         self.Fpi = Fpi
         self.Fpe = Fpe
 
+
+    # A and B profiles for density and pressure
+    def calc_AB(self):
+        
+        # load
+        n         = self.density
+        pi        = self.pressure_i
+        pe        = self.pressure_e
+        Fn        = self.Fn
+        dlogGamma = self.dlogGamma
+        #Fpi       = self.Fpi
+        #Fpe       = self.Fpe
+        #dlogQi    = self.dlogQi
+        #dlogQe    = self.dlogQe
+
+        # normalization
+        norm = (self.R_major / self.a_minor) / self.drho 
+
+        # calculate and save
+        self.Cn_n  = flux_coefficients(n,  Fn, dlogGamma, norm)
+        self.Cn_pi = flux_coefficients(pi, Fn, dlogGamma, norm)
+        self.Cn_pe = flux_coefficients(pe, Fn, dlogGamma, norm)
+    
+
 # the class computes and stores normalized flux F, AB coefficients, and psi for the tridiagonal matrix
 # it will need a flux Q, and profiles nT
 # it should know whether ions or electrons are being computed, or density...
-class transport():
+class flux_coefficients():
 
-    def __init__(self):
+    # x is state vector (n, pi, pe)
+    # Y is normalized flux (F,I)
+    # Z is dlog flux (d log Gamma / d L_x ), evaluated at +- half step
+    def __init__(self,x,Y,Z,norm):
 
-        self.flux = 0 # this is Gamma,Q
-        self.Flux = 0 # this is normalized flux F,G
+        self.state   = x
+        self.flux    = Y # this is normalized flux F,I
+        self.logFlux = Z # this is Gamma,Q
+        self.norm    = norm # normalizlation constant (R/a)/drho
 
         # plus,minus,zero : these are the A,B coefficients
-        self.Cp = 0
-        self.Cm = 0
-        self.Cz = 0
+        self.plus  = self.C_plus()
+        self.minus = self.C_minus()
+        self.zero  = self.C_zero()
 
 
-    def F_density(self):
-        pass
+    def C_plus(self):
 
-    # ion pressure
-    def F_pi(self):
-        pass
+        x  = self.state.profile
+        xp = self.state.plus.profile
+        Yp = self.flux.plus.profile
+        Zp = self.logFlux.plus.profile
+       
+        norm = self.norm
+        Cp = - x / xp**2 * Yp * Zp * norm
+        return profile(Cp)
 
-    # electron pressure
-    def F_pe(self):
-        pass
+    def C_minus(self):
 
-    # can extend to Ti/Te as necessary
+        x  = self.state.profile
+        xm = self.state.minus.profile
+        Ym = self.flux.minus.profile
+        Zm = self.logFlux.minus.profile
+        
+        norm = self.norm
+        Cm = - x / xm**2 * Ym * Zm * norm
+        #Cm = x / xm**2 * Ym * Zm / dRho # typo in notes?
+        return profile(Cm)
+
+    def C_zero(self):
+
+        x  = self.state.profile
+        xp = self.state.plus.profile
+        xm = self.state.minus.profile
+        xp1 = self.state.plus1.profile
+        xm1 = self.state.minus1.profile
+        
+        Yp = self.flux.plus.profile
+        Zp = self.logFlux.plus.profile
+        Ym = self.flux.minus.profile
+        Zm = self.logFlux.minus.profile
+        
+        norm = self.norm
+        cp = xp1 / xp**2 * Yp * Zp
+        cm = xm1 / xm**2 * Ym * Zm
+        Cz = ( cp + cm ) * norm
+        return profile(Cz)
 
 
 # a general class for handling profiles (n, p, F, gamma, Q, etc)

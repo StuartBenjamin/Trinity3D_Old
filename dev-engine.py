@@ -12,7 +12,7 @@ import diagnostics as dgn
  
 ## Set initial conditions
 n_core = 4
-n_edge = .5 
+n_edge = .5
 pi_core = 8
 pi_edge = 2
 pe_core = 3
@@ -88,7 +88,16 @@ _debug = False # this knob is being phased out
 
 engine = trl.Trinity_Engine(alpha=alpha,
                             dtau=dtau,
-                            N_steps=N_steps)
+                            N_steps=N_steps,
+                            N_prints = N_prints,
+                            ###
+                            n_core = n_core,
+                            n_edge = n_edge,
+                            T0 = T0,
+                            R_major = R_major,
+                            a_minor = a_minor,
+                            Ba = Ba,
+                            rho_edge = rho_edge)
 
 
 density     = trl.init_profile(n,debug=_debug)
@@ -111,6 +120,8 @@ while (j < N_steps):
 #    Gamma, dlogGamma, Q_i, dlogQ_i, Q_e, dlogQ_e \
 #                            = trl.calc_Flux(density,pressure_i,pressure_e, debug=_debug)
 #    Fn, Fpi, Fpe = trl.calc_F3(density,pressure_i,pressure_e,Gamma,Q_i,Q_e, debug=_debug)
+#    An_pos, An_neg, Bn, Ai_pos, Ai_neg, Bi, Ae_pos, Ae_neg, Be \
+#       = trl.calc_AB(density,pressure_i, pressure_e,Fn,Fpi,Fpe,dlogGamma,dlogQ_i,dlogQ_e,debug=_debug)
 
     engine.model_flux()
     Gamma     = engine.Gamma
@@ -124,10 +135,18 @@ while (j < N_steps):
     Fn  = engine.Fn
     Fpi = engine.Fpi
     Fpe = engine.Fpe
-    Fn, Fpi, Fpe = trl.calc_F3(density,pressure_i,pressure_e,Gamma,Q_i,Q_e, debug=_debug)
 
-    An_pos, An_neg, Bn, Ai_pos, Ai_neg, Bi, Ae_pos, Ae_neg, Be \
-       = trl.calc_AB(density,pressure_i, pressure_e,Fn,Fpi,Fpe,dlogGamma,dlogQ_i,dlogQ_e,debug=_debug)
+    engine.calc_AB()
+    An_pos = engine.Cn_n.plus 
+    An_neg = engine.Cn_n.minus 
+    Bn     = engine.Cn_n.zero 
+    Ai_pos = engine.Cn_pi.plus 
+    Ai_neg = engine.Cn_pi.minus 
+    Bi     = engine.Cn_pi.zero   
+    Ae_pos = engine.Cn_pe.plus 
+    Ae_neg = engine.Cn_pe.minus 
+    Be     = engine.Cn_pe.zero 
+
     psi_nn, psi_npi, psi_npe = trl.calc_psi(density, pressure_i, pressure_e, \
                    Fn,Fpi,Fpe,An_pos,An_neg,Bn,Ai_pos,Ai_neg,Bi, \
                    Ae_pos,Ae_neg,Be)
