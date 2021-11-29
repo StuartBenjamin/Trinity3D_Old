@@ -1,3 +1,4 @@
+
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -11,7 +12,7 @@ import diagnostics as dgn
  
 ## Set initial conditions
 n_core = 4
-n_edge = .5
+n_edge = .5 
 pi_core = 8
 pi_edge = 2
 pe_core = 3
@@ -41,8 +42,11 @@ N_step_print = N_steps // N_prints   # how often to print # thanks Sarah!
 
 
 ### Set up source
+# denisty source
 trl.Sn_width = 0.1
 trl.Sn_height = 0
+
+# pressure source. These weren't actually created yet in lib
 trl.Spi_width = 0.1
 trl.Spi_height = 0
 trl.Spe_width = 0.1
@@ -51,7 +55,7 @@ trl.Spe_height = 0
 
 # temp fix, pass global param into library
 #    this is what should be in the "Trinity Engine"
-#trl.N_radial_points = N
+trl.N_radial_points = N
 trl.rho_axis = rho_axis
 
 
@@ -65,27 +69,31 @@ a_minor = 1 # meter
 area     = trl.profile(np.linspace(0.01,a_minor,N)) # parabolic area, simple torus
 
 
+trl.R_major = R_major
+trl.a_minor = a_minor
+trl.pressure = pressure
+trl.temperature = temperature
+trl.area = area
+trl.Ba = Ba
+trl.drho = drho
+trl.dtau = dtau
+trl.alpha = alpha
+trl.n_edge = n_edge
+trl.pi_edge = pi_edge
+trl.pe_edge = pe_edge
+
 
 ### Run Trinity!
 _debug = False # this knob is being phased out
 
-engine = trl.Trinity_Engine(alpha=alpha,
-                            dtau=dtau,
-                            N_steps=N_steps,
-                            N_prints = N_prints,
-                            ###
-                            n_core   = n_core,
-                            n_edge   = n_edge,
-                            pi_core   = pi_core,
-                            pi_edge   = pi_edge,
-                            pe_core   = pe_core,
-                            pe_edge   = pe_edge,
-                            T0       = T0,
-                            R_major  = R_major,
-                            a_minor  = a_minor,
-                            Ba       = Ba,
-                            rho_edge = rho_edge)
+density     = trl.init_profile(n,debug=_debug)
+#density     = trl.init_density(n,debug=_debug)
+pressure_i  = trl.init_profile(pi,debug=_debug)
+pressure_e  = trl.init_profile(pe,debug=_debug)
 
+#d1 = dgn.diagnostic_1() # init
+#d2 = dgn.diagnostic_2() # init
+#d3 = dgn.diagnostic_2() # init
 
 d4_n  = dgn.diagnostic_4()
 d4_pi = dgn.diagnostic_4()
@@ -95,32 +103,34 @@ j = 0
 Time = 0
 while (j < N_steps):
 
-    engine.model_flux()
-    engine.normalize_fluxes()
-    engine.calc_flux_coefficients()
-    engine.calc_psi_n()
-    engine.calc_y_next()
+    # new functions from Sarah
+    Gamma, dlogGamma, Q_i, dlogQ_i, Q_e, dlogQ_e \
+                             = trl.calc_Flux(density,pressure_i,pressure_e, debug=_debug)
+    Fn, Fpi, Fpe = trl.calc_F3(density,pressure_i,pressure_e,Gamma,Q_i,Q_e, debug=_debug)
+    An_pos, An_neg, Bn, Ai_pos, Ai_neg, Bi, Ae_pos, Ae_neg, Be \
+       = trl.calc_AB(density,pressure_i, pressure_e,Fn,Fpi,Fpe,dlogGamma,dlogQ_i,dlogQ_e,debug=_debug)
+    psi_nn, psi_npi, psi_npe = trl.calc_psi(density, pressure_i, pressure_e, \
+                   Fn,Fpi,Fpe,An_pos,An_neg,Bn,Ai_pos,Ai_neg,Bi, \
+                   Ae_pos,Ae_neg,Be)
 
-    engine.update()
+    Amat = trl.time_step_LHS3(psi_nn, psi_npi,psi_npe)
+    bvec = trl.time_step_RHS3(density,pressure_i,pressure_e,Fn,Fpi,Fpe,psi_nn,psi_npi,psi_npe)
+
+
+
+    Ainv = np.linalg.inv(Amat) # can also use scipy, or special tridiag method
+    y_next = Ainv @ bvec
     if not ( j % N_step_print):
-        
-        # load
-        density    = engine.density
-        pressure_i = engine.pressure_i
-        pressure_e = engine.pressure_e
-        Fn  = engine.Fn
-        Fpi = engine.Fpi
-        Fpe = engine.Fpe
-        Gamma     = engine.Gamma
-        Q_i       = engine.Qi
-        Q_e       = engine.Qe
-
         print('  Plot: t =',j)
         d4_n.plot(  density, Gamma, Fn, Fn.grad, Time )
         d4_pi.plot( pressure_i, Q_i, Fpi, Fpi.grad, Time )
         d4_pe.plot( pressure_e, Q_e, Fpe, Fpe.grad, Time )
 
 
+    density, foo, bar = trl.update_state(y_next)
+    #density, pressure_i, pressure_e = trl.update_state(y_next)
+    pressure_i = trl.init_profile( density.profile * T0 )
+    pressure_e = trl.init_profile( density.profile * T0 )
     Time += dtau
     j += 1
 
@@ -133,31 +143,3 @@ d4_pe.title('Pe')
 d4_pe.legend()
 
 plt.show()
-
-## scratch
-#    Gamma     = engine.Gamma
-#    dlogGamma = engine.dlogGamma   
-#    Q_i       = engine.Qi
-#    Q_e       = engine.Qe
-#    dlogQ_i   = engine.dlogQi
-#    dlogQ_e   = engine.dlogQe
-
-#   Fn  = engine.Fn
-#   Fpi = engine.Fpi
-#   Fpe = engine.Fpe
-
-#   An_pos = engine.Cn_n.plus 
-#   An_neg = engine.Cn_n.minus 
-#   Bn     = engine.Cn_n.zero 
-#   Ai_pos = engine.Cn_pi.plus 
-#   Ai_neg = engine.Cn_pi.minus 
-#   Bi     = engine.Cn_pi.zero   
-#   Ae_pos = engine.Cn_pe.plus 
-#   Ae_neg = engine.Cn_pe.minus 
-#   Be     = engine.Cn_pe.zero 
-#
-#   psi_nn  = engine.psi_nn.matrix
-#   psi_npi = engine.psi_npi.matrix
-#   psi_npe = engine.psi_npe.matrix
-
-#    y_next = engine.y_next
