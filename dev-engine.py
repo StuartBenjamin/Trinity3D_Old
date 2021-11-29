@@ -101,7 +101,6 @@ engine = trl.Trinity_Engine(alpha=alpha,
 
 
 density     = trl.init_profile(n,debug=_debug)
-#density     = trl.init_density(n,debug=_debug)
 pressure_i  = trl.init_profile(pi,debug=_debug)
 pressure_e  = trl.init_profile(pe,debug=_debug)
 
@@ -125,6 +124,10 @@ while (j < N_steps):
 #    psi_nn, psi_npi, psi_npe = trl.calc_psi(density, pressure_i, pressure_e, \
 #                   Fn,Fpi,Fpe,An_pos,An_neg,Bn,Ai_pos,Ai_neg,Bi, \
 #                   Ae_pos,Ae_neg,Be)
+    #Amat = trl.time_step_LHS3(psi_nn, psi_npi,psi_npe)
+    #bvec = trl.time_step_RHS3(density,pressure_i,pressure_e,Fn,Fpi,Fpe,psi_nn,psi_npi,psi_npe)
+    #Ainv = np.linalg.inv(Amat) # can also use scipy, or special tridiag method
+    #y_next = Ainv @ bvec
 
     engine.model_flux()
     Gamma     = engine.Gamma
@@ -155,25 +158,24 @@ while (j < N_steps):
     psi_npi = engine.psi_npi.matrix
     psi_npe = engine.psi_npe.matrix
 
-    Amat = trl.time_step_LHS3(psi_nn, psi_npi,psi_npe)
-    bvec = trl.time_step_RHS3(density,pressure_i,pressure_e,Fn,Fpi,Fpe,psi_nn,psi_npi,psi_npe)
+    engine.next_state()
+    y_next = engine.y_next
 
-    Ainv = np.linalg.inv(Amat) # can also use scipy, or special tridiag method
-    y_next = Ainv @ bvec
+    engine.update()
+
     if not ( j % N_step_print):
+        
+        # load
+        density    = engine.density
+        pressure_i = engine.pressure_i
+        pressure_e = engine.pressure_e
+
         print('  Plot: t =',j)
         d4_n.plot(  density, Gamma, Fn, Fn.grad, Time )
         d4_pi.plot( pressure_i, Q_i, Fpi, Fpi.grad, Time )
         d4_pe.plot( pressure_e, Q_e, Fpe, Fpe.grad, Time )
 
 
-    density, foo, bar = trl.update_state(y_next)
-    #density, pressure_i, pressure_e = trl.update_state(y_next)
-    pressure_i = trl.init_profile( density.profile * T0 )
-    pressure_e = trl.init_profile( density.profile * T0 )
-
-    engine.y_next = y_next
-    engine.update()
     Time += dtau
     j += 1
 

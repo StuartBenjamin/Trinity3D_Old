@@ -238,7 +238,31 @@ class Trinity_Engine():
         #    (!!!) LOOK HERE, if hunting for bugs
         #    M_npi[0,1] -= (psi_npi_minus.profile[0])  
         #    M_npe[0,1] -= (psi_npe_minus.profile[0]) 
-    
+   
+    def next_state(self):
+        
+        # load matrix
+        M_nn  = self.psi_nn.matrix
+        M_npi = self.psi_npi.matrix
+        M_npe = self.psi_npe.matrix
+        # load profiles
+        n   = self.density
+        pi  = self.pressure_i
+        pe  = self.pressure_e
+        Fn  = self.Fn
+        Fpi = self.Fpi
+        Fpe = self.Fpe
+
+        # Invert Ax = b
+        Amat = time_step_LHS3(M_nn, M_npi, M_npe)
+        bvec = time_step_RHS3(n,pi,pe,
+                              Fn,Fpi,Fpe,
+                              M_nn, M_npi, M_npe)
+        # can also use scipy, or special tridiag method
+        Ainv = np.linalg.inv(Amat) 
+
+        #y_next = Ainv @ bvec
+        self.y_next = Ainv @ bvec
     
 
 # the class computes and stores normalized flux F, AB coefficients, and psi for the tridiagonal matrix
