@@ -33,7 +33,6 @@ class Trinity_Engine():
         self.pe_core   = pe_core
         self.pe_edge   = pe_edge
         self.rho_edge = rho_edge
-        self.rho_axis = np.linspace(0,rho_edge,N) # radial axis
         self.drho     = 1/N # for now assume equal spacing, 
                             #    could be computed in general
         self.dtau     = dtau
@@ -48,6 +47,7 @@ class Trinity_Engine():
 
         ### init profiles
         #     temporary profiles
+        rho_axis = np.linspace(0,rho_edge,N) # radial axis
         n  = (n_core - n_edge)*(1 - (rho_axis/rho_edge)**2) + n_edge
         self.n  = n
         self.T0 = T0 # constant temp profile, could be retired
@@ -58,6 +58,7 @@ class Trinity_Engine():
         self.pressure_i  = init_profile(pi)
         self.pressure_e  = init_profile(pe)
         # should I split this out? decide later
+        self.rho_axis = rho_axis
 
         ### init transport variables
         zeros =  profile( np.zeros(N) )

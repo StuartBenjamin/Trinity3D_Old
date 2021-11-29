@@ -42,11 +42,8 @@ N_step_print = N_steps // N_prints   # how often to print # thanks Sarah!
 
 
 ### Set up source
-# denisty source
 trl.Sn_width = 0.1
 trl.Sn_height = 0
-
-# pressure source. These weren't actually created yet in lib
 trl.Spi_width = 0.1
 trl.Spi_height = 0
 trl.Spe_width = 0.1
@@ -55,7 +52,7 @@ trl.Spe_height = 0
 
 # temp fix, pass global param into library
 #    this is what should be in the "Trinity Engine"
-trl.N_radial_points = N
+#trl.N_radial_points = N
 trl.rho_axis = rho_axis
 
 
