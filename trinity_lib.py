@@ -63,6 +63,11 @@ class Trinity_Engine():
         self.Cn_pi = 0 
         self.Cn_pe = 0
 
+        ### init psi profiles
+        self.psi_nn  = 0
+        self.psi_npi = 0
+        self.psi_npe = 0
+
 
     # unused, archaic, can be delated
     def evolve_time(self):
@@ -175,6 +180,65 @@ class Trinity_Engine():
         self.Cn_n  = flux_coefficients(n,  Fn, dlogGamma, norm)
         self.Cn_pi = flux_coefficients(pi, Fn, dlogGamma, norm)
         self.Cn_pe = flux_coefficients(pe, Fn, dlogGamma, norm)
+
+    def calc_psi_n(self):
+    
+        # need to implement <|grad rho|>, by reading surface area from VMEC
+        grho = 1 
+        geometry_factor = - grho / area.profile * drho
+    
+        # load
+        Fnp = self.Fn.plus.profile
+        Fnm = self.Fn.minus.profile
+        n_p = self.density.plus.profile
+        n_m = self.density.minus.profile
+        pi_plus  = self.pressure_i.plus.profile
+        pi_minus = self.pressure_i.minus.profile
+        pe_plus  = self.pressure_e.plus.profile
+        pe_minus = self.pressure_e.minus.profile
+        #
+        An_pos = self.Cn_n.plus.profile
+        An_neg = self.Cn_n.minus.profile
+        Bn     = self.Cn_n.zero.profile
+        Ai_pos = self.Cn_pi.plus.profile
+        Ai_neg = self.Cn_pi.minus.profile
+        Bi     = self.Cn_pi.zero.profile
+        Ae_pos = self.Cn_pe.plus.profile
+        Ae_neg = self.Cn_pe.minus.profile 
+        Be     = self.Cn_pe.zero.profile 
+    
+        # tri diagonal matrix elements
+        g = geometry_factor
+        psi_nn_plus  = g * (An_pos - Fnp / n_p / 4) 
+        psi_nn_minus = g * (An_neg + Fnm / n_m / 4) 
+        psi_nn_zero  = g * (Bn - ( Fnm/n_m - Fnp/n_p ) / 4) 
+        # this (-) is a surprise. It disagrees with Barnes thesis
+                                
+        psi_npi_plus  = g * (Ai_pos + 3*Fnp / pi_plus / 4) 
+        psi_npi_minus = g * (Ai_neg - 3*Fnm / pi_minus / 4) 
+        psi_npi_zero  = g * (Bi - 3./4*( Fnm/pi_minus - Fnp/pi_plus) ) 
+    
+        psi_npe_plus  = g * Ae_pos
+        psi_npe_minus = g * Ae_neg
+        psi_npe_zero  = g * Be
+
+        # save (automatically computes matricies in class function)
+        self.psi_nn  = psi_profiles(psi_nn_zero,
+                                   psi_nn_plus,
+                                   psi_nn_minus, dirchlet=True)
+
+        self.psi_npi = psi_profiles(psi_npi_zero,
+                                   psi_npi_plus,
+                                   psi_npi_minus)
+        
+        self.psi_npe = psi_profiles(psi_npe_zero,
+                                   psi_npe_plus,
+                                   psi_npe_minus)
+        # I'm not sure if these need to be here, since they don't multiply n
+        #    (!!!) LOOK HERE, if hunting for bugs
+        #    M_npi[0,1] -= (psi_npi_minus.profile[0])  
+        #    M_npe[0,1] -= (psi_npe_minus.profile[0]) 
+    
     
 
 # the class computes and stores normalized flux F, AB coefficients, and psi for the tridiagonal matrix
@@ -240,6 +304,30 @@ class flux_coefficients():
         Cz = ( cp + cm ) * norm
         return profile(Cz)
 
+# This class organizes the psi-profiles in tri-diagonal matrix
+class psi_profiles():
+
+    def __init__(self,psi_zero,
+                      psi_plus,
+                      psi_minus,
+                      dirchlet=False):
+
+        # save profiles
+        self.plus  = profile( psi_plus )
+        self.minus = profile( psi_minus )
+        self.zero  = profile( psi_zero )
+
+        # formulate matrix
+        M = tri_diagonal(psi_zero,
+                         psi_plus,
+                         psi_minus)
+
+        if (dirchlet):
+            # make modification for boundary condition
+            M[0,1] -= psi_minus[0]  
+
+        # save matrix
+        self.matrix = M
 
 # a general class for handling profiles (n, p, F, gamma, Q, etc)
 # with options to evaluate half steps and gradients at init

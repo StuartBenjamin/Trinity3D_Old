@@ -122,6 +122,9 @@ while (j < N_steps):
 #    Fn, Fpi, Fpe = trl.calc_F3(density,pressure_i,pressure_e,Gamma,Q_i,Q_e, debug=_debug)
 #    An_pos, An_neg, Bn, Ai_pos, Ai_neg, Bi, Ae_pos, Ae_neg, Be \
 #       = trl.calc_AB(density,pressure_i, pressure_e,Fn,Fpi,Fpe,dlogGamma,dlogQ_i,dlogQ_e,debug=_debug)
+#    psi_nn, psi_npi, psi_npe = trl.calc_psi(density, pressure_i, pressure_e, \
+#                   Fn,Fpi,Fpe,An_pos,An_neg,Bn,Ai_pos,Ai_neg,Bi, \
+#                   Ae_pos,Ae_neg,Be)
 
     engine.model_flux()
     Gamma     = engine.Gamma
@@ -147,14 +150,13 @@ while (j < N_steps):
     Ae_neg = engine.Cn_pe.minus 
     Be     = engine.Cn_pe.zero 
 
-    psi_nn, psi_npi, psi_npe = trl.calc_psi(density, pressure_i, pressure_e, \
-                   Fn,Fpi,Fpe,An_pos,An_neg,Bn,Ai_pos,Ai_neg,Bi, \
-                   Ae_pos,Ae_neg,Be)
+    engine.calc_psi_n()
+    psi_nn  = engine.psi_nn.matrix
+    psi_npi = engine.psi_npi.matrix
+    psi_npe = engine.psi_npe.matrix
 
     Amat = trl.time_step_LHS3(psi_nn, psi_npi,psi_npe)
     bvec = trl.time_step_RHS3(density,pressure_i,pressure_e,Fn,Fpi,Fpe,psi_nn,psi_npi,psi_npe)
-
-
 
     Ainv = np.linalg.inv(Amat) # can also use scipy, or special tridiag method
     y_next = Ainv @ bvec
