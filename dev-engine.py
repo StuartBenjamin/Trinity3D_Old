@@ -69,18 +69,18 @@ a_minor = 1 # meter
 area     = trl.profile(np.linspace(0.01,a_minor,N)) # parabolic area, simple torus
 
 
-trl.R_major = R_major
-trl.a_minor = a_minor
-trl.pressure = pressure
-trl.temperature = temperature
-trl.area = area
-trl.Ba = Ba
-trl.drho = drho
-trl.dtau = dtau
-trl.alpha = alpha
-trl.n_edge = n_edge
-trl.pi_edge = pi_edge
-trl.pe_edge = pe_edge
+#trl.R_major = R_major
+#trl.a_minor = a_minor
+#trl.pressure = pressure
+#trl.temperature = temperature
+#trl.area = area
+#trl.Ba = Ba
+#trl.drho = drho
+#trl.dtau = dtau
+#trl.alpha = alpha
+#trl.n_edge = n_edge
+#trl.pi_edge = pi_edge
+#trl.pe_edge = pe_edge
 
 
 ### Run Trinity!
@@ -91,18 +91,22 @@ engine = trl.Trinity_Engine(alpha=alpha,
                             N_steps=N_steps,
                             N_prints = N_prints,
                             ###
-                            n_core = n_core,
-                            n_edge = n_edge,
-                            T0 = T0,
-                            R_major = R_major,
-                            a_minor = a_minor,
-                            Ba = Ba,
+                            n_core   = n_core,
+                            n_edge   = n_edge,
+                            pi_core   = pi_core,
+                            pi_edge   = pi_edge,
+                            pe_core   = pe_core,
+                            pe_edge   = pe_edge,
+                            T0       = T0,
+                            R_major  = R_major,
+                            a_minor  = a_minor,
+                            Ba       = Ba,
                             rho_edge = rho_edge)
 
 
-density     = trl.init_profile(n,debug=_debug)
-pressure_i  = trl.init_profile(pi,debug=_debug)
-pressure_e  = trl.init_profile(pe,debug=_debug)
+#density     = trl.init_profile(n,debug=_debug)
+#pressure_i  = trl.init_profile(pi,debug=_debug)
+#pressure_e  = trl.init_profile(pe,debug=_debug)
 
 #d1 = dgn.diagnostic_1() # init
 #d2 = dgn.diagnostic_2() # init
@@ -130,36 +134,36 @@ while (j < N_steps):
     #y_next = Ainv @ bvec
 
     engine.model_flux()
-    Gamma     = engine.Gamma
-    dlogGamma = engine.dlogGamma   
-    Q_i       = engine.Qi
-    Q_e       = engine.Qe
-    dlogQ_i   = engine.dlogQi
-    dlogQ_e   = engine.dlogQe
+#    Gamma     = engine.Gamma
+#    dlogGamma = engine.dlogGamma   
+#    Q_i       = engine.Qi
+#    Q_e       = engine.Qe
+#    dlogQ_i   = engine.dlogQi
+#    dlogQ_e   = engine.dlogQe
 
     engine.normalize_fluxes()
-    Fn  = engine.Fn
-    Fpi = engine.Fpi
-    Fpe = engine.Fpe
+#   Fn  = engine.Fn
+#   Fpi = engine.Fpi
+#   Fpe = engine.Fpe
 
-    engine.calc_AB()
-    An_pos = engine.Cn_n.plus 
-    An_neg = engine.Cn_n.minus 
-    Bn     = engine.Cn_n.zero 
-    Ai_pos = engine.Cn_pi.plus 
-    Ai_neg = engine.Cn_pi.minus 
-    Bi     = engine.Cn_pi.zero   
-    Ae_pos = engine.Cn_pe.plus 
-    Ae_neg = engine.Cn_pe.minus 
-    Be     = engine.Cn_pe.zero 
-
+    engine.calc_flux_coefficients()
+#   An_pos = engine.Cn_n.plus 
+#   An_neg = engine.Cn_n.minus 
+#   Bn     = engine.Cn_n.zero 
+#   Ai_pos = engine.Cn_pi.plus 
+#   Ai_neg = engine.Cn_pi.minus 
+#   Bi     = engine.Cn_pi.zero   
+#   Ae_pos = engine.Cn_pe.plus 
+#   Ae_neg = engine.Cn_pe.minus 
+#   Be     = engine.Cn_pe.zero 
+#
     engine.calc_psi_n()
-    psi_nn  = engine.psi_nn.matrix
-    psi_npi = engine.psi_npi.matrix
-    psi_npe = engine.psi_npe.matrix
+#   psi_nn  = engine.psi_nn.matrix
+#   psi_npi = engine.psi_npi.matrix
+#   psi_npe = engine.psi_npe.matrix
 
-    engine.next_state()
-    y_next = engine.y_next
+    engine.calc_y_next()
+#    y_next = engine.y_next
 
     engine.update()
 
@@ -169,6 +173,12 @@ while (j < N_steps):
         density    = engine.density
         pressure_i = engine.pressure_i
         pressure_e = engine.pressure_e
+        Fn  = engine.Fn
+        Fpi = engine.Fpi
+        Fpe = engine.Fpe
+        Gamma     = engine.Gamma
+        Q_i       = engine.Qi
+        Q_e       = engine.Qe
 
         print('  Plot: t =',j)
         d4_n.plot(  density, Gamma, Fn, Fn.grad, Time )

@@ -11,6 +11,10 @@ class Trinity_Engine():
     def __init__(self, N = 10, # number of radial points
                        n_core = 4,
                        n_edge = 0.5,
+                       pi_core = 8,
+                       pi_edge = 2,
+                       pe_core = 3,
+                       pe_edge = .3,
                        T0 = 2,
                        R_major = 4,
                        a_minor = 1,
@@ -24,10 +28,16 @@ class Trinity_Engine():
         self.N_radial = N  
         self.n_core   = n_core
         self.n_edge   = n_edge
+        self.pi_core   = pi_core
+        self.pi_edge   = pi_edge
+        self.pe_core   = pe_core
+        self.pe_edge   = pe_edge
         self.rho_edge = rho_edge
         self.rho_axis = np.linspace(0,rho_edge,N) # radial axis
         self.drho     = 1/N # for now assume equal spacing, 
                             #    could be computed in general
+        self.dtau     = dtau
+        self.alpha    = alpha
 
         ### will be from VMEC
         self.Ba      = Ba # average field on LCFS
@@ -72,18 +82,6 @@ class Trinity_Engine():
     # unused, archaic, can be delated
     def evolve_time(self):
         pass
-
-    def update(self):
-
-        density, foo, bar = update_state(self.y_next)
-        #density, pressure_i, pressure_e = trl.update_state(y_next)
-        pressure_i = init_profile( density.profile * self.T0 )
-        pressure_e = init_profile( density.profile * self.T0 )
-
-        self.density    = density
-        self.pressure_i = pressure_i
-        self.pressure_e = pressure_e
-
 
     # this is a toy model of Flux based on ReLU + neoclassical
     #     to be replaced by GX or STELLA import module
@@ -143,15 +141,33 @@ class Trinity_Engine():
     def normalize_fluxes(self):
 
         # load
-        density    = self.density
-        pressure_i = self.pressure_i
-        pressure_e = self.pressure_e
-        Gamma = self.Gamma
-        Qi    = self.Qi
-        Qe    = self.Qe
+        n     = self.density.profile
+        pi    = self.pressure_i.profile
+        pe    = self.pressure_e.profile
+        Gamma = self.Gamma.profile
+        Qi    = self.Qi.profile
+        Qe    = self.Qe.profile
+        area  = self.area.profile
+        Ba    = self.Ba
 
         # calc
-        Fn, Fpi, Fpe = calc_F3(density,pressure_i,pressure_e,Gamma,Qi,Qe)
+        #Fn, Fpi, Fpe = calc_F3(density,pressure_i,pressure_e,Gamma,Qi,Qe)
+        A = area / Ba**2
+        Fn = A * Gamma * pi**(1.5) / n**(0.5)
+        # unused for now
+        Fpi = A * Qi * pi**(2.5) / n**(1.5)
+        Fpe = A * Qe * pi**(2.5) / n**(1.5)
+
+        Fn  = profile(Fn,half=True,grad=True)
+        Fpi = profile(Fpi,half=True,grad=True)
+        Fpe = profile(Fpe,half=True,grad=True)
+        # set inner boundary condition
+        Fn .minus.profile[0] = 0
+        Fpi.minus.profile[0] = 0
+        Fpe.minus.profile[0] = 0
+        # this actually 0 anyways, 
+        #    because F ~ Gamma, which depends on grad n, 
+        #    and grad n is small near the core
 
         # save
         self.Fn  = Fn
@@ -160,7 +176,7 @@ class Trinity_Engine():
 
 
     # A and B profiles for density and pressure
-    def calc_AB(self):
+    def calc_flux_coefficients(self):
         
         # load
         n         = self.density
@@ -185,7 +201,7 @@ class Trinity_Engine():
     
         # need to implement <|grad rho|>, by reading surface area from VMEC
         grho = 1 
-        geometry_factor = - grho / area.profile * drho
+        geometry_factor = - grho / self.area.profile * self.drho
     
         # load
         Fnp = self.Fn.plus.profile
@@ -239,7 +255,7 @@ class Trinity_Engine():
         #    M_npi[0,1] -= (psi_npi_minus.profile[0])  
         #    M_npe[0,1] -= (psi_npe_minus.profile[0]) 
    
-    def next_state(self):
+    def calc_y_next(self):
         
         # load matrix
         M_nn  = self.psi_nn.matrix
@@ -254,16 +270,116 @@ class Trinity_Engine():
         Fpe = self.Fpe
 
         # Invert Ax = b
-        Amat = time_step_LHS3(M_nn, M_npi, M_npe)
-        bvec = time_step_RHS3(n,pi,pe,
-                              Fn,Fpi,Fpe,
-                              M_nn, M_npi, M_npe)
+        Amat = self.time_step_LHS()
+        bvec = self.time_step_RHS()
+        #Amat = time_step_LHS3(M_nn, M_npi, M_npe)
+        #bvec = time_step_RHS3(n,pi,pe,
+        #                      Fn,Fpi,Fpe,
+        #                      M_nn, M_npi, M_npe)
         # can also use scipy, or special tridiag method
         Ainv = np.linalg.inv(Amat) 
 
         #y_next = Ainv @ bvec
         self.y_next = Ainv @ bvec
     
+
+    def time_step_LHS(self):
+ 
+        # load
+        p_nn  = self.psi_nn .matrix[:-1, :-1]         
+        p_npi = self.psi_npi.matrix[:-1, :-1]         
+        p_npe = self.psi_npe.matrix[:-1, :-1]         
+        # dropping the last point for Dirchlet boundary
+ 
+        N_block = self.N_radial - 1
+        I = np.identity(N_block)
+        Z = I*0 # block of 0s
+        
+        ## build block-diagonal matrices
+        M = np.block([[ p_nn, p_npi, p_npe ],
+                      [Z    , I    , Z     ],
+                      [Z    , Z    , I     ]])
+        I3 = np.block([[I, Z, Z ],
+                       [Z, I, Z ],
+                       [Z, Z, I ]])
+        Amat = I3 - self.dtau * self.alpha * M
+        return Amat
+    
+    ### Define RHS
+    def time_step_RHS(self):
+ 
+        # load
+        n_prev  = self.density.profile   [:-1]
+        pi_prev = self.pressure_i.profile[:-1]
+        pe_prev = self.pressure_e.profile[:-1]
+        Fnp     = self.Fn.plus.profile[:-1]
+        Fnm     = self.Fn.minus.profile[:-1]
+        area    = self.area.profile[:-1]
+        rax     = self.rho_axis[:-1]
+        drho    = self.drho
+        alpha   = self.alpha
+        dtau    = self.dtau
+        # load matrix
+        psi_nn  = self.psi_nn.matrix
+        psi_npi = self.psi_npi.matrix
+        psi_npe = self.psi_npe.matrix
+    
+        force_n  =  - (1/drho/area) * (Fnp - Fnm)/2
+        # unused for now
+        force_pi = 0
+        force_pe = 0
+    
+        Gaussian  = np.vectorize(mf.Gaussian)
+        source_n  = Gaussian(rax, A=Sn_height, sigma=Sn_width)
+        source_pi = Gaussian(rax, A=Spi_height,sigma=Spi_width)
+        source_pe = Gaussian(rax, A=Spe_height,sigma=Spe_width)
+    
+        # init boundary condition
+        #N = len(density.profile)
+        N_radial_mat = self.N_radial - 1
+        boundary_n  = np.zeros(N_radial_mat)
+        boundary_pi = np.zeros(N_radial_mat)
+        boundary_pe = np.zeros(N_radial_mat)
+        # add information from Dirchlet point
+        boundary_n[-1]   = psi_nn[-2,-1] * self.n_edge # get last column of second to last row
+        # here this is a (-) from flipping the psi
+        boundary_pi[-1] = -psi_npi[-2,-1] * self.pi_edge
+        boundary_pe[-1] = -psi_npe[-2,-1] * self.pi_edge
+    
+        # should each psi have its own bvec? rename bvec to bvec_n if so
+        bvec_n  =  n_prev + dtau*(1 - alpha)*force_n + dtau*source_n + dtau*alpha*boundary_n
+        bvec_pi =  pi_prev + dtau*(1 - alpha)*force_pi + dtau*source_pi + dtau*alpha*boundary_pi
+        bvec_pe =  pe_prev + dtau*(1 - alpha)*force_pe + dtau*source_pe + dtau*alpha*boundary_pe
+        
+        # there was a major bug here with the pressure parts of RHS state vector
+        bvec3 = np.concatenate( [bvec_n, 0*bvec_pi, 0*bvec_pe] )
+        return bvec3
+
+    def update(self):
+
+        # load
+        y_next  = self.y_next
+        n_edge  = self.n_edge
+        pi_edge = self.pi_edge
+        pe_edge = self.pe_edge
+        N_mat = self.N_radial - 1
+
+        n_next, pi_next, pe_next = np.reshape( y_next,(3,N_mat) )
+        # check if legit
+        n = np.concatenate([ [n_next[1]], n_next[1:], [n_edge] ]) 
+        pi = np.concatenate([ [pi_next[1]], pi_next[1:], [pi_edge] ]) 
+        pe = np.concatenate([ [pe_next[1]], pe_next[1:], [pe_edge] ])
+
+        density = profile(n, grad=True, half=True, full=True)
+        #pressure_i = profile(pi, grad=True, half=True, full=True)
+        #pressure_e = profile(pe, grad=True, half=True, full=True)
+        pressure_i = init_profile( density.profile * self.T0 )
+        pressure_e = init_profile( density.profile * self.T0 )
+
+        self.density    = density
+        self.pressure_i = pressure_i
+        self.pressure_e = pressure_e
+
 
 # the class computes and stores normalized flux F, AB coefficients, and psi for the tridiagonal matrix
 # it will need a flux Q, and profiles nT
