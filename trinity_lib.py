@@ -80,10 +80,6 @@ class Trinity_Engine():
         self.psi_npe = 0
 
 
-    # unused, archaic, can be delated
-    def evolve_time(self):
-        pass
-
     # this is a toy model of Flux based on ReLU + neoclassical
     #     to be replaced by GX or STELLA import module
     def model_flux(self,
@@ -571,44 +567,6 @@ def init_profile(x,debug=False):
     X = profile(x, grad=True, half=True, full=True)
     return X
 
-
-
-### Calculate Transport Coefficients for Density
-
-
-# A and B profiles, for density evolution (there are different A,B for pressure)
-# w is one of (density, ion pressure, electron pressure)
-# dlogflux is one (Gamma Qi or Qe)
-def calc_AB_gen(w,Flux,dlogFlux, debug=False):
-
-    # original Barnes equations (7.60, 7.61)
-    # The (R/a) can be removed, if we use (a/L) instead of R/L
-    A_pos = profile( - (R_major/a_minor) * Flux.plus.profile / drho \
-                         * w.profile / w.plus.profile**2 \
-                         * dlogFlux.plus.profile )
-    
-    A_neg = profile( - (R_major/a_minor) * Flux.minus.profile / drho \
-                         * w.profile / w.minus.profile**2 \
-                         * dlogFlux.minus.profile )
-    B     = profile(  (R_major/a_minor/drho) \
-    # extra (-) was here 
-    #B     = profile( - (R_major/a_minor/drho) \
-                  * (    Flux.plus.profile  \
-                         * w.plus1.profile / w.plus.profile**2 \
-                         * dlogFlux.plus.profile \
-                      +  Flux.minus.profile  \
-                         * w.minus1.profile / w.minus.profile**2 \
-                         * dlogFlux.minus.profile  \
-                    ) )
-
-    if (debug):
-        A_pos.plot(new_fig=True,label=r'$A_+[n]$')
-        A_neg.plot(label=r'$A_-[n]$')
-        B.plot(label=r'$B[n]$')
-        plt.xlabel('radius')
-        plt.legend()
-
-    return A_pos, A_neg, B
 
 
 # stub for new A,B coefficients that dont use F explicitly
