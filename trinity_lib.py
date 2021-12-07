@@ -123,7 +123,8 @@ class Trinity_Engine():
         Qi        = profile(qi,   grad=True,half=True)
         Qe        = profile(qe,   grad=True,half=True)
         # this is incorrect, it takes grad log wrt to x instead of Ln(x) 
-        dlogGamma = Gamma.grad_log
+        #   also, in general there will be a Jacobian of derivatives with respect to Ln, LTi, and LTe
+        dlogGamma = Gamma.grad_log 
         dlogQi    = Qi.grad_log
         dlogQe    = Qe.grad_log
     
@@ -181,18 +182,35 @@ class Trinity_Engine():
         pe        = self.pressure_e
         Fn        = self.Fn
         dlogGamma = self.dlogGamma
-        #Fpi       = self.Fpi
-        #Fpe       = self.Fpe
-        #dlogQi    = self.dlogQi
-        #dlogQe    = self.dlogQe
+        # new for pressure
+        Fpi       = self.Fpi
+        Fpe       = self.Fpe
+        dlogQi    = self.dlogQi
+        dlogQe    = self.dlogQe
 
         # normalization
         norm = (self.R_major / self.a_minor) / self.drho 
 
         # calculate and save
         self.Cn_n  = flux_coefficients(n,  Fn, dlogGamma, norm)
-        self.Cn_pi = flux_coefficients(pi, Fn, dlogGamma, norm)
+        self.Cn_pi = flux_coefficients(pi, Fn, dlogGamma, norm) # this needs to use dlog Gamma / d kappa_pi
         self.Cn_pe = flux_coefficients(pe, Fn, dlogGamma, norm)
+
+        # new
+        self.Cpi_n  = flux_coefficients(n,  Fpi, dlogQi, norm)
+        self.Cpi_pi = flux_coefficients(pi, Fpi, dlogQi, norm) 
+        self.Cpi_pe = flux_coefficients(pe, Fpi, dlogQi, norm)
+        self.Cpe_n  = flux_coefficients(n,  Fpe, dlogQe, norm)
+        self.Cpe_pi = flux_coefficients(pi, Fpe, dlogQe, norm)
+        self.Cpe_pe = flux_coefficients(pe, Fpe, dlogQe, norm)
+        # maybe these class definitions can be condensed
+
+        # mu coefficients
+        # needs kappas, should implement into profile
+        # also 0 when G=H=K=0
+        self.mu1 = 0
+        self.mu2 = 0
+        self.mu3 = 0
 
     def calc_psi_n(self):
     
@@ -201,8 +219,8 @@ class Trinity_Engine():
         geometry_factor = - grho / self.area.profile * self.drho
     
         # load
-        Fnp = self.Fn.plus.profile
-        Fnm = self.Fn.minus.profile
+        Fnp = self.Fn.plus#.profile
+        Fnm = self.Fn.minus#.profile
         n_p = self.density.plus.profile
         n_m = self.density.minus.profile
         pi_plus  = self.pressure_i.plus.profile
@@ -252,6 +270,65 @@ class Trinity_Engine():
         #    M_npi[0,1] -= (psi_npi_minus.profile[0])  
         #    M_npe[0,1] -= (psi_npe_minus.profile[0]) 
    
+    def calc_psi_pi(self):
+    
+        # need to implement <|grad rho|>, by reading surface area from VMEC
+        grho = 1 
+        geometry_factor = - grho / self.area.profile * self.drho
+    
+        # load
+        F_p = self.Fpi.plus#.profile
+        F_m = self.Fpe.minus#.profile
+        n     = self.density.profile
+        n_p = self.density.plus.profile
+        n_m = self.density.minus.profile
+        pi_plus  = self.pressure_i.plus.profile
+        pi_minus = self.pressure_i.minus.profile
+        pe_plus  = self.pressure_e.plus.profile
+        pe_minus = self.pressure_e.minus.profile
+        #
+        An_pos = self.Cpi_n.plus.profile
+        An_neg = self.Cpi_n.minus.profile
+        Bn     = self.Cpi_n.zero.profile
+        Ai_pos = self.Cpi_pi.plus.profile
+        Ai_neg = self.Cpi_pi.minus.profile
+        Bi     = self.Cpi_pi.zero.profile
+        Ae_pos = self.Cpi_pe.plus.profile
+        Ae_neg = self.Cpi_pe.minus.profile 
+        Be     = self.Cpi_pe.zero.profile 
+        #
+        mu1 = self.mu1 # should be profiles when implemented
+        mu2 = self.mu2 #   now these are all 0
+        mu3 = self.mu3
+    
+        # tri diagonal matrix elements
+        g = geometry_factor
+        psi_pin_plus  = g * (An_pos - 3/4 * F_p / n_p) - mu1 / n 
+        psi_pin_minus = g * (An_neg + 3/4 * F_m / n_m) + mu1 / n
+        psi_pin_zero  = g * (Bn -  3/4 * ( F_m/n_m - F_p/n_p ) ) 
+        # this (-) is a surprise. It disagrees with Barnes thesis
+                                
+        psi_pipi_plus  = g * (Ai_pos + 5/4 * F_p / pi_plus ) 
+        psi_pipi_minus = g * (Ai_neg - 5/4 * F_m / pi_minus) 
+        psi_pipi_zero  = g * (Bi - 5/4 * ( F_m/pi_minus - F_p/pi_plus) ) 
+    
+        psi_pipe_plus  = g * Ae_pos
+        psi_pipe_minus = g * Ae_neg
+        psi_pipe_zero  = g * Be
+
+        # save (automatically computes matricies in class function)
+        self.psi_pin  = psi_profiles(psi_pin_zero,
+                                     psi_pin_plus,
+                                     psi_pin_minus)
+
+        self.psi_pipi = psi_profiles(psi_pipi_zero,
+                                     psi_pipi_plus,
+                                     psi_pipi_minus, dirchlet=True)
+        
+        self.psi_pipe = psi_profiles(psi_pipe_zero,
+                                     psi_pipe_plus,
+                                     psi_pipe_minus)
+
     def calc_y_next(self):
         
         # load matrix
@@ -283,17 +360,22 @@ class Trinity_Engine():
     def time_step_LHS(self):
  
         # load
-        p_nn  = self.psi_nn .matrix[:-1, :-1]         
-        p_npi = self.psi_npi.matrix[:-1, :-1]         
-        p_npe = self.psi_npe.matrix[:-1, :-1]         
+        M_nn  = self.psi_nn .matrix[:-1, :-1]         
+        M_npi = self.psi_npi.matrix[:-1, :-1]         
+        M_npe = self.psi_npe.matrix[:-1, :-1]         
         # dropping the last point for Dirchlet boundary
+        M_pin  = self.psi_pin .matrix[:-1, :-1]         
+        M_pipi = self.psi_pipi.matrix[:-1, :-1]         
+        M_pipe = self.psi_pipe.matrix[:-1, :-1]         
  
         N_block = self.N_radial - 1
         I = np.identity(N_block)
         Z = I*0 # block of 0s
+        #Z = np.zeros_like(I)
         
         ## build block-diagonal matrices
-        M = np.block([[ p_nn, p_npi, p_npe ],
+        M = np.block([[ M_nn , M_npi , M_npe  ],
+                      #[ M_pin, M_pipi, M_pipe ],
                       [Z    , I    , Z     ],
                       [Z    , Z    , I     ]])
         I3 = np.block([[I, Z, Z ],
@@ -311,6 +393,8 @@ class Trinity_Engine():
         pe_prev = self.pressure_e.profile[:-1]
         Fnp     = self.Fn.plus.profile[:-1]
         Fnm     = self.Fn.minus.profile[:-1]
+        Fip     = self.Fpi.plus.profile[:-1]
+        Fim     = self.Fpi.minus.profile[:-1]
         area    = self.area.profile[:-1]
         rax     = self.rho_axis[:-1]
         drho    = self.drho
@@ -320,10 +404,11 @@ class Trinity_Engine():
         psi_nn  = self.psi_nn.matrix
         psi_npi = self.psi_npi.matrix
         psi_npe = self.psi_npe.matrix
-    
-        force_n  =  - (1/drho/area) * (Fnp - Fnm)/2
-        # unused for now
-        force_pi = 0
+        psi_pipi = self.psi_pipi.matrix
+   
+        g = - 1/drho/area
+        force_n  = g * (Fnp - Fnm)/2
+        force_pi = g * (Fip - Fim)/2
         force_pe = 0
     
         Gaussian  = np.vectorize(mf.Gaussian)
@@ -338,10 +423,14 @@ class Trinity_Engine():
         boundary_pi = np.zeros(N_radial_mat)
         boundary_pe = np.zeros(N_radial_mat)
         # add information from Dirchlet point
+        n_edge  = self.density.profile[-1]
+        pi_edge = self.pressure_i.profile[-1]
+        pe_edge = self.pressure_e.profile[-1]
         boundary_n[-1]   = psi_nn[-2,-1] * self.n_edge # get last column of second to last row
         # here this is a (-) from flipping the psi
-        boundary_pi[-1] = -psi_npi[-2,-1] * self.pi_edge
-        boundary_pe[-1] = -psi_npe[-2,-1] * self.pi_edge
+        boundary_pi[-1] = psi_pipi[-2,-1] * pi_edge
+#        boundary_pe[-1] = psi_npe[-2,-1] * self.pi_edge
+
     
         # should each psi have its own bvec? rename bvec to bvec_n if so
         bvec_n  =  n_prev + dtau*(1 - alpha)*force_n + dtau*source_n + dtau*alpha*boundary_n
@@ -349,7 +438,9 @@ class Trinity_Engine():
         bvec_pe =  pe_prev + dtau*(1 - alpha)*force_pe + dtau*source_pe + dtau*alpha*boundary_pe
         
         # there was a major bug here with the pressure parts of RHS state vector
+
         bvec3 = np.concatenate( [bvec_n, 0*bvec_pi, 0*bvec_pe] )
+        #bvec3 = np.concatenate( [bvec_n, bvec_pi, 0*bvec_pe] )
         return bvec3
 
     def update(self):
@@ -359,6 +450,9 @@ class Trinity_Engine():
         n_edge  = self.n_edge
         pi_edge = self.pi_edge
         pe_edge = self.pe_edge
+        n_edge  = self.density.profile[-1]
+        pi_edge = self.pressure_i.profile[-1]
+        pe_edge = self.pressure_e.profile[-1]
         N_mat = self.N_radial - 1
 
         n_next, pi_next, pe_next = np.reshape( y_next,(3,N_mat) )
@@ -558,6 +652,35 @@ class profile():
 
         if (show):
             plt.show()
+
+
+    # operator overloads that automatically dereference the profiles
+    def __add__(A,B):
+        if isinstance(B, A.__class__):
+            return A.profile + B.profile
+        else:
+            return A.profile + B
+
+    def __sub__(A,B):
+        if isinstance(B, A.__class__):
+            return A.profile - B.profile
+        else:
+            return A.profile - B
+
+    def __mul__(A,B):
+        if isinstance(B, A.__class__):
+            return A.profile * B.profile
+        else:
+            return A.profile * B
+
+    def __truediv__(A,B):
+        if isinstance(B, A.__class__):
+            return A.profile / B.profile
+        else:
+            return A.profile / B
+
+    def __rmul__(A,B):
+        return A.__mul__(B)
 
 
 # Initialize Trinity profiles

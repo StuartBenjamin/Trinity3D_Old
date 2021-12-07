@@ -3,8 +3,14 @@ import numpy as np
 ### this library contains model functons for flux behavior
 
 def ReLU(x,a=0.5,m=1):
-    # piecewise-linear function
-    # can model Gamma( critical temperature gradient scale length ), for example
+    '''
+       piecewise-linear function
+       can model Gamma( critical temperature gradient scale length ), for example
+       x is a number, a and m are constants
+
+       inputs : a number
+       outputs: a number
+    '''
     if (x < a):
         return 0
     else:

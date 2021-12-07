@@ -34,7 +34,7 @@ T = T0 * np.ones(N)
 ### Set up time controls
 alpha = 1          # explicit to implicit mixer
 dtau  = 0.5         # step size 
-N_steps  = 1000       # total Time = dtau * N_steps
+N_steps  = 10       # total Time = dtau * N_steps
 N_prints = 10
 N_step_print = N_steps // N_prints   # how often to print # thanks Sarah!
 ###
@@ -93,12 +93,15 @@ d4_pe = dgn.diagnostic_4()
 
 j = 0 
 Time = 0
+# Put this into "Trinity Runner" class
+#    "better to have functions than scripts"
 while (j < N_steps):
 
     engine.model_flux()
     engine.normalize_fluxes()
     engine.calc_flux_coefficients()
     engine.calc_psi_n()
+    engine.calc_psi_pi() # new
     engine.calc_y_next()
 
     engine.update()
