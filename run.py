@@ -10,8 +10,8 @@ import diagnostics as dgn
 # go into the trinity engine
  
 ## Set initial conditions
-n_core = 4
-n_edge = .5
+n_core = 5
+n_edge = 1.5
 pi_core = 8
 pi_edge = 2
 pe_core = 3
@@ -32,9 +32,9 @@ pe = T0*n
 T = T0 * np.ones(N)
 
 ### Set up time controls
-alpha = 1          # explicit to implicit mixer
-dtau  = 0.5         # step size 
-N_steps  = 10       # total Time = dtau * N_steps
+alpha = 0          # explicit to implicit mixer
+dtau  = 0.05         # step size 
+N_steps  = 500       # total Time = dtau * N_steps
 N_prints = 10
 N_step_print = N_steps // N_prints   # how often to print # thanks Sarah!
 ###
@@ -97,7 +97,8 @@ Time = 0
 #    "better to have functions than scripts"
 while (j < N_steps):
 
-    engine.model_flux()
+#    engine.model_flux()
+    engine.compute_flux()
     engine.normalize_fluxes()
     engine.calc_flux_coefficients()
     engine.calc_psi_n()
@@ -136,31 +137,3 @@ d4_pe.title('Pe')
 d4_pe.legend()
 
 plt.show()
-
-## scratch
-#    Gamma     = engine.Gamma
-#    dlogGamma = engine.dlogGamma   
-#    Q_i       = engine.Qi
-#    Q_e       = engine.Qe
-#    dlogQ_i   = engine.dlogQi
-#    dlogQ_e   = engine.dlogQe
-
-#   Fn  = engine.Fn
-#   Fpi = engine.Fpi
-#   Fpe = engine.Fpe
-
-#   An_pos = engine.Cn_n.plus 
-#   An_neg = engine.Cn_n.minus 
-#   Bn     = engine.Cn_n.zero 
-#   Ai_pos = engine.Cn_pi.plus 
-#   Ai_neg = engine.Cn_pi.minus 
-#   Bi     = engine.Cn_pi.zero   
-#   Ae_pos = engine.Cn_pe.plus 
-#   Ae_neg = engine.Cn_pe.minus 
-#   Be     = engine.Cn_pe.zero 
-#
-#   psi_nn  = engine.psi_nn.matrix
-#   psi_npi = engine.psi_npi.matrix
-#   psi_npe = engine.psi_npe.matrix
-
-#    y_next = engine.y_next

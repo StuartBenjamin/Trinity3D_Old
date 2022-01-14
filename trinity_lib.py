@@ -79,6 +79,63 @@ class Trinity_Engine():
         self.psi_npi = 0
         self.psi_npe = 0
 
+        ### init flux models
+        self.model_G  = mf.Flux_model()
+        self.model_Qi = mf.Flux_model()
+        self.model_Qe = mf.Flux_model()
+
+    # this is a toy model of Flux based on ReLU + neoclassical
+    #     to be replaced by GX or STELLA import module
+    def compute_flux(self):
+
+        ### calc gradients
+        grad_n  = self.density.grad.profile 
+        grad_pi = self.pressure_i.grad.profile
+        grad_pe = self.pressure_e.grad.profile
+        Ln_inv  = - self.density.grad_log.profile 
+        Lpi_inv = - self.pressure_i.grad_log.profile
+        Lpe_inv = - self.pressure_e.grad_log.profile
+
+        # run model (opportunity for parallelization)
+        Lx = np.array( [Ln_inv, Lpi_inv, Lpe_inv] )
+
+        G_neo  = - self.model_G.neo  * grad_n
+        Qi_neo = - self.model_Qi.neo * grad_pi
+        Qe_neo = - self.model_Qe.neo * grad_pe
+        
+        s   = self
+        vec = np.vectorize
+        G  = vec(s.model_G .flux)(*Lx) + G_neo 
+        Qi = vec(s.model_Qi.flux)(*Lx) + Qi_neo
+        Qe = vec(s.model_Qe.flux)(*Lx) + Qe_neo
+
+        # derivatives
+        G_n, G_pi, G_pe    = vec(s.model_G.flux_gradients)(*Lx)
+        Qi_n, Qi_pi, Qi_pe = vec(s.model_Qi.flux_gradients)(*Lx)
+        Qe_n, Qe_pi, Qe_pe = vec(s.model_Qi.flux_gradients)(*Lx)
+
+        # save
+        self.Gamma     = profile(G, half=True)
+        self.Qi        = profile(Qi, half=True) 
+        self.Qe        = profile(Qe, half=True) 
+        
+        self.G_n   = profile(G_n , half=True)
+        self.G_pi  = profile(G_pi, half=True)
+        self.G_pe  = profile(G_pe, half=True)
+        self.Qi_n   = profile(Qi_n , half=True)
+        self.Qi_pi  = profile(Qi_pi, half=True)
+        self.Qi_pe  = profile(Qi_pe, half=True)
+        self.Qe_n   = profile(Qe_n , half=True)
+        self.Qe_pi  = profile(Qe_pi, half=True)
+        self.Qe_pe  = profile(Qe_pe, half=True)
+
+        # temporary (backward compatibility)
+        self.dlogGamma = self.G_n
+        self.dlogQi    = self.G_pi
+        self.dlogQe    = self.G_pe
+
+
+
 
     # this is a toy model of Flux based on ReLU + neoclassical
     #     to be replaced by GX or STELLA import module
@@ -173,7 +230,8 @@ class Trinity_Engine():
         self.Fpe = Fpe
 
 
-    # A and B profiles for density and pressure
+    # Compute A and B profiles for density and pressure
+    #    this involves finite difference gradients
     def calc_flux_coefficients(self):
         
         # load
@@ -422,25 +480,32 @@ class Trinity_Engine():
         boundary_n  = np.zeros(N_radial_mat)
         boundary_pi = np.zeros(N_radial_mat)
         boundary_pe = np.zeros(N_radial_mat)
+
         # add information from Dirchlet point
         n_edge  = self.density.profile[-1]
         pi_edge = self.pressure_i.profile[-1]
         pe_edge = self.pressure_e.profile[-1]
-        boundary_n[-1]   = psi_nn[-2,-1] * self.n_edge # get last column of second to last row
-        # here this is a (-) from flipping the psi
-        boundary_pi[-1] = psi_pipi[-2,-1] * pi_edge
+
+        # get last column of second to last row
+        #       there should be  a (-) from flipping the psi
+        boundary_n[-1]   = psi_nn [-2,-1] * self.n_edge   \
+                         + psi_npi[-2,-1] * self.pi_edge \
+                         + psi_npe[-2,-1] * self.pe_edge 
+        ### There is a bug here! (1/12)
+        #boundary_n[-1]   = psi_nn[-2,-1] * self.n_edge # get last column of second to last row
+        #boundary_pi[-1] = psi_pipi[-2,-1] * pi_edge
 #        boundary_pe[-1] = psi_npe[-2,-1] * self.pi_edge
 
     
         # should each psi have its own bvec? rename bvec to bvec_n if so
-        bvec_n  =  n_prev + dtau*(1 - alpha)*force_n + dtau*source_n + dtau*alpha*boundary_n
+        bvec_n  =  n_prev  + dtau*(1 - alpha)*force_n  + dtau*source_n  + dtau*alpha*boundary_n
         bvec_pi =  pi_prev + dtau*(1 - alpha)*force_pi + dtau*source_pi + dtau*alpha*boundary_pi
         bvec_pe =  pe_prev + dtau*(1 - alpha)*force_pe + dtau*source_pe + dtau*alpha*boundary_pe
         
         # there was a major bug here with the pressure parts of RHS state vector
 
-        bvec3 = np.concatenate( [bvec_n, 0*bvec_pi, 0*bvec_pe] )
-        #bvec3 = np.concatenate( [bvec_n, bvec_pi, 0*bvec_pe] )
+        #bvec3 = np.concatenate( [bvec_n, 0*bvec_pi, 0*bvec_pe] )
+        bvec3 = np.concatenate( [bvec_n, bvec_pi, 0*bvec_pe] )
         return bvec3
 
     def update(self):
@@ -563,6 +628,7 @@ class psi_profiles():
 # a general class for handling profiles (n, p, F, gamma, Q, etc)
 # with options to evaluate half steps and gradients at init
 class profile():
+    # should consider capitalizing Profile(), for good python form
     def __init__(self,arr, grad=False, half=False, full=False):
 
         # take a 1D array to be density, for example
@@ -621,12 +687,14 @@ class profile():
 
         dx = 1/len(xj) # assumes spacing is from (0,1)
         deriv = (xp - xm) / (2*dx)
-        deriv[0]  = deriv[1]
-        deriv[-1] = deriv[-2]
-        #deriv[0]  = ( -3./2* xj[0] + 2*xj[1] - 1./2* xj[2])  /dx
-        #deriv[0]  = (xj[1] - xj[0])  /dx
-        #deriv[-1] = (xj[-1] - xj[-2])/dx
-        deriv[-1]  = ( 3./2* xj[-1] - 2*xj[-2] + 1./2* xj[-3])  /dx
+        deriv[0]  = deriv[1]      # should a one-sided stencil be used here too?
+                                  # should I set it to 0? in a transport solver, is the 0th point on axis?
+                                  # I don't think GX will be run for the 0th point. So should that point be excluded from TRINITY altogether?
+                                  #      or should it be included as a ghost point?
+
+        # this is a second order accurate one-sided stencil
+        #deriv[-1]  = ( 3./2* xj[-1] - 2*xj[-2] + 1./2* xj[-3])  /dx
+        deriv[-1]  = ( 3*xj[-1] -4*xj[-2] + xj[-3])  / (2*dx)
 
         return deriv
         # can recursively make gradient also a profile class
@@ -716,4 +784,6 @@ def tri_diagonal(a,b,c):
 # 2) or append the boundaries as ancillary to the main array?
 # the first is more intuitive, but the second may be more efficient
 #arg_middle = np.s_[:-1] # the purpose of this expression is to remove "magic numbers" where we drop the last point due to Dirchlet boundary condition
+
+
 
