@@ -37,10 +37,10 @@ class Flux_model():
 
     def __init__(self,
                # neoclassical diffusion coefficient
-               D_neo  = .1, 
+               D_neo  = 0.1, 
                # critical gradient
                n_critical_gradient  = 1.5, 
-               pi_critical_gradient = 0.5,
+               pi_critical_gradient = 1.5,
                pe_critical_gradient = 1.5,
                # slope of flux(Ln) after onset
                n_flux_slope  = 1, 

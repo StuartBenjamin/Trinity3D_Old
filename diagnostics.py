@@ -59,33 +59,34 @@ class diagnostic_2:
 # plot a function and its two shifts 
 class diagnostic_3:
     
-    def __init__(self,win=(10,4)):
-        fig, axs = plt.subplots(1,3,figsize=win)
+    def __init__(self,win=(5,8)):
+        fig, axs = plt.subplots(3,1,figsize=win)
         self.axs = axs
+        self.fig = fig
 
-    def plot(self, f, time):
+    def plot(self, f,g,h, time):
 
         a0,a1,a2 = self.axs
         tlabel = 'T = {:.2e}'.format(time)
 
         quick_plot(a0, f,       tlabel)
-        quick_plot(a1, f.plus,  tlabel)
-        quick_plot(a2, f.minus, tlabel)
+        quick_plot(a1, g,  tlabel)
+        quick_plot(a2, h, tlabel)
 
-    def label(self, tag='F'):
+    def title(self,title):
+        self.fig.suptitle(title)
+        self.fig.tight_layout()
 
-        a0,a1,a2 = self.axs
-        
-        a0.set_title(r'$%s$'%tag)
-        a0.grid()
-        
-        a1.set_title(r'$%s_+$'%tag)
-        a1.grid()
+    def label(self, titles = ['', '', '']):
 
-        a2.set_title(r'$%s_-$'%tag)
-        a2.grid()
+        for j in np.arange(3):
+            a = self.axs[j]
+            t = titles[j]
 
-        a2.legend()
+            a.set_title(t)
+            a.grid()
+
+        self.fig.tight_layout()
 
 # plot four general profiles
 class diagnostic_4:
@@ -113,6 +114,8 @@ class diagnostic_4:
 
             a.set_title(t)
             a.grid()
+
+        self.fig.tight_layout()
 
     def title(self,title):
         self.fig.suptitle(title)

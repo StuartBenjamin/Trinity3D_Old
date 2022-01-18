@@ -10,31 +10,23 @@ import diagnostics as dgn
 # go into the trinity engine
  
 ## Set initial conditions
-n_core = 5
-n_edge = 1.5
-pi_core = 8
+n_core  = 5
+pi_core = 5
+pe_core = 5
+n_edge  = 1.5
 pi_edge = 2
-pe_core = 3
-pe_edge = .3
+pe_edge = 2 
 
 # set up grid
 N = 10 # number of radial points
 rho_edge = 0.8    # rho = r/a : normalized radius
 rho_axis = np.linspace(0,rho_edge,N) # radial axis
 drho = 1/N # temp
-# sample profile initial conditions
-n  = (n_core - n_edge)*(1 - (rho_axis/rho_edge)**2) + n_edge
-T0  = 2 # constant temp profile, could be retired
-pi = T0*n
-pe = T0*n
-#pi = (pi_core-pi_edge)*(1 - (rho_axis/rho_edge)**2) + pi_edge
-#pe = (pe_core-pe_edge)*(1 - (rho_axis/rho_edge)**2) + pe_edge
-T = T0 * np.ones(N)
 
 ### Set up time controls
-alpha = 0          # explicit to implicit mixer
-dtau  = 0.05         # step size 
-N_steps  = 500       # total Time = dtau * N_steps
+alpha = 1          # explicit to implicit mixer
+dtau  = 0.001         # step size 
+N_steps  = 1000       # total Time = dtau * N_steps
 N_prints = 10
 N_step_print = N_steps // N_prints   # how often to print # thanks Sarah!
 ###
@@ -56,8 +48,8 @@ trl.rho_axis = rho_axis
 
 
 ### will be static > dynamic profile
-pressure = trl.profile(n*T0)
-temperature = trl.profile(T)
+#pressure = trl.profile(n*T0)
+#temperature = trl.profile(T)
 ### will be from VMEC
 Ba = 3 # average field on LCFS
 R_major = 4 # meter
@@ -80,16 +72,19 @@ engine = trl.Trinity_Engine(alpha=alpha,
                             pi_edge   = pi_edge,
                             pe_core   = pe_core,
                             pe_edge   = pe_edge,
-                            T0       = T0,
+#                            T0       = T0,
                             R_major  = R_major,
                             a_minor  = a_minor,
                             Ba       = Ba,
                             rho_edge = rho_edge)
 
 
-d4_n  = dgn.diagnostic_4()
-d4_pi = dgn.diagnostic_4()
-d4_pe = dgn.diagnostic_4()
+#d4_n  = dgn.diagnostic_4()
+#d4_pi = dgn.diagnostic_4()
+#d4_pe = dgn.diagnostic_4()
+d3_prof  = dgn.diagnostic_3()
+d3_flux  = dgn.diagnostic_3()
+#flux_diagnostic  = dgn.diagnostic_4()
 
 j = 0 
 Time = 0
@@ -97,12 +92,13 @@ Time = 0
 #    "better to have functions than scripts"
 while (j < N_steps):
 
-#    engine.model_flux()
+ #   engine.model_flux()  # old (got logs wrong, to be deleted)
     engine.compute_flux()
     engine.normalize_fluxes()
     engine.calc_flux_coefficients()
     engine.calc_psi_n()
     engine.calc_psi_pi() # new
+    engine.calc_psi_pe() 
     engine.calc_y_next()
 
     engine.update()
@@ -120,20 +116,31 @@ while (j < N_steps):
         Q_e       = engine.Qe
 
         print('  Plot: t =',j)
-        d4_n.plot(  density, Gamma, Fn, Fn.grad, Time )
-        d4_pi.plot( pressure_i, Q_i, Fpi, Fpi.grad, Time )
-        d4_pe.plot( pressure_e, Q_e, Fpe, Fpe.grad, Time )
+#        d4_n.plot(  density, Gamma, Fn, Fn.grad, Time )
+#        d4_pi.plot( pressure_i, Q_i, Fpi, Fpi.grad, Time )
+#        d4_pe.plot( pressure_e, Q_e, Fpe, Fpe.grad, Time )
+
+#        flux_diagnostic.plot(Gamma, engine.Fn, engine.Cn_n.zero, engine.G_pe, Time )
+        d3_prof.plot( density, pressure_i, pressure_e, Time)
+        d3_flux.plot( Gamma, Q_i, Q_e, Time)
 
 
     Time += dtau
     j += 1
 
 rlabel = r'$\alpha = {} :: d\tau = {:.3e}$'.format(alpha,dtau)
-d4_n.label(titles=['density', 'Gamma', 'F', 'grad F'])
-d4_pi.label()
-d4_n.title(rlabel)
-d4_pi.title('Pi')
-d4_pe.title('Pe')
-d4_pe.legend()
+#d4_n.label(titles=['density', 'Gamma', 'F', 'grad F'])
+#d4_pi.label()
+#d4_n.title(rlabel)
+
+#flux_diagnostic.label(titles=['Gamma','Fn','Cn_n','G_pe'])
+#d4_pi.title('Pi')
+#d4_pe.title('Pe')
+#d4_pe.legend()
+
+d3_prof.label(titles=['n','pi','pe'])
+d3_prof.title(rlabel)
+
+d3_flux.label(titles=['Gamma','Qi','Qe'])
 
 plt.show()
