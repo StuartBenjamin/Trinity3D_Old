@@ -88,6 +88,7 @@ class Trinity_Engine():
         self.model_Qi = mf.Flux_model()
         self.model_Qe = mf.Flux_model()
 
+
     # this is a toy model of Flux based on ReLU + neoclassical
     #     to be replaced by GX or STELLA import module
     def compute_flux(self):
@@ -96,12 +97,12 @@ class Trinity_Engine():
         grad_n  = self.density.grad.profile 
         grad_pi = self.pressure_i.grad.profile
         grad_pe = self.pressure_e.grad.profile
-        Ln_inv  = - self.density.grad_log.profile 
-        Lpi_inv = - self.pressure_i.grad_log.profile
-        Lpe_inv = - self.pressure_e.grad_log.profile
+        kn  = - self.density.grad_log.profile     # L_n^inv
+        kpi = - self.pressure_i.grad_log.profile  # L_pi^inv
+        kpe = - self.pressure_e.grad_log.profile  # L_pe^inv
 
         # run model (opportunity for parallelization)
-        Lx = np.array( [Ln_inv, Lpi_inv, Lpe_inv] )
+        #Lx = np.array( [Ln_inv, Lpi_inv, Lpe_inv] )
 
         G_neo  = - self.model_G.neo  * grad_n
         Qi_neo = - self.model_Qi.neo * grad_pi
@@ -109,16 +110,22 @@ class Trinity_Engine():
         
         s   = self
         vec = np.vectorize
-        G  = vec(s.model_G .flux)(*Lx) + G_neo 
-        Qi = vec(s.model_Qi.flux)(*Lx) + Qi_neo
-        Qe = vec(s.model_Qe.flux)(*Lx) + Qe_neo
+        #G  = vec(s.model_G .flux)(*Lx) + G_neo 
+        #Qi = vec(s.model_Qi.flux)(*Lx) + Qi_neo
+        #Qe = vec(s.model_Qe.flux)(*Lx) + Qe_neo
+        G  = vec(s.model_G .flux)(kn,0*kpi, 0*kpe) + G_neo 
+        Qi = vec(s.model_Qi.flux)(0*kn, kpi, 0*kpe) + Qi_neo
+        Qe = vec(s.model_Qe.flux)(0*kn, 0*kpi, kpe) + Qe_neo
+
 
         # derivatives
-        G_n, G_pi, G_pe    = vec(s.model_G.flux_gradients)(*Lx)
-        Qi_n, Qi_pi, Qi_pe = vec(s.model_Qi.flux_gradients)(*Lx)
-        Qe_n, Qe_pi, Qe_pe = vec(s.model_Qi.flux_gradients)(*Lx)
+        #G_n, G_pi, G_pe    = vec(s.model_G.flux_gradients)(*Lx)
+        #Qi_n, Qi_pi, Qi_pe = vec(s.model_Qi.flux_gradients)(*Lx)
+        #Qe_n, Qe_pi, Qe_pe = vec(s.model_Qi.flux_gradients)(*Lx)
+        G_n, G_pi, G_pe    = vec(s.model_G.flux_gradients) (kn,0*kpi, 0*kpe) 
+        Qi_n, Qi_pi, Qi_pe = vec(s.model_Qi.flux_gradients)(0*kn, kpi, 0*kpe)
+        Qe_n, Qe_pi, Qe_pe = vec(s.model_Qi.flux_gradients)(0*kn, 0*kpi, kpe)
 
-#        pdb.set_trace()
 
         # save
         self.Gamma     = profile(G, half=True)
@@ -136,70 +143,10 @@ class Trinity_Engine():
         self.Qe_pe  = profile(Qe_pe, half=True)
 
         # temporary (backward compatibility)
-        self.dlogGamma = self.G_n
-        self.dlogQi    = self.G_pi
-        self.dlogQe    = self.G_pe
+#        self.dlogGamma = self.G_n
+#        self.dlogQi    = self.G_pi
+#        self.dlogQe    = self.G_pe
 
-
-
-
-    # this is a toy model of Flux based on ReLU + neoclassical
-    #     to be replaced by GX or STELLA import module
-
-    # old to be deleted
-    def model_flux(self,
-                   # neoclassical diffusion coefficient
-                   D_n  = .1, 
-                   D_pi = .1, 
-                   D_pe = .1,
-                   # critical gradient
-                   n_critical_gradient  = 1, 
-                   pi_critical_gradient = 0.5,
-                   pe_critical_gradient = 1.5,
-                   # slope of flux(Ln) after onset
-                   n_flux_slope  = 1, 
-                   pi_flux_slope = 1,
-                   pe_flux_slope = 1 ):
-
-        ### calc gradients
-        grad_n  = self.density.grad.profile 
-        grad_pi = self.pressure_i.grad.profile
-        grad_pe = self.pressure_e.grad.profile
-        Ln_inv  = - self.density.grad_log.profile 
-        Lpi_inv = - self.pressure_i.grad_log.profile
-        Lpe_inv = - self.pressure_e.grad_log.profile
-        # should add a or R for normalization (fix later)
-
-        ### model functions
-        relu = np.vectorize(mf.ReLU)
-        G_turb  = relu(Ln_inv,  a=n_critical_gradient,  m=n_flux_slope)
-        Qi_turb = relu(Lpi_inv, a=pi_critical_gradient, m=pi_flux_slope)
-        Qe_turb = relu(Lpe_inv, a=pe_critical_gradient, m=pe_flux_slope)
-        G_neo   = - D_n  * grad_n
-        Qi_neo  = - D_pi * grad_pi
-        Qe_neo  = - D_pe * grad_pe
-    
-        gamma = G_turb + G_neo
-        qi    = Qi_turb + Qi_neo
-        qe    = Qe_turb + Qi_neo
-   
-        # this block could be merged into the 'save'
-        Gamma     = profile(gamma,grad=True,half=True)
-        Qi        = profile(qi,   grad=True,half=True)
-        Qe        = profile(qe,   grad=True,half=True)
-        # this is incorrect, it takes grad log wrt to x instead of Ln(x) 
-        #   also, in general there will be a Jacobian of derivatives with respect to Ln, LTi, and LTe
-        dlogGamma = Gamma.grad_log 
-        dlogQi    = Qi.grad_log
-        dlogQe    = Qe.grad_log
-    
-        # save
-        self.Gamma     = Gamma
-        self.dlogGamma = dlogGamma   
-        self.Qi        = Qi
-        self.Qe        = Qe
-        self.dlogQi    = dlogQi
-        self.dlogQe    = dlogQe
 
     def normalize_fluxes(self):
 
@@ -476,18 +423,18 @@ class Trinity_Engine():
         N_block = self.N_radial - 1
         I = np.identity(N_block)
         Z = I*0 # block of 0s
-        #Z = np.zeros_like(I)
         
         ## build block-diagonal matrices
+        #M = np.block([
+        #              [ M_nn , Z      , Z ],
+        #              [ Z    , M_pipi , Z ],
+        #              [ Z    , Z      , M_pepe ],
+        #            ])
         M = np.block([
-                      [ M_nn , Z      , Z ],
-                      [ Z    , M_pipi , Z ],
-                      [ Z    , Z      , M_pepe ],
-                      #[ M_nn , M_npi , M_npe  ], # this should have factor 2/3
-                      #[ M_pin, M_pipi, M_pipe ],
-                      #[Z    , I    , Z     ],
-                      #[Z    , Z    , I     ]
-                    ])
+                      [ M_nn , M_npi , M_npe  ], # this should have factor 2/3
+                      [ M_pin, M_pipi, M_pipe ],
+                      [ M_pen, M_pepi, M_pepe ]
+                     ])
 
         I3 = np.block([[I, Z, Z ],
                        [Z, I, Z ],
@@ -518,7 +465,12 @@ class Trinity_Engine():
         psi_nn  = self.psi_nn.matrix
         psi_npi = self.psi_npi.matrix
         psi_npe = self.psi_npe.matrix
+        psi_pin  = self.psi_pin.matrix
         psi_pipi = self.psi_pipi.matrix
+        psi_pipe = self.psi_pipe.matrix
+        psi_pen  = self.psi_pen.matrix
+        psi_pepi = self.psi_pepi.matrix
+        psi_pepe = self.psi_pepe.matrix
    
         g = - 1/drho/area
         force_n  = g * (Fnp - Fnm)/2
@@ -536,15 +488,17 @@ class Trinity_Engine():
         boundary_n  = np.zeros(N_radial_mat)
         boundary_pi = np.zeros(N_radial_mat)
         boundary_pe = np.zeros(N_radial_mat)
-        # add information from Dirchlet point
-        n_edge  = self.density.profile[-1]
-        pi_edge = self.pressure_i.profile[-1]
-        pe_edge = self.pressure_e.profile[-1]
         # get last column of second to last row
         #       there should be  a (-) from flipping the psi
-        boundary_n[-1]   = psi_nn [-2,-1] * self.n_edge   \
-                         + psi_npi[-2,-1] * self.pi_edge \
-                         + psi_npe[-2,-1] * self.pe_edge 
+        boundary_n[-1]   =  psi_nn [-1,-1] * self.n_edge   \
+                          + psi_npi[-2,-1] * self.pi_edge  \
+                          + psi_npe[-2,-1] * self.pe_edge 
+        boundary_pi[-1]  =  psi_pin [-2,-1] * self.n_edge  \
+                          + psi_pipi[-2,-1] * self.pi_edge \
+                          + psi_pipe[-2,-1] * self.pe_edge 
+        boundary_pe[-1]  =  psi_pen [-2,-1] * self.n_edge  \
+                          + psi_pepi[-2,-1] * self.pi_edge \
+                          + psi_pepe[-2,-1] * self.pe_edge 
         ### There is a bug here! (1/12)
         #boundary_n[-1]   = psi_nn[-2,-1] * self.n_edge # get last column of second to last row
         #boundary_pi[-1] = psi_pipi[-2,-1] * pi_edge
@@ -552,9 +506,10 @@ class Trinity_Engine():
         #### Is this part even included in Barnes thesis?
     
         # should each psi have its own bvec? rename bvec to bvec_n if so
-        bvec_n  =  n_prev  + dtau*(1 - alpha)*force_n  + dtau*source_n # + dtau*alpha*boundary_n   ## BUG! this is the source of peaking n-1 point
-        bvec_pi =  pi_prev + dtau*(1 - alpha)*force_pi + dtau*source_pi# + dtau*alpha*boundary_pi
-        bvec_pe =  pe_prev + dtau*(1 - alpha)*force_pe + dtau*source_pe# + dtau*alpha*boundary_pe
+#        pdb.set_trace()
+        bvec_n  =  n_prev  + dtau*(1 - alpha)*force_n  + dtau*source_n  + dtau*alpha*boundary_n   ## BUG! this is the source of peaking n-1 point
+        bvec_pi =  pi_prev + dtau*(1 - alpha)*force_pi + dtau*source_pi + dtau*alpha*boundary_pi
+        bvec_pe =  pe_prev + dtau*(1 - alpha)*force_pe + dtau*source_pe + dtau*alpha*boundary_pe
        
         # there was a major bug here with the pressure parts of RHS state vector
 

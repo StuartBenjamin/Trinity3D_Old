@@ -1,4 +1,5 @@
 import numpy as np
+import pdb
 
 ### this library contains model functons for flux behavior
 
@@ -16,7 +17,9 @@ def ReLU(x,a=0.5,m=1):
     else:
         return m*(x-a)
 
-def Step(x,a=0.5,m=1):
+ReLU = np.vectorize(ReLU,otypes=[np.float64])
+
+def Step(x,a=0.5,m=1.):
     # derivative of ReLU (is just step function)
     if (x < a):
         return 0
@@ -39,16 +42,17 @@ class Flux_model():
                # neoclassical diffusion coefficient
                D_neo  = 0.1, 
                # critical gradient
-               n_critical_gradient  = 1.5, 
-               pi_critical_gradient = 1.5,
-               pe_critical_gradient = 1.5,
+               n_critical_gradient  = .5, 
+               pi_critical_gradient = .5,
+               pe_critical_gradient = .5,
                # slope of flux(Ln) after onset
-               n_flux_slope  = 1, 
-               pi_flux_slope = 1,
-               pe_flux_slope = 1 ):
+               n_flux_slope  = 1.1, 
+               pi_flux_slope = 1.1,
+               pe_flux_slope = 1.1 ):
 
         # store
         self.neo = D_neo
+        self.neo = 0 # turn off neo for debugging
         self.n_critical_gradient  = n_critical_gradient   
         self.pi_critical_gradient = pi_critical_gradient 
         self.pe_critical_gradient = pe_critical_gradient 
@@ -62,11 +66,12 @@ class Flux_model():
 
 
         ### modelling turbulence from three types of gradients
-        D_n  = ReLU(kn , a=self.n_critical_gradient , m=self.n_flux_slope )
-        D_pi = ReLU(kpi, a=self.pi_critical_gradient, m=self.pi_flux_slope)
-        D_pe = ReLU(kpe, a=self.pe_critical_gradient, m=self.pe_flux_slope)
+        D_n  = ReLU(kn , a=self.n_critical_gradient , m=self.n_flux_slope ) #* 0  # turn off Gamma for debugging
+        D_pi = ReLU(kpi, a=self.pi_critical_gradient, m=self.pi_flux_slope) *0
+        D_pe = ReLU(kpe, a=self.pe_critical_gradient, m=self.pe_flux_slope) *0
 
         D_turb = D_n + D_pi + D_pe # does not include neoclassical part
+#        D_turb = 0 # turn turbulence off for debugging
         return D_turb
 
     # compute the derivative with respect to gradient scale length

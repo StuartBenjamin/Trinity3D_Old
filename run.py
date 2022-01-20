@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import trinity_lib as trl
 import diagnostics as dgn
 
+import pdb
 
 ### main
 
@@ -25,8 +26,8 @@ drho = 1/N # temp
 
 ### Set up time controls
 alpha = 1          # explicit to implicit mixer
-dtau  = 0.001         # step size 
-N_steps  = 1000       # total Time = dtau * N_steps
+dtau  = 0.5         # step size 
+N_steps  = 100       # total Time = dtau * N_steps
 N_prints = 10
 N_step_print = N_steps // N_prints   # how often to print # thanks Sarah!
 ###
@@ -92,8 +93,8 @@ Time = 0
 #    "better to have functions than scripts"
 while (j < N_steps):
 
- #   engine.model_flux()  # old (got logs wrong, to be deleted)
     engine.compute_flux()
+#    pdb.set_trace()
     engine.normalize_fluxes()
     engine.calc_flux_coefficients()
     engine.calc_psi_n()
