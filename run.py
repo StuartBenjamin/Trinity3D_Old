@@ -22,11 +22,11 @@ pe_edge = 2
 N = 10 # number of radial points
 rho_edge = 0.8    # rho = r/a : normalized radius
 rho_axis = np.linspace(0,rho_edge,N) # radial axis
-drho = 1/N # temp
+#drho = 1/N # temp
 
 ### Set up time controls
 alpha = 1          # explicit to implicit mixer
-dtau  = 0.3         # step size 
+dtau  = 0.1         # step size 
 N_steps  = 100       # total Time = dtau * N_steps
 N_prints = 10
 N_step_print = N_steps // N_prints   # how often to print # thanks Sarah!

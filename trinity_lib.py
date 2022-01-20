@@ -26,16 +26,20 @@ class Trinity_Engine():
                        N_prints = 10,
                        rho_edge = 0.8):
 
-        self.N_radial = N  
+        self.N_radial = N           # if this is total points, including core and edge, then GX simulates (N-2) points
         self.n_core   = n_core
         self.n_edge   = n_edge
         self.pi_core   = pi_core
         self.pi_edge   = pi_edge
         self.pe_core   = pe_core
         self.pe_edge   = pe_edge
-        self.rho_edge = rho_edge
-        self.drho     = 1/N # for now assume equal spacing, 
+        #self.drho     = 1/N # for now assume equal spacing, 
                             #    could be computed in general
+        self.rho_edge = rho_edge
+        self.drho     = rho_edge / (N-1)
+        rho_axis = np.linspace(0,rho_edge,N) # radial axis
+        self.rho_axis = rho_axis
+
         self.dtau     = dtau
         self.alpha    = alpha
 
@@ -47,8 +51,7 @@ class Trinity_Engine():
 
 
         ### init profiles
-        #     temporary profiles
-        rho_axis = np.linspace(0,rho_edge,N) # radial axis
+        #     temporary profiles, later init from VMEC
         n  = (n_core - n_edge)*(1 - (rho_axis/rho_edge)**2) + n_edge
         pi = (pi_core-pi_edge)*(1 - (rho_axis/rho_edge)**2) + pi_edge
         pe = (pe_core-pe_edge)*(1 - (rho_axis/rho_edge)**2) + pe_edge
@@ -57,27 +60,25 @@ class Trinity_Engine():
         self.density     = init_profile(n)
         self.pressure_i  = init_profile(pi)
         self.pressure_e  = init_profile(pe)
-        # should I split this out? decide later
-        self.rho_axis = rho_axis
 
         ### init transport variables
-        zeros =  profile( np.zeros(N) )
-        self.Gamma     = zeros 
-        self.Qi        = zeros
-        self.Qe        = zeros
-        self.dlogGamma = zeros
-        self.dlogQi    = zeros
-        self.dlogQe    = zeros
-
-        ### init flux coefficients
-        self.Cn_n  = 0
-        self.Cn_pi = 0 
-        self.Cn_pe = 0
-
-        ### init psi profiles
-        self.psi_nn  = 0
-        self.psi_npi = 0
-        self.psi_npe = 0
+#        zeros =  profile( np.zeros(N) )
+#        self.Gamma     = zeros 
+#        self.Qi        = zeros
+#        self.Qe        = zeros
+#        self.dlogGamma = zeros
+#        self.dlogQi    = zeros
+#        self.dlogQe    = zeros
+#
+#        ### init flux coefficients
+#        self.Cn_n  = 0
+#        self.Cn_pi = 0 
+#        self.Cn_pe = 0
+#
+#        ### init psi profiles
+#        self.psi_nn  = 0
+#        self.psi_npi = 0
+#        self.psi_npe = 0
 
         ### init flux models
         self.model_G  = mf.Flux_model()
@@ -152,10 +153,8 @@ class Trinity_Engine():
         Ba    = self.Ba
 
         # calc
-        #Fn, Fpi, Fpe = calc_F3(density,pressure_i,pressure_e,Gamma,Qi,Qe)
         A = area / Ba**2
         Fn = A * Gamma * pi**(1.5) / n**(0.5)
-        # unused for now
         Fpi = A * Qi * pi**(2.5) / n**(1.5)
         Fpe = A * Qe * pi**(2.5) / n**(1.5)
 
@@ -185,15 +184,13 @@ class Trinity_Engine():
         pi        = self.pressure_i
         pe        = self.pressure_e
         Fn        = self.Fn
-        dlogGamma = self.dlogGamma
-        # new for pressure
         Fpi       = self.Fpi
         Fpe       = self.Fpe
-        dlogQi    = self.dlogQi
-        dlogQe    = self.dlogQe
 
         # normalization
-        norm = (self.R_major / self.a_minor) / self.drho 
+        norm = 1 / self.a_minor / self.drho  # temp set R=1
+        # because it should cancel with a R/L that I am also ignoring
+        #norm = (self.R_major / self.a_minor) / self.drho 
 
         # calculate and save
         s = self
@@ -220,7 +217,9 @@ class Trinity_Engine():
     
         # need to implement <|grad rho|>, by reading surface area from VMEC
         grho = 1 
-        geometry_factor = - grho / self.area.profile * self.drho
+        drho  = self.drho
+        area  = self.area.profile
+        geometry_factor = - grho / (area * drho)
     
         # load
         Fnp = self.Fn.plus.profile
@@ -280,7 +279,9 @@ class Trinity_Engine():
     
         # need to implement <|grad rho|>, by reading surface area from VMEC
         grho = 1 
-        geometry_factor = - grho / self.area.profile * self.drho
+        drho  = self.drho
+        area  = self.area.profile
+        geometry_factor = - grho / (area * drho)
     
         # load
         F_p = self.Fpi.plus#.profile
@@ -340,11 +341,13 @@ class Trinity_Engine():
     
         # need to implement <|grad rho|>, by reading surface area from VMEC
         grho = 1 
-        geometry_factor = - grho / self.area.profile * self.drho
+        drho  = self.drho
+        area  = self.area.profile
+        geometry_factor = - grho / (area * drho)
     
         # load
-        F_p = self.Fpe.plus#.profile
-        F_m = self.Fpe.minus#.profile
+        F_p = self.Fpe.plus.profile
+        F_m = self.Fpe.minus.profile
         n     = self.density.profile
         n_p = self.density.plus.profile
         n_m = self.density.minus.profile
@@ -463,15 +466,16 @@ class Trinity_Engine():
         psi_pepi = self.psi_pepi.matrix
         psi_pepe = self.psi_pepe.matrix
    
-        g = - 1/drho/area
-        force_n  = g * (Fnp - Fnm)/2
-        force_pi = g * (Fip - Fim)/2
-        force_pe = g * (Fep - Fem)/2
-    
+        grho = 1 # temp
+        g = - grho/area
+        force_n  = g * (Fnp - Fnm) / drho
+        force_pi = g * (Fip - Fim) / drho
+        force_pe = g * (Fep - Fem) / drho
+
         Gaussian  = np.vectorize(mf.Gaussian)
-        source_n  = Gaussian(rax, A=Sn_height, sigma=Sn_width)
-        source_pi = Gaussian(rax, A=Spi_height,sigma=Spi_width)
-        source_pe = Gaussian(rax, A=Spe_height,sigma=Spe_width)
+        source_n  = Gaussian(rax, A=Sn_height , sigma=Sn_width)
+        source_pi = Gaussian(rax, A=Spi_height, sigma=Spi_width)
+        source_pe = Gaussian(rax, A=Spe_height, sigma=Spe_width)
     
         ### init boundary condition
         N_radial_mat = self.N_radial - 1
@@ -515,9 +519,9 @@ class Trinity_Engine():
 
         Ainv = np.linalg.inv(Amat) 
         self.y_next = Ainv @ bvec
-
+        
+        # for debugging the A matrix
         # plt.figure(); plt.imshow( np.log(np.abs(Amat))); plt.show()
-#        pdb.set_trace()
     
 
     def update(self):
