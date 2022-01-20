@@ -67,8 +67,8 @@ class Flux_model():
 
         ### modelling turbulence from three types of gradients
         D_n  = ReLU(kn , a=self.n_critical_gradient , m=self.n_flux_slope ) #* 0  # turn off Gamma for debugging
-        D_pi = ReLU(kpi, a=self.pi_critical_gradient, m=self.pi_flux_slope) *0
-        D_pe = ReLU(kpe, a=self.pe_critical_gradient, m=self.pe_flux_slope) *0
+        D_pi = ReLU(kpi, a=self.pi_critical_gradient, m=self.pi_flux_slope) #*0
+        D_pe = ReLU(kpe, a=self.pe_critical_gradient, m=self.pe_flux_slope) #*0
 
         D_turb = D_n + D_pi + D_pe # does not include neoclassical part
 #        D_turb = 0 # turn turbulence off for debugging

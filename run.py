@@ -14,7 +14,7 @@ import pdb
 n_core  = 5
 pi_core = 5
 pe_core = 5
-n_edge  = 1.5
+n_edge  = 2
 pi_edge = 2
 pe_edge = 2 
 
@@ -26,7 +26,7 @@ drho = 1/N # temp
 
 ### Set up time controls
 alpha = 1          # explicit to implicit mixer
-dtau  = 0.5         # step size 
+dtau  = 0.3         # step size 
 N_steps  = 100       # total Time = dtau * N_steps
 N_prints = 10
 N_step_print = N_steps // N_prints   # how often to print # thanks Sarah!
@@ -103,6 +103,7 @@ while (j < N_steps):
     engine.calc_y_next()
 
     engine.update()
+
     if not ( j % N_step_print):
         
         # load
