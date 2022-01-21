@@ -2,8 +2,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pdb
 
-import models as mf # model functions
+import models as mf 
 
+# ignore divide by 0 warnings
+#np.seterr(divide='ignore', invalid='ignore')
 
 # This class contains TRINITY calculations and stores partial results as member objects
 # There is a sub class for fluxes of each (n, pi, pe) evolution
@@ -84,6 +86,13 @@ class Trinity_Engine():
         self.model_G  = mf.Flux_model()
         self.model_Qi = mf.Flux_model()
         self.model_Qe = mf.Flux_model()
+
+
+        ### init GX commands
+        fout = 'gx-files/temp.gx'
+        with open(fout, 'w') as f:
+            print('t_idx, r_idx, time, r, s, tprim, fprim', file=f)
+        self.f_cmd = fout
 
 
     # this is a toy model of Flux based on ReLU + neoclassical
@@ -543,6 +552,27 @@ class Trinity_Engine():
         self.density    = profile(n,  grad=True, half=True, full=True)
         self.pressure_i = profile(pi, grad=True, half=True, full=True)
         self.pressure_e = profile(pe, grad=True, half=True, full=True)
+
+
+    # first attempt at exporting gradients for GX
+    def write_GX_command(self,j,Time):
+        
+        # load gradient scale length
+        kn  = - self.density.grad_log.profile     # L_n^inv
+        kpi = - self.pressure_i.grad_log.profile  # L_pi^inv
+        kpe = - self.pressure_e.grad_log.profile  # L_pe^inv
+
+        rax = self.rho_axis
+        sax = rax**2
+        kti = kpi - kn
+
+        fout = self.f_cmd
+        with open(fout, 'a') as f:
+
+            idx = np.arange(1, self.N_radial-1) # drop the first and last point
+            for k in idx: 
+                print('{:d}, {:d}, {:.2e}, {:.4e}, {:.4e}, {:.6e}, {:.6e}' \
+                .format(j, k, Time, rax[k], sax[k], kti[k], kn[k]), file=f)
         
 
 # the class computes and stores normalized flux F, AB coefficients, and psi for the tridiagonal matrix
@@ -577,7 +607,9 @@ class flux_coefficients():
         Zp = self.RawFlux.plus.profile
         dZp = self.dRawFlux.plus.profile
 
-        dLogZp = np.nan_to_num( dZp / Zp )
+        with np.errstate(divide='ignore', invalid='ignore'):
+            dLogZp = np.nan_to_num( dZp / Zp )
+
         Cp = - norm * (x / xp**2) * Yp * dLogZp
         return profile(Cp)
 
@@ -591,9 +623,10 @@ class flux_coefficients():
         Zm = self.RawFlux.minus.profile
         dZm = self.dRawFlux.minus.profile
         
-        dLogZm = np.nan_to_num( dZm / Zm )
+        with np.errstate(divide='ignore', invalid='ignore'):
+            dLogZm = np.nan_to_num( dZm / Zm )
+
         Cm = - norm * (x / xm**2) * Ym * dLogZm
-        #Cm = x / xm**2 * Ym * Zm / dRho # typo in notes?
         return profile(Cm)
 
     def C_zero(self):
@@ -614,8 +647,9 @@ class flux_coefficients():
         Zm = self.RawFlux.minus.profile
         dZm = self.dRawFlux.minus.profile
         
-        dLogZp = np.nan_to_num( dZp / Zp )
-        dLogZm = np.nan_to_num( dZm / Zm )
+        with np.errstate(divide='ignore', invalid='ignore'):
+            dLogZp = np.nan_to_num( dZp / Zp )
+            dLogZm = np.nan_to_num( dZm / Zm )
 
         cp = xp1 / xp**2 * Yp * dLogZp
         cm = xm1 / xm**2 * Ym * dLogZm
@@ -728,9 +762,11 @@ class profile():
 
     def log_gradient(self):
         # this is actually the gradient of the log...
-        eps = 1e-8
-        #return self.gradient() / (self.profile + eps)
-        return np.nan_to_num(self.gradient() / self.profile )
+
+        with np.errstate(divide='ignore', invalid='ignore'):
+            gradlog = np.nan_to_num(self.gradient() / self.profile )
+
+        return gradlog
 
     def plot(self,show=False,new_fig=False,label=''):
 
