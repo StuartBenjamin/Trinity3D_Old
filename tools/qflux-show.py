@@ -29,16 +29,24 @@ for fname in sys.argv[1:]:
 
 
 plt.figure()
+cols = ['C0','C1','C2','C3','C4','C5','C6','C7']
 
 j = 0
+flux = []
 for f in data:
+
     t = f.variables['time'][:]
     q = f.groups['Fluxes'].variables['qflux'][:,0]
-
-    #plt.plot(t,'.-',label=fins[j]) # plot time
-    #plt.plot(q,'.-',label=fins[j]) # plot index
     plt.plot(t,q,'.-',label=fins[j])
+
+    # median of a sliding median
+    N = len(q)
+    med = np.median( [ np.median( q[::-1][:k] ) for k in np.arange(1,N)] )
+    plt.axhline(med, color=cols[j], ls='--')
+    flux.append(med)
     j+=1
+
+print(flux)
 
 plt.yscale('log')
 plt.ylabel('qflux')
