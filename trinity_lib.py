@@ -171,7 +171,7 @@ class Trinity_Engine():
         Fpi = profile(Fpi,half=True,grad=True)
         Fpe = profile(Fpe,half=True,grad=True)
         # set inner boundary condition
-        Fn.minus.profile[0] = 0
+        Fn .minus.profile[0] = 0
         Fpi.minus.profile[0] = 0
         Fpe.minus.profile[0] = 0
         # this actually 0 anyways, 
