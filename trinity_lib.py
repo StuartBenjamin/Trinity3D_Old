@@ -89,10 +89,10 @@ class Trinity_Engine():
 
 
         ### init GX commands
-        fout = 'gx-files/temp.gx'
-        with open(fout, 'w') as f:
-            print('t_idx, r_idx, time, r, s, tprim, fprim', file=f)
-        self.f_cmd = fout
+        #fout = 'gx-files/temp.gx'
+        #with open(fout, 'w') as f:
+        #    print('t_idx, r_idx, time, r, s, tprim, fprim', file=f)
+        #self.f_cmd = fout
 
 
     # this is a toy model of Flux based on ReLU + neoclassical

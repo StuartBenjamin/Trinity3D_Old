@@ -11,7 +11,7 @@ import pdb
 # go into the trinity engine
  
 ## Set initial conditions
-n_core  = 3
+n_core  = 5
 n_edge  = 3
 
 pi_core = 5 
@@ -30,7 +30,7 @@ rho_axis = np.linspace(0,rho_edge,N) # radial axis
 alpha = 1          # explicit to implicit mixer
 dtau  = 0.1         # step size 
 N_steps  = 100       # total Time = dtau * N_steps
-N_prints = 5
+N_prints = 10
 N_step_print = N_steps // N_prints   # how often to print # thanks Sarah!
 ###
 
@@ -122,7 +122,7 @@ while (j < N_steps):
 
         ### write GX commands
         # later this could be on a separate time scale
-        engine.write_GX_command(j,Time)
+        #engine.write_GX_command(j,Time)
 
 
 
