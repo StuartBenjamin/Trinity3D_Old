@@ -565,6 +565,7 @@ class Trinity_Engine():
         rax = self.rho_axis
         sax = rax**2
         kti = kpi - kn
+        R   = self.R_major
 
         fout = self.f_cmd
         with open(fout, 'a') as f:
@@ -572,7 +573,7 @@ class Trinity_Engine():
             idx = np.arange(1, self.N_radial-1) # drop the first and last point
             for k in idx: 
                 print('{:d}, {:d}, {:.2e}, {:.4e}, {:.4e}, {:.6e}, {:.6e}' \
-                .format(j, k, Time, rax[k], sax[k], kti[k], kn[k]), file=f)
+                .format(j, k, Time, rax[k], sax[k], R*kti[k], R*kn[k]), file=f)
         
 
 # the class computes and stores normalized flux F, AB coefficients, and psi for the tridiagonal matrix

@@ -55,8 +55,8 @@ trl.rho_axis = rho_axis
 #temperature = trl.profile(T)
 ### will be from VMEC
 Ba = 3 # average field on LCFS
-R_major = 4 # meter
-a_minor = 1 # meter
+R_major = 5   # meter
+a_minor = 0.5 # meter
 area     = trl.profile(np.linspace(0.01,a_minor,N)) # parabolic area, simple torus
 
 
@@ -136,4 +136,4 @@ d3_prof.title(rlabel)
 
 d3_flux.label(titles=['Gamma','Qi','Qe'])
 
-#plt.show()
+plt.show()
