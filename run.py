@@ -11,7 +11,7 @@ import pdb
 # go into the trinity engine
  
 ## Set initial conditions
-n_core  = 3
+n_core  = 5
 n_edge  = 3
 
 pi_core = 5 
@@ -28,25 +28,24 @@ rho_axis = np.linspace(0,rho_edge,N) # radial axis
 
 ### Set up time controls
 alpha = 1          # explicit to implicit mixer
-dtau  = 0.1         # step size 
-N_steps  = 100       # total Time = dtau * N_steps
-N_prints = 5
+dtau  = 1         # step size 
+N_steps  = 10       # total Time = dtau * N_steps
+N_prints = 10
 N_step_print = N_steps // N_prints   # how often to print # thanks Sarah!
 ###
 
 
 ### Set up source
-trl.Sn_width = 0.1
-trl.Sn_height = 0
-trl.Spi_width = 0.1
-trl.Spi_height = 0
-trl.Spe_width = 0.1
-trl.Spe_height = 0
+Sn_height  = 3
+Spi_height = 3
+Spe_height = 2
+Sn_width   = 0.2
+Spi_width  = 0.2
+Spe_width  = 0.3
 
 
 # temp fix, pass global param into library
 #    this is what should be in the "Trinity Engine"
-#trl.N_radial_points = N
 trl.rho_axis = rho_axis
 
 
@@ -79,24 +78,40 @@ engine = trl.Trinity_Engine(alpha=alpha,
                             R_major  = R_major,
                             a_minor  = a_minor,
                             Ba       = Ba,
-                            rho_edge = rho_edge)
+                            rho_edge = rho_edge,
+                            ###
+                            Sn_width   = Sn_width,   
+                            Sn_height  = Sn_height,  
+                            Spi_width  = Spi_width, 
+                            Spi_height = Spi_height, 
+                            Spe_width  = Spe_width,  
+                            Spe_height = Spe_height 
+                            )
 
 
 d3_prof  = dgn.diagnostic_3()
 d3_flux  = dgn.diagnostic_3()
 
-j = 0 
+
 Time = 0
+density    = engine.density
+pressure_i = engine.pressure_i
+pressure_e = engine.pressure_e
+#Gamma     = engine.Gamma
+#Q_i       = engine.Qi
+#Q_e       = engine.Qe
+d3_prof.plot( density, pressure_i, pressure_e, Time)
+#d3_flux.plot( Gamma, Q_i, Q_e, Time)
+j = 0 
 # Put this into "Trinity Runner" class
 #    "better to have functions than scripts"
 while (j < N_steps):
 
     engine.compute_flux()
-#    pdb.set_trace()
     engine.normalize_fluxes()
     engine.calc_flux_coefficients()
     engine.calc_psi_n()
-    engine.calc_psi_pi() # new
+    engine.calc_psi_pi() 
     engine.calc_psi_pe() 
     engine.calc_y_next()
 
@@ -122,7 +137,7 @@ while (j < N_steps):
 
         ### write GX commands
         # later this could be on a separate time scale
-        engine.write_GX_command(j,Time)
+        #engine.write_GX_command(j,Time)
 
 
 
@@ -135,5 +150,7 @@ d3_prof.label(titles=['n','pi','pe'])
 d3_prof.title(rlabel)
 
 d3_flux.label(titles=['Gamma','Qi','Qe'])
+
+engine.plot_sources()
 
 plt.show()

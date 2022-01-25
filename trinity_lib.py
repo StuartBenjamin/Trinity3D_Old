@@ -26,7 +26,14 @@ class Trinity_Engine():
                        dtau  = 0.5,        # step size 
                        N_steps  = 1000,    # total Time = dtau * N_steps
                        N_prints = 10,
-                       rho_edge = 0.8):
+                       rho_edge = 0.8,
+                       Sn_width   = 0.1,   
+                       Sn_height  = 0,  
+                       Spi_width  = 0.1, 
+                       Spi_height = 0, 
+                       Spe_width  = 0.1,  
+                       Spe_height = 0 
+                       ):
 
         self.N_radial = N           # if this is total points, including core and edge, then GX simulates (N-2) points
         self.n_core   = n_core
@@ -81,6 +88,15 @@ class Trinity_Engine():
 #        self.psi_nn  = 0
 #        self.psi_npi = 0
 #        self.psi_npe = 0
+
+
+        ### sources
+        # temp, Gaussian model. Later this should be adjustable
+        Gaussian  = np.vectorize(mf.Gaussian)
+        rax = rho_axis
+        self.source_n  = Gaussian(rax, A=Sn_height , sigma=Sn_width)
+        self.source_pi = Gaussian(rax, A=Spi_height, sigma=Spi_width)
+        self.source_pe = Gaussian(rax, A=Spe_height, sigma=Spe_width)
 
         ### init flux models
         self.model_G  = mf.Flux_model()
@@ -481,10 +497,13 @@ class Trinity_Engine():
         force_pi = g * (Fip - Fim) / drho
         force_pe = g * (Fep - Fem) / drho
 
-        Gaussian  = np.vectorize(mf.Gaussian)
-        source_n  = Gaussian(rax, A=Sn_height , sigma=Sn_width)
-        source_pi = Gaussian(rax, A=Spi_height, sigma=Spi_width)
-        source_pe = Gaussian(rax, A=Spe_height, sigma=Spe_width)
+        #Gaussian  = np.vectorize(mf.Gaussian)
+        #source_n  = Gaussian(rax, A=Sn_height , sigma=Sn_width)
+        #source_pi = Gaussian(rax, A=Spi_height, sigma=Spi_width)
+        #source_pe = Gaussian(rax, A=Spe_height, sigma=Spe_width)
+        source_n  = self.source_n[:-1]
+        source_pi = self.source_pi[:-1]
+        source_pe = self.source_pe[:-1]
     
         ### init boundary condition
         N_radial_mat = self.N_radial - 1
@@ -502,11 +521,6 @@ class Trinity_Engine():
         boundary_pe[-1]  =  psi_pen [-2,-1] * self.n_edge  \
                           + psi_pepi[-2,-1] * self.pi_edge \
                           + psi_pepe[-2,-1] * self.pe_edge 
-        ### There is a bug here! (1/12)
-        #boundary_n[-1]   = psi_nn[-2,-1] * self.n_edge # get last column of second to last row
-        #boundary_pi[-1] = psi_pipi[-2,-1] * pi_edge
-#        boundary_pe[-1] = psi_npe[-2,-1] * self.pi_edge
-        #### Is this part even included in Barnes thesis?
     
         # should each psi have its own bvec? rename bvec to bvec_n if so
         bvec_n  =  n_prev  + dtau*(1 - alpha)*force_n  + dtau*source_n  + dtau*alpha*boundary_n   ## BUG! this is the source of peaking n-1 point
@@ -552,6 +566,22 @@ class Trinity_Engine():
         self.density    = profile(n,  grad=True, half=True, full=True)
         self.pressure_i = profile(pi, grad=True, half=True, full=True)
         self.pressure_e = profile(pe, grad=True, half=True, full=True)
+
+    def plot_sources(self):
+
+        rax = self.rho_axis
+        source_n  = self.source_n 
+        source_pi = self.source_pi
+        source_pe = self.source_pe
+
+        plt.figure(figsize=(4,4))
+        plt.plot(rax, source_n, '.-', label=r'$S_n$')
+        plt.plot(rax, source_pi, '.-', label=r'$S_{p_i}$')
+        plt.plot(rax, source_pe, '.-', label=r'$S_{p_e}$')
+        plt.title('Sources')
+
+        plt.legend()
+        plt.grid()
 
 
     # first attempt at exporting gradients for GX
