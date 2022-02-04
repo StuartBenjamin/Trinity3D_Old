@@ -1,7 +1,9 @@
 import numpy as np
 import pdb
 
-import Geometry as geo
+#import Geometry as geo
+from Geometry import FluxTube
+from GX_io    import GX_Runner
 
 ### this library contains model functons for flux behavior
 
@@ -101,6 +103,14 @@ class GX_Flux_Model():
 
     def __init__(self,fname):
 
+
+        ###  load an input template
+        #    later, this should come from Trinity input file
+        f_input = 'gx-files/gx-sample.in' 
+        self.input_template = GX_Runner(f_input)
+
+
+        ### This keeps a record of GX comands, it might be retired
         # init file for writing GX commands
 
         with  open(fname,'w') as f:
@@ -109,13 +119,10 @@ class GX_Flux_Model():
         # store file name (includes path)
         self.fname = fname
         self.f_handle = open(fname, 'a')
+        ###
 
 
     def init_geometry(self):
-       
-        # perhaps a list of geometry files should be read, from the trinity input files? and handled either here or in the Geometry class
-        N = 4 # this is not yet used
-        g = geo.Geometry(N)
 
         ### load flux tube geometry
         # these should come from Trinity input file
@@ -125,8 +132,19 @@ class GX_Flux_Model():
         'gx-files/gx_wout_gonzalez-2021_psiN_0.704_gds21_nt_42_geo.nc',
         'gx-files/gx_wout_gonzalez-2021_psiN_0.897_gds21_nt_42_geo.nc']
 
+        ### list for storing flux tubes
+        self.flux_tubes = []
         for fin in geo_inputs:
-            g.load_fluxtube(fin)
+            self.load_fluxtube(fin)
+
+
+    def load_fluxtube(self, f_geo):
+
+        ft = FluxTube(f_geo)       # init an instance of flux tube class
+        ft.load_gx_input(self.input_template)
+
+        # save
+        self.flux_tubes.append(ft)
 
 
     def prep_commands(self, engine,

@@ -6,47 +6,6 @@ import copy
 
 import pdb
 
-class Geometry():
-
-    def __init__(self, N_radius):
-
-        self.N_radius = N_radius # the number of points in Trinity grid
-
-        ## lets start by assuming the number of GX points is the same, 
-        #     but potentially it could be fewer 
-        #     if want to come up with a flux interpolation scheme
-
-
-        ###  load an input template
-        #    later, this should come from Trinity input file
-        f_input = 'gx-files/gx-sample.in' 
-        self.input_template = GX_Runner(f_input)
-
-        ### list for storing flux tubes
-        self.flux_tubes = []
-
-
-    def load_fluxtube(self, f_geo):
-
-        ft = FluxTube(f_geo)       # init an instance of flux tube class
-        ft.load_gx_input(self.input_template)
-        self.flux_tubes.append(ft) # store in list of flux tubes
-
-    def load_VMEC(self, f_vmec):
-        # reads a VMEC wout file
-        pass
-
-    def run_GX_geometry_module(self):
-        # this takes an existing VMEC file, and runs gx.ing to generate a flux tube
-        # should store information about the flux tubes
-        pass
-
-
-    def run_VMEC(self):
-        # this updates (an existing) VMEC geometry
-        #    based on the pressure profile, determined by n,T, and source terms in Trinity
-        pass
-
 
 class FluxTube():
     ###
@@ -102,107 +61,47 @@ class FluxTube():
         self.gx_input = gx
 
 
-class GX_Runner():
-
-    # This class handles GX input files, and also execution
-    #   copied from GX-ready.py
-
-    def __init__(self,template):
-        
-        self.read_input(template)
 
 
-    def read_input(self, fin):
+# unused pseudo code
+class Geometry():
 
-        with open(fin) as f:
-            data = f.readlines()
+    def __init__(self, N_radius):
 
-        obj = {}
-        header = ''
-        for line in data:
+        self.N_radius = N_radius # the number of points in Trinity grid
 
-            # skip comments
-            if line.find('#') > -1:
-                continue
-
-            # parse headers
-            if line.find('[') == 0:
-                header = line.split('[')[1].split(']')[0]
-                obj[header] = {}
-                continue
-
-            # skip blanks
-            if line.find('=') < 0:
-                continue
-
-            # store data
-            key, value = line.split('=')
-            key   = key.strip()
-            value = value.strip()
-            
-            if header == '':
-                obj[key] = value
-            else:
-                obj[header][key] = value
-
-        self.inputs = obj
+        ## lets start by assuming the number of GX points is the same, 
+        #     but potentially it could be fewer 
+        #     if want to come up with a flux interpolation scheme
 
 
-    def write(self, fout='temp.in'):
+        ###  load an input template
+        #    later, this should come from Trinity input file
+        f_input = 'gx-files/gx-sample.in' 
+        self.input_template = GX_Runner(f_input)
 
-        with open(fout,'w') as f:
-        
-            for item in self.inputs.items():
-                 
-                if ( type(item[1]) is not dict ):
-                    print('  %s = %s ' % item, file=f)  
-                    continue
-    
-                header, nest = item
-                print('\n[%s]' % header, file=f)
-    
-                longest_key =  max( nest.keys(), key=len) 
-                N_space = len(longest_key) 
-                for pair in nest.items():
-                    s = '  {:%i}  =  {}' % N_space
-                    print(s.format(*pair), file=f)
+        ### list for storing flux tubes
+        self.flux_tubes = []
 
-        print('  wrote to:', fout)
 
-    def execute(self):
+    def load_fluxtube(self, f_geo):
 
-        # assume Trinity is in a salloc environment with GPUs
-        # write input file, write batch file, execute srun
+        ft = FluxTube(f_geo)       # init an instance of flux tube class
+        ft.load_gx_input(self.input_template)
+        self.flux_tubes.append(ft) # store in list of flux tubes
+
+    def load_VMEC(self, f_vmec):
+        # reads a VMEC wout file
         pass
 
-    def pretty_print(self, entry=''):
-    # dumps out current input data, in GX input format
-    #    if entry, where entry is one of the GX input headers
-    #       only print the inputs nested under entry
+    def run_GX_geometry_module(self):
+        # this takes an existing VMEC file, and runs gx.ing to generate a flux tube
+        # should store information about the flux tubes
+        pass
 
-        for item in self.inputs.items():
-        
-            # a catch for the debug input, which has no header
-            if ( type(item[1]) is not dict ):
-                if (entry == ''):
-                    print('  %s = %s ' % item)
-                    continue
-     
-            header, nest = item
 
-            # special case
-            if (entry != ''):
-                header = entry
-                nest   = self.inputs[entry]
+    def run_VMEC(self):
+        # this updates (an existing) VMEC geometry
+        #    based on the pressure profile, determined by n,T, and source terms in Trinity
+        pass
 
-            print('\n[%s]' % header)
-     
-            longest_key =  max( nest.keys(), key=len) 
-            N_space = len(longest_key) 
-            for pair in nest.items():
-                s = '  {:%i}  =  {}' % N_space
-                print(s.format(*pair))
-
-            # special case
-            if (entry != ''):
-                break

@@ -103,12 +103,12 @@ class Trinity_Engine():
         self.model_Qi = mf.Flux_model()
         self.model_Qe = mf.Flux_model()
 
-
         ### init GX commands
         fout = 'gx-files/temp.gx'
         gx = mf.GX_Flux_Model(fout)
         gx.init_geometry()
 
+        pdb.set_trace()
 
         self.f_cmd = fout
         self.model_gx = gx
