@@ -117,13 +117,16 @@ class GX_Flux_Model():
         N = 4 # this is not yet used
         g = geo.Geometry(N)
 
-        ftemp = 'gx-files/gx_wout_gonzalez-2021_psiN_0.102_gds21_nt_36_geo.nc'
-        g.load_fluxtube(ftemp)
+        ### load flux tube geometry
+        # these should come from Trinity input file
+        geo_inputs = ['gx-files/gx_wout_gonzalez-2021_psiN_0.102_gds21_nt_36_geo.nc',
+        'gx-files/gx_wout_gonzalez-2021_psiN_0.295_gds21_nt_38_geo.nc',  
+        'gx-files/gx_wout_gonzalez-2021_psiN_0.500_gds21_nt_40_geo.nc',
+        'gx-files/gx_wout_gonzalez-2021_psiN_0.704_gds21_nt_42_geo.nc',
+        'gx-files/gx_wout_gonzalez-2021_psiN_0.897_gds21_nt_42_geo.nc']
 
-        # for debugging: g.flux_tubes[0].psiN
-
-        import pdb
-        pdb.set_trace()
+        for fin in geo_inputs:
+            g.load_fluxtube(fin)
 
 
     def prep_commands(self, engine,
