@@ -92,3 +92,69 @@ class Flux_model():
         return grad_Dn, grad_Dpi, grad_Dpe
 
     # move this function from model to Trinity_lib, because it does not depend on the particular model
+
+
+
+class GX_Flux_Model():
+
+    def __init__(self,fname):
+
+        # init file for writing GX commands
+
+        with  open(fname,'w') as f:
+            print('t_idx, r_idx, time, r, s, tprim, fprim', file=f)
+
+        # store file name (includes path)
+        self.fname = fname
+        self.f_handle = open(fname, 'a')
+
+
+    def prep_commands(self, engine,
+                                  t_id,
+                                  time,
+                                  step = 0.1):
+
+        self.t_id = t_id
+        self.time = time
+
+        # should pass (R/Lx) to GX
+        R   = engine.R_major
+        rax = engine.rho_axis
+        # load gradient scale length
+        Ln  = - R * engine.density.grad_log.profile     # L_n^inv
+        Lpi = - R * engine.pressure_i.grad_log.profile  # L_pi^inv
+        Lpe = - R *engine.pressure_e.grad_log.profile  # L_pe^inv
+
+        # turbulent flux calls, for each radial flux tube
+        idx = np.arange(1, engine.N_radial-1) # drop the first and last point
+        for j in idx: 
+            rho = rax[j]
+            kn  = Ln [j]
+            kpi = Lpi[j]
+            kpe = Lpe[j]
+
+            self.write_command(j, rho, kn       , kpi       , kpe       )
+            self.write_command(j, rho, kn + step, kpi       , kpe       )
+            self.write_command(j, rho, kn       , kpi + step, kpe       )
+            self.write_command(j, rho, kn       , kpi       , kpe + step)
+
+
+
+    # first attempt at exporting gradients for GX
+    def write_command(self, r_id, rho, kn, kpi, kpe):
+        
+        s = rho**2
+        kti = kpi - kn
+
+        t_id = self.t_id # time integer
+        time = self.time # time [s]
+
+        f = self.f_handle
+
+        #print('t_idx, r_idx, time, r, s, tprim, fprim', file=f)
+        print('{:d}, {:d}, {:.2e}, {:.4e}, {:.4e}, {:.6e}, {:.6e}' \
+        .format(t_id, r_id, time, rho, s, kti, kn), file=f)
+
+
+
+

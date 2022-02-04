@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 
 import trinity_lib as trl
 import diagnostics as dgn
+import models      as mf
 
 import pdb
 
@@ -92,6 +93,8 @@ engine = trl.Trinity_Engine(alpha=alpha,
 d3_prof  = dgn.diagnostic_3()
 d3_flux  = dgn.diagnostic_3()
 
+#fout = 'gx-files/temp.gx'
+#model_gx = mf.GX_Flux_Model(fout)
 
 Time = 0
 density    = engine.density
@@ -137,7 +140,10 @@ while (j < N_steps):
 
         ### write GX commands
         # later this could be on a separate time scale
-        #engine.write_GX_command(j,Time)
+        engine.model_gx.prep_commands(engine, j, Time)
+        #model_gx.prep_commands(engine, j, Time)
+
+        # is it better for model_gx to live in run scope or in engine?
 
 
 
@@ -153,4 +159,4 @@ d3_flux.label(titles=['Gamma','Qi','Qe'])
 
 engine.plot_sources()
 
-plt.show()
+#plt.show()

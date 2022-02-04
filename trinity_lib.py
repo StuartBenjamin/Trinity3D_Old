@@ -106,8 +106,9 @@ class Trinity_Engine():
 
         ### init GX commands
         fout = 'gx-files/temp.gx'
-        with open(fout, 'w') as f:
-            print('t_idx, r_idx, time, r, s, tprim, fprim', file=f)
+        #with open(fout, 'w') as f:
+        #    print('t_idx, r_idx, time, r, s, tprim, fprim', file=f)
+        self.model_gx = mf.GX_Flux_Model(fout)
         self.f_cmd = fout
 
 
