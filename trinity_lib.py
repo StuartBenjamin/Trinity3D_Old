@@ -106,11 +106,12 @@ class Trinity_Engine():
 
         ### init GX commands
         fout = 'gx-files/temp.gx'
-        #with open(fout, 'w') as f:
-        #    print('t_idx, r_idx, time, r, s, tprim, fprim', file=f)
-        self.model_gx = mf.GX_Flux_Model(fout)
-        self.f_cmd = fout
+        gx = mf.GX_Flux_Model(fout)
+        gx.init_geometry()
 
+
+        self.f_cmd = fout
+        self.model_gx = gx
 
     # this is a toy model of Flux based on ReLU + neoclassical
     #     to be replaced by GX or STELLA import module

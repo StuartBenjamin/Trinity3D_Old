@@ -1,6 +1,8 @@
 import numpy as np
 import pdb
 
+import Geometry as geo
+
 ### this library contains model functons for flux behavior
 
 def ReLU(x,a=0.5,m=1):
@@ -107,6 +109,21 @@ class GX_Flux_Model():
         # store file name (includes path)
         self.fname = fname
         self.f_handle = open(fname, 'a')
+
+
+    def init_geometry(self):
+       
+        # perhaps a list of geometry files should be read, from the trinity input files? and handled either here or in the Geometry class
+        N = 4 # this is not yet used
+        g = geo.Geometry(N)
+
+        ftemp = 'gx-files/gx_wout_gonzalez-2021_psiN_0.102_gds21_nt_36_geo.nc'
+        g.load_fluxtube(ftemp)
+
+        # for debugging: g.flux_tubes[0].psiN
+
+        import pdb
+        pdb.set_trace()
 
 
     def prep_commands(self, engine,
