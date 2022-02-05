@@ -54,11 +54,21 @@ class FluxTube():
 
         # modify flux tube specific data
         gx.inputs['Dimensions']['ntheta'] = self.ntheta
-        gx.inputs['Geometry']['geofile']  = self.f_geo
+        gx.inputs['Geometry']['geofile']  = '"{:}"'.format(self.f_geo)
         gx.inputs['Geometry']['shat']     = self.shat
 
         # save
         self.gx_input = gx
+
+    def set_gradients(self, kn, kpi, kpe):
+
+        gx = self.gx_input
+
+        tprim = '[ {:.2f},       {:.2f}     ]'.format(kpi, kpe)
+        gx.inputs['species']['tprim'] = tprim
+
+        fprim = '[ {:.2f},       {:.2f}     ]'.format(kn, kn)
+        gx.inputs['species']['fprim'] = fprim
 
 
 

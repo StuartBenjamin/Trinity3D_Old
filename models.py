@@ -177,6 +177,37 @@ class GX_Flux_Model():
             self.write_command(j, rho, kn       , kpi       , kpe + step)
 
 
+            self.gx_command(j, rho, kn       , kpi       , kpe       )
+
+    def gx_command(self, r_id, rho, kn, kpi, kpe):
+        
+        s = rho**2
+        kti = kpi - kn
+        kte = kpe - kn
+
+        t_id = self.t_id # time integer
+        time = self.time # time [s]
+
+        #.format(t_id, r_id, time, rho, s, kti, kn), file=f)
+        ft = self.flux_tubes[r_id - 1]
+        ft.set_gradients(kn, kti, kte)
+        
+        # to be specified by Trinity input file, or by time stamp
+        root = 'gx-files/'
+        path = 'run-dir/' 
+        tag  = 't{:}-r{:}-0'.format(t_id, r_id)
+
+        fout  = tag + '.in'
+        fsave = tag + '-restart.nc'
+
+        if (t_id > 0):
+            fload = 't{:}-r{:}-0-restart.nc'.format(t_id - 1, r_id)
+            ft.gx_input.inputs['Restart']['restart_from_file'] = '"{:}"'.format(root + path + fload)
+            ft.gx_input.inputs['Restart']['restart'] = 'true'
+            ft.gx_input.inputs['Controls']['init_amp'] = '0.0'
+
+        ft.gx_input.inputs['Restart']['restart_to_file'] = '"{:}"'.format(root + path + fsave)
+        ft.gx_input.write(root + path + fout)
 
     # first attempt at exporting gradients for GX
     def write_command(self, r_id, rho, kn, kpi, kpe):

@@ -108,8 +108,6 @@ class Trinity_Engine():
         gx = mf.GX_Flux_Model(fout)
         gx.init_geometry()
 
-        pdb.set_trace()
-
         self.f_cmd = fout
         self.model_gx = gx
 
