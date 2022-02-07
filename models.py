@@ -1,9 +1,14 @@
 import numpy as np
 import pdb
+import subprocess
+from datetime import datetime
 
 #import Geometry as geo
 from Geometry import FluxTube
 from GX_io    import GX_Runner
+
+# read GX output
+import GX_io as gout
 
 ### this library contains model functons for flux behavior
 
@@ -179,6 +184,7 @@ class GX_Flux_Model():
 
             self.gx_command(j, rho, kn       , kpi       , kpe       )
 
+    # this prepares the input file for a gx command
     def gx_command(self, r_id, rho, kn, kpi, kpe):
         
         s = rho**2
@@ -209,6 +215,35 @@ class GX_Flux_Model():
         ft.gx_input.inputs['Restart']['restart_to_file'] = '"{:}"'.format(root + path + fsave)
         ft.gx_input.write(root + path + fout)
 
+        ### execute
+        self.run_gx(tag, root+path)
+
+    def run_gx(self,tag,path):
+
+        # attempt to call
+        cmd = ['srun', '-N', '1', '-t', '2:00:00', '--ntasks=1', '--gpus-per-task=1', path+'./gx', path+tag]
+
+        #print('attempting to call:', cmd)
+        print('Calling', tag)
+        print_time()
+        with open('log.'+tag, 'w') as fp:
+        	subprocess.run(cmd, stdout=fp)
+
+        print('slurm gx completed')
+        print_time()
+
+        ### attempt to read
+        fin = path + tag + '.nc'
+
+        print('attempting to read', fin)
+        try:
+            qflux = gout.read_GX_output( fin )
+            print('  {:} qflux: {:}'.format(tag, qflux))
+
+        except:
+            print('  issue reading', fin)
+            
+        
     # first attempt at exporting gradients for GX
     def write_command(self, r_id, rho, kn, kpi, kpe):
         
@@ -226,4 +261,10 @@ class GX_Flux_Model():
 
 
 
+###
+def print_time():
 
+    dt = datetime.now()
+    #ts = datetime.timestamp(dt)
+    #print('  time', ts)
+    print('  time:', dt)

@@ -1,3 +1,5 @@
+import numpy as np
+from netCDF4 import Dataset
 
 class GX_Runner():
 
@@ -103,3 +105,24 @@ class GX_Runner():
             # special case
             if (entry != ''):
                 break
+
+
+# should this be a class?
+def read_GX_output(fname):
+    
+    try:
+        f = Dataset(fname, mode='r')
+    except: 
+        print('  read_GX_output: could not read', fname)
+
+
+    t = f.variables['time'][:]
+    q = f.groups['Fluxes'].variables['qflux'][:,0]
+    #plt.plot(t,q,'.-',label=fins[j])
+
+    # median of a sliding median
+    N = len(q)
+    med = np.median( [ np.median( q[::-1][:k] ) for k in np.arange(1,N)] )
+
+    #print('  read GX output: qflux = ', med)
+    return med # this is the qflux

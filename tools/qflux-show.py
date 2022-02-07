@@ -42,7 +42,7 @@ for f in data:
     # median of a sliding median
     N = len(q)
     med = np.median( [ np.median( q[::-1][:k] ) for k in np.arange(1,N)] )
-    plt.axhline(med, color=cols[j], ls='--')
+    plt.axhline(med, color=cols[j%8], ls='--')
     flux.append(med)
     j+=1
 
