@@ -8,6 +8,8 @@ from Geometry import FluxTube
 from GX_io    import GX_Runner
 
 # read GX output
+from os.path import exists
+import trinity_lib as trl
 import GX_io as gout
 
 ### this library contains model functons for flux behavior
@@ -169,6 +171,10 @@ class GX_Flux_Model():
         Lpe = - R *engine.pressure_e.grad_log.profile  # L_pe^inv
 
         # turbulent flux calls, for each radial flux tube
+        Q0 = []
+        Qn  = []
+        Qpi = []
+        Qpe = []
         idx = np.arange(1, engine.N_radial-1) # drop the first and last point
         for j in idx: 
             rho = rax[j]
@@ -176,23 +182,60 @@ class GX_Flux_Model():
             kpi = Lpi[j]
             kpe = Lpe[j]
 
+            # stores a log of the GX calls
             self.write_command(j, rho, kn       , kpi       , kpe       )
             self.write_command(j, rho, kn + step, kpi       , kpe       )
             self.write_command(j, rho, kn       , kpi + step, kpe       )
             self.write_command(j, rho, kn       , kpi       , kpe + step)
 
 
-            self.gx_command(j, rho, kn       , kpi       , kpe       )
+            q0 = self.gx_command(j, rho, kn       , kpi       , kpe       )
+            # response of ion flux to the 3 gradients
+            qn  = self.gx_cmd_grad(j, rho, kn+step , kpi       , kpe   ,'1' )
+            qpi = self.gx_cmd_grad(j, rho, kn    , kpi + step  , kpe   ,'2' )
+            qpe = self.gx_cmd_grad(j, rho, kn    , kpi   , kpe + step  ,'3' )
+
+            Q0.append(q0)
+            Qn.append( (qn-q0)/step )
+            Qpi.append( (qpi-q0)/step )
+            Qpe.append( (qpe-q0)/step )
+            
+
+        def array_cat(arr):
+            return np.concatenate([ [arr[0]], arr, [arr[-1]] ])
+
+        Qflux = array_cat(Q0)
+        # derivatives
+        Qi_n   = array_cat(Qn)
+        Qi_pi  = array_cat(Qpi)
+        Qi_pe  = array_cat(Qpe)
+
+        # save, this is what engine.compute_flux() writes
+        zero = 0*Qflux
+        eps = 1e-8 + zero # want to avoid divide by zero
+        engine.Gamma  = trl.profile(eps, half=True)
+        engine.Qi     = trl.profile(Qflux, half=True) 
+        engine.Qe     = trl.profile(Qflux, half=True) 
+        engine.G_n    = trl.profile(zero , half=True)
+        engine.G_pi   = trl.profile(zero, half=True)
+        engine.G_pe   = trl.profile(zero, half=True)
+        engine.Qi_n   = trl.profile(Qi_n , half=True)
+        engine.Qi_pi  = trl.profile(Qi_pi, half=True)
+        engine.Qi_pe  = trl.profile(Qi_pe, half=True)
+        engine.Qe_n   = trl.profile(Qi_n , half=True)
+        engine.Qe_pi  = trl.profile(Qi_pi, half=True)
+        engine.Qe_pe  = trl.profile(Qi_pe, half=True)
+        # set electron flux = to ions for now
 
     # this prepares the input file for a gx command
     def gx_command(self, r_id, rho, kn, kpi, kpe):
         
-        s = rho**2
+        #s = rho**2
         kti = kpi - kn
         kte = kpe - kn
 
         t_id = self.t_id # time integer
-        time = self.time # time [s]
+        #time = self.time # time [s]
 
         #.format(t_id, r_id, time, rho, s, kti, kn), file=f)
         ft = self.flux_tubes[r_id - 1]
@@ -212,36 +255,84 @@ class GX_Flux_Model():
             ft.gx_input.inputs['Restart']['restart'] = 'true'
             ft.gx_input.inputs['Controls']['init_amp'] = '0.0'
 
+        ft.gx_input.inputs['Restart']['save_for_restart'] = 'true'
         ft.gx_input.inputs['Restart']['restart_to_file'] = '"{:}"'.format(root + path + fsave)
         ft.gx_input.write(root + path + fout)
 
         ### execute
-        self.run_gx(tag, root+path)
+        qflux = self.run_gx(tag, root+path)
+        return qflux
+
+    # this prepares the input file for a gx command
+    def gx_cmd_grad(self, r_id, rho, kn, kpi, kpe, job_id):
+        # this version perturbs for the gradient
+        # (temp, should be merged as option, instead of duplicating code)
+        
+        #s = rho**2
+        kti = kpi - kn
+        kte = kpe - kn
+
+        t_id = self.t_id # time integer
+        #time = self.time # time [s]
+
+        #.format(t_id, r_id, time, rho, s, kti, kn), file=f)
+        ft = self.flux_tubes[r_id - 1]
+        ft.set_gradients(kn, kti, kte)
+        
+        # to be specified by Trinity input file, or by time stamp
+        root = 'gx-files/'
+        path = 'run-dir/' 
+        tag  = 't{:}-r{:}-{:}'.format(t_id, r_id, job_id)
+
+        fout  = tag + '.in'
+        fsave = tag + '-restart.nc'
+
+        if (t_id > 0):
+            # make sure I don't redundantly rewrite the restart file here
+            fload = 't{:}-r{:}-0-restart.nc'.format(t_id - 1, r_id)
+            ft.gx_input.inputs['Restart']['restart_from_file'] = '"{:}"'.format(root + path + fload)
+            ft.gx_input.inputs['Restart']['restart'] = 'true'
+            ft.gx_input.inputs['Controls']['init_amp'] = '0.0'
+
+        ft.gx_input.inputs['Restart']['save_for_restart'] = 'false'
+        #ft.gx_input.inputs['Restart']['restart_to_file'] = '"{:}"'.format(root + path + fsave)
+        ft.gx_input.write(root + path + fout)
+
+        ### execute
+        qflux = self.run_gx(tag, root+path)
+        return qflux
 
     def run_gx(self,tag,path):
 
-        # attempt to call
-        cmd = ['srun', '-N', '1', '-t', '2:00:00', '--ntasks=1', '--gpus-per-task=1', path+'./gx', path+tag]
+        f_nc = path + tag + '.nc'
+        if ( exists(f_nc) == False ):
 
-        #print('attempting to call:', cmd)
-        print('Calling', tag)
-        print_time()
-        with open('log.'+tag, 'w') as fp:
-        	subprocess.run(cmd, stdout=fp)
+            # attempt to call
+            cmd = ['srun', '-N', '1', '-t', '2:00:00', '--ntasks=1', '--gpus-per-task=1', path+'./gx', path+tag]
+    
+            print('Calling', tag)
+            print_time()
+            f_log = path + 'log.' +tag
+            with open(f_log, 'w') as fp:
+            	subprocess.run(cmd, stdout=fp)
+    
+            print('slurm gx completed')
+            print_time()
 
-        print('slurm gx completed')
-        print_time()
+        else:
+            print('  found {:} already exists'.format(tag) )
 
         ### attempt to read
-        fin = path + tag + '.nc'
 
-        print('attempting to read', fin)
+        print('attempting to read', f_nc)
         try:
-            qflux = gout.read_GX_output( fin )
+            qflux = gout.read_GX_output( f_nc )
             print('  {:} qflux: {:}'.format(tag, qflux))
+            return qflux
 
         except:
-            print('  issue reading', fin)
+            print('  issue reading', f_nc)
+            return 0 # for safety, this will be problematic
             
         
     # first attempt at exporting gradients for GX

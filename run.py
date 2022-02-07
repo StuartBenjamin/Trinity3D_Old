@@ -12,7 +12,7 @@ import pdb
 # go into the trinity engine
  
 ## Set initial conditions
-n_core  = 5
+n_core  = 3
 n_edge  = 3
 
 pi_core = 5 
@@ -22,7 +22,7 @@ pe_core = 5
 pe_edge = 2 
 
 # set up grid
-N = 7 # number of radial points
+N = 7 # number of radial points (N-2 flux tubes)
 rho_edge = 0.8    # rho = r/a : normalized radius
 rho_axis = np.linspace(0,rho_edge,N) # radial axis
 #drho = 1/N # temp
@@ -30,8 +30,8 @@ rho_axis = np.linspace(0,rho_edge,N) # radial axis
 ### Set up time controls
 alpha = 1          # explicit to implicit mixer
 dtau  = 1         # step size 
-N_steps  = 10       # total Time = dtau * N_steps
-N_prints = 10
+N_steps  = 3       # total Time = dtau * N_steps
+N_prints = 3 
 N_step_print = N_steps // N_prints   # how often to print # thanks Sarah!
 ###
 
@@ -110,7 +110,8 @@ j = 0
 #    "better to have functions than scripts"
 while (j < N_steps):
 
-    engine.compute_flux()
+    engine.model_gx.prep_commands(engine, j, Time)
+    #engine.compute_flux()
     engine.normalize_fluxes()
     engine.calc_flux_coefficients()
     engine.calc_psi_n()
@@ -140,8 +141,7 @@ while (j < N_steps):
 
         ### write GX commands
         # later this could be on a separate time scale
-        engine.model_gx.prep_commands(engine, j, Time)
-        #model_gx.prep_commands(engine, j, Time)
+        #engine.model_gx.prep_commands(engine, j, Time)
 
         # is it better for model_gx to live in run scope or in engine?
 
@@ -159,4 +159,4 @@ d3_flux.label(titles=['Gamma','Qi','Qe'])
 
 engine.plot_sources()
 
-#plt.show()
+plt.show()
