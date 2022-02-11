@@ -66,7 +66,7 @@ class GX_Runner():
                     s = '  {:%i}  =  {}' % N_space
                     print(s.format(*pair), file=f)
 
-        print('  wrote to:', fout)
+        print('  wrote input:', fout)
 
     def execute(self):
 

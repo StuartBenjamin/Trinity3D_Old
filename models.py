@@ -116,7 +116,7 @@ class GX_Flux_Model():
         #    later, this should come from Trinity input file
         f_input = 'gx-files/gx-sample.in' 
         self.input_template = GX_Runner(f_input)
-
+        self.path = 'temp/'
 
         ### This keeps a record of GX comands, it might be retired
         # init file for writing GX commands
@@ -182,11 +182,17 @@ class GX_Flux_Model():
         # load gradient scale length
         Ln  = - R * engine.density.grad_log.profile     # L_n^inv
         Lpi = - R * engine.pressure_i.grad_log.profile  # L_pi^inv
-        Lpe = - R *engine.pressure_e.grad_log.profile  # L_pe^inv
+        Lpe = - R * engine.pressure_e.grad_log.profile  # L_pe^inv
+        # this R should be a profile (?)
 
         # turbulent flux calls, for each radial flux tube
         idx = np.arange(1, engine.N_radial) # drop first point
         #idx = np.arange(1, engine.N_radial-1) # drop the first and last point
+
+        f0   = [''] * len(idx) 
+        fn   = [''] * len(idx) 
+        fpi  = [''] * len(idx) 
+        fpe  = [''] * len(idx) 
 
         Q0   = np.zeros( len(idx) )
         Qn   = np.zeros( len(idx) )
@@ -204,28 +210,25 @@ class GX_Flux_Model():
             self.write_command(j, rho, kn       , kpi + step, kpe       )
             self.write_command(j, rho, kn       , kpi       , kpe + step)
 
-            Q0 [j-1] = self.gx_command(j, rho, kn      , kpi        , kpe        , '0' )
-            Qn [j-1] = self.gx_command(j, rho, kn+step , kpi        , kpe        , '1' )
-            Qpi[j-1] = self.gx_command(j, rho, kn      , kpi + step , kpe        , '2' )
-            Qpe[j-1] = self.gx_command(j, rho, kn      , kpi        , kpe + step , '3' )
+            f0 [j-1] = self.gx_command(j, rho, kn      , kpi        , kpe        , '0' )
+            fn [j-1] = self.gx_command(j, rho, kn+step , kpi        , kpe        , '1' )
+            fpi[j-1] = self.gx_command(j, rho, kn      , kpi + step , kpe        , '2' )
+            fpe[j-1] = self.gx_command(j, rho, kn      , kpi        , kpe + step , '3' )
 
-
-#            Q0.append(q0)
-#            Qn.append( (qn-q0)/step )
-#            Qpi.append( (qpi-q0)/step )
-#            Qpe.append( (qpe-q0)/step )
-
-            # code could be further parallelized if these were put into a list that knows its radial position
-        # wait
+        ### collect parallel runs
         self.wait()
-            
 
-        def array_cat(arr):
-            return np.concatenate( [ [arr[0]] , arr ] )
-           # return np.concatenate([ [arr[0]], arr, [arr[-1]] ])
+        # read
+        _time.sleep(5)
 
-        Qflux = array_cat(Q0)
-        # derivatives
+        print('starting to read')
+        for j in (idx-1): 
+            Q0 [j] = read_gx(f0 [j])
+            Qn [j] = read_gx(fn [j])
+            Qpi[j] = read_gx(fpi[j])
+            Qpe[j] = read_gx(fpe[j])
+
+        Qflux  = array_cat(Q0)
         Qi_n   = array_cat( (Qn -Q0) / step )
         Qi_pi  = array_cat( (Qpi-Q0) / step )
         Qi_pe  = array_cat( (Qpe-Q0) / step )
@@ -247,6 +250,7 @@ class GX_Flux_Model():
         engine.Qe_pe  = trl.profile(Qi_pe, half=True)
         # set electron flux = to ions for now
 
+    #  sets up GX input, executes GX, returns input file name
     def gx_command(self, r_id, rho, kn, kpi, kpe, job_id):
         # this version perturbs for the gradient
         # (temp, should be merged as option, instead of duplicating code)
@@ -263,7 +267,8 @@ class GX_Flux_Model():
         
         # to be specified by Trinity input file, or by time stamp
         root = 'gx-files/'
-        path = 'run-dir/' 
+        path = self.path
+        #path = 'run-dir/' 
         tag  = 't{:}-r{:}-{:}'.format(t_id, r_id, job_id)
 
         fout  = tag + '.in'
@@ -315,8 +320,7 @@ class GX_Flux_Model():
                 print('   running:', tag)
                 p = subprocess.Popen(cmd, stdout=fp)
                 self.processes.append(p)
-                #subprocess.run(cmd, stdout=fp)
-                _time.sleep(5)
+                #self.wait() # temp, debug
     
             print('slurm gx completed')
             print_time()
@@ -324,18 +328,8 @@ class GX_Flux_Model():
         else:
             print('  found {:} already exists'.format(tag) )
 
-        ### attempt to read
+        return f_nc
 
-        print('attempting to read', f_nc)
-        try:
-            qflux = gout.read_GX_output( f_nc )
-            print('  {:} qflux: {:}'.format(tag, qflux))
-            return qflux
-
-        except:
-            print('  issue reading', f_nc)
-            return 0 # for safety, this will be problematic
-            
         
     # first attempt at exporting gradients for GX
     def write_command(self, r_id, rho, kn, kpi, kpe):
@@ -361,3 +355,22 @@ def print_time():
     #ts = datetime.timestamp(dt)
     #print('  time', ts)
     print('  time:', dt)
+
+# double the inside point (no flux tube run there)
+def array_cat(arr):
+    return np.concatenate( [ [arr[0]] , arr ] )
+
+# read a GX netCDF output file
+def read_gx(f_nc):
+    try:
+        qflux = gout.read_GX_output( f_nc )
+
+        tag = f_nc.split('/')[-1]
+        print('  {:} qflux: {:}'.format(tag, qflux))
+        return qflux
+
+    except:
+        print('  issue reading', f_nc)
+        # pdb.set_trace
+        return 0 # for safety, this will be problematic
+
