@@ -2,6 +2,7 @@ import numpy as np
 import pdb
 import subprocess
 from datetime import datetime
+import time as _time
 
 #import Geometry as geo
 from Geometry import FluxTube
@@ -128,6 +129,8 @@ class GX_Flux_Model():
         self.f_handle = open(fname, 'a')
         ###
 
+        self.processes = []
+
 
     def init_geometry(self):
 
@@ -195,6 +198,12 @@ class GX_Flux_Model():
             qpi = self.gx_cmd_grad(j, rho, kn    , kpi + step  , kpe   ,'2' )
             qpe = self.gx_cmd_grad(j, rho, kn    , kpi   , kpe + step  ,'3' )
 
+            # wait
+            exitcodes = [ p.wait() for p in self.processes ]
+            print(exitcodes)
+            self.processes = [] # reset
+            ###
+
             Q0.append(q0)
             Qn.append( (qn-q0)/step )
             Qpi.append( (qpi-q0)/step )
@@ -202,6 +211,7 @@ class GX_Flux_Model():
             
 
         def array_cat(arr):
+           # return np.concatenate( [ [arr[0]] , arr ] )
             return np.concatenate([ [arr[0]], arr, [arr[-1]] ])
 
         Qflux = array_cat(Q0)
@@ -314,7 +324,12 @@ class GX_Flux_Model():
             print_time()
             f_log = path + 'log.' +tag
             with open(f_log, 'w') as fp:
-            	subprocess.run(cmd, stdout=fp)
+
+                print('   running:', tag)
+                p = subprocess.Popen(cmd, stdout=fp)
+                self.processes.append(p)
+                #subprocess.run(cmd, stdout=fp)
+                _time.sleep(5)
     
             print('slurm gx completed')
             print_time()
