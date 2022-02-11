@@ -131,6 +131,17 @@ class GX_Flux_Model():
 
         self.processes = []
 
+    def wait(self):
+
+        # wait for a list of subprocesses to finish
+        #    and reset the list
+
+        exitcodes = [ p.wait() for p in self.processes ]
+        print(exitcodes)
+        self.processes = [] # reset
+
+        # could add some sort of timer here
+
 
     def init_geometry(self):
 
@@ -174,11 +185,13 @@ class GX_Flux_Model():
         Lpe = - R *engine.pressure_e.grad_log.profile  # L_pe^inv
 
         # turbulent flux calls, for each radial flux tube
-        Q0 = []
-        Qn  = []
-        Qpi = []
-        Qpe = []
-        idx = np.arange(1, engine.N_radial-1) # drop the first and last point
+        idx = np.arange(1, engine.N_radial) # drop first point
+        #idx = np.arange(1, engine.N_radial-1) # drop the first and last point
+
+        Q0   = np.zeros( len(idx) )
+        Qn   = np.zeros( len(idx) )
+        Qpi  = np.zeros( len(idx) )
+        Qpe  = np.zeros( len(idx) )
         for j in idx: 
             rho = rax[j]
             kn  = Ln [j]
@@ -191,34 +204,31 @@ class GX_Flux_Model():
             self.write_command(j, rho, kn       , kpi + step, kpe       )
             self.write_command(j, rho, kn       , kpi       , kpe + step)
 
+            Q0 [j-1] = self.gx_command(j, rho, kn      , kpi        , kpe        , '0' )
+            Qn [j-1] = self.gx_command(j, rho, kn+step , kpi        , kpe        , '1' )
+            Qpi[j-1] = self.gx_command(j, rho, kn      , kpi + step , kpe        , '2' )
+            Qpe[j-1] = self.gx_command(j, rho, kn      , kpi        , kpe + step , '3' )
 
-            q0 = self.gx_command(j, rho, kn       , kpi       , kpe       )
-            # response of ion flux to the 3 gradients
-            qn  = self.gx_cmd_grad(j, rho, kn+step , kpi       , kpe   ,'1' )
-            qpi = self.gx_cmd_grad(j, rho, kn    , kpi + step  , kpe   ,'2' )
-            qpe = self.gx_cmd_grad(j, rho, kn    , kpi   , kpe + step  ,'3' )
 
-            # wait
-            exitcodes = [ p.wait() for p in self.processes ]
-            print(exitcodes)
-            self.processes = [] # reset
-            ###
+#            Q0.append(q0)
+#            Qn.append( (qn-q0)/step )
+#            Qpi.append( (qpi-q0)/step )
+#            Qpe.append( (qpe-q0)/step )
 
-            Q0.append(q0)
-            Qn.append( (qn-q0)/step )
-            Qpi.append( (qpi-q0)/step )
-            Qpe.append( (qpe-q0)/step )
+            # code could be further parallelized if these were put into a list that knows its radial position
+        # wait
+        self.wait()
             
 
         def array_cat(arr):
-           # return np.concatenate( [ [arr[0]] , arr ] )
-            return np.concatenate([ [arr[0]], arr, [arr[-1]] ])
+            return np.concatenate( [ [arr[0]] , arr ] )
+           # return np.concatenate([ [arr[0]], arr, [arr[-1]] ])
 
         Qflux = array_cat(Q0)
         # derivatives
-        Qi_n   = array_cat(Qn)
-        Qi_pi  = array_cat(Qpi)
-        Qi_pe  = array_cat(Qpe)
+        Qi_n   = array_cat( (Qn -Q0) / step )
+        Qi_pi  = array_cat( (Qpi-Q0) / step )
+        Qi_pe  = array_cat( (Qpe-Q0) / step )
 
         # save, this is what engine.compute_flux() writes
         zero = 0*Qflux
@@ -237,44 +247,7 @@ class GX_Flux_Model():
         engine.Qe_pe  = trl.profile(Qi_pe, half=True)
         # set electron flux = to ions for now
 
-    # this prepares the input file for a gx command
-    def gx_command(self, r_id, rho, kn, kpi, kpe):
-        
-        #s = rho**2
-        kti = kpi - kn
-        kte = kpe - kn
-
-        t_id = self.t_id # time integer
-        #time = self.time # time [s]
-
-        #.format(t_id, r_id, time, rho, s, kti, kn), file=f)
-        ft = self.flux_tubes[r_id - 1]
-        ft.set_gradients(kn, kti, kte)
-        
-        # to be specified by Trinity input file, or by time stamp
-        root = 'gx-files/'
-        path = 'run-dir/' 
-        tag  = 't{:}-r{:}-0'.format(t_id, r_id)
-
-        fout  = tag + '.in'
-        fsave = tag + '-restart.nc'
-
-        if (t_id > 0):
-            fload = 't{:}-r{:}-0-restart.nc'.format(t_id - 1, r_id)
-            ft.gx_input.inputs['Restart']['restart_from_file'] = '"{:}"'.format(root + path + fload)
-            ft.gx_input.inputs['Restart']['restart'] = 'true'
-            ft.gx_input.inputs['Controls']['init_amp'] = '0.0'
-
-        ft.gx_input.inputs['Restart']['save_for_restart'] = 'true'
-        ft.gx_input.inputs['Restart']['restart_to_file'] = '"{:}"'.format(root + path + fsave)
-        ft.gx_input.write(root + path + fout)
-
-        ### execute
-        qflux = self.run_gx(tag, root+path)
-        return qflux
-
-    # this prepares the input file for a gx command
-    def gx_cmd_grad(self, r_id, rho, kn, kpi, kpe, job_id):
+    def gx_command(self, r_id, rho, kn, kpi, kpe, job_id):
         # this version perturbs for the gradient
         # (temp, should be merged as option, instead of duplicating code)
         
@@ -283,7 +256,6 @@ class GX_Flux_Model():
         kte = kpe - kn
 
         t_id = self.t_id # time integer
-        #time = self.time # time [s]
 
         #.format(t_id, r_id, time, rho, s, kti, kn), file=f)
         ft = self.flux_tubes[r_id - 1]
@@ -297,20 +269,35 @@ class GX_Flux_Model():
         fout  = tag + '.in'
         fsave = tag + '-restart.nc'
 
-        if (t_id > 0):
-            # make sure I don't redundantly rewrite the restart file here
-            fload = 't{:}-r{:}-0-restart.nc'.format(t_id - 1, r_id)
-            ft.gx_input.inputs['Restart']['restart_from_file'] = '"{:}"'.format(root + path + fload)
-            ft.gx_input.inputs['Restart']['restart'] = 'true'
-            ft.gx_input.inputs['Controls']['init_amp'] = '0.0'
+        ### Decide whether to load restart
+        if (t_id == 0): 
+            # first time step
+            ft.gx_input.inputs['Restart']['restart'] = 'false'
 
-        ft.gx_input.inputs['Restart']['save_for_restart'] = 'false'
-        #ft.gx_input.inputs['Restart']['restart_to_file'] = '"{:}"'.format(root + path + fsave)
-        ft.gx_input.write(root + path + fout)
+        else:
+            ft.gx_input.inputs['Restart']['restart'] = 'true'
+            fload = 't{:}-r{:}-restart.nc'.format(t_id-1, r_id)
+            ft.gx_input.inputs['Restart']['restart_from_file'] = '"{:}"'.format(root + path + fload)
+            ft.gx_input.inputs['Controls']['init_amp'] = '0.0'
+            # restart from the same file (prev time step), to ensure parallelizability
+
+        ### Decide whether to save restart
+        if (job_id == '0'):
+            # save basepoint
+            ft.gx_input.inputs['Restart']['save_for_restart'] = 'true'
+            fsave = 't{:}-r{:}-restart.nc'.format(t_id, r_id)
+            ft.gx_input.inputs['Restart']['restart_to_file'] = '"{:}"'.format(root + path + fsave)
+
+        else:
+            # perturb gradients
+            ft.gx_input.inputs['Restart']['save_for_restart'] = 'false' 
+            # make sure I don't redundantly rewrite the restart file here
 
         ### execute
+        ft.gx_input.write(root + path + fout)
         qflux = self.run_gx(tag, root+path)
         return qflux
+
 
     def run_gx(self,tag,path):
 

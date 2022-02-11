@@ -22,7 +22,7 @@ pe_core = 5
 pe_edge = 2 
 
 # set up grid
-N = 7 # number of radial points (N-2 flux tubes)
+N = 6 # number of radial points (N-2 flux tubes)
 rho_edge = 0.8    # rho = r/a : normalized radius
 rho_axis = np.linspace(0,rho_edge,N) # radial axis
 #drho = 1/N # temp
@@ -30,14 +30,14 @@ rho_axis = np.linspace(0,rho_edge,N) # radial axis
 ### Set up time controls
 alpha = 1          # explicit to implicit mixer
 dtau  = 1         # step size 
-N_steps  = 3       # total Time = dtau * N_steps
-N_prints = 3 
+N_steps  = 5       # total Time = dtau * N_steps
+N_prints = 5 
 N_step_print = N_steps // N_prints   # how often to print # thanks Sarah!
 ###
 
 
 ### Set up source
-Sn_height  = 3
+Sn_height  = 0
 Spi_height = 3
 Spe_height = 2
 Sn_width   = 0.2
