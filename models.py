@@ -106,6 +106,50 @@ class Flux_model():
     # move this function from model to Trinity_lib, because it does not depend on the particular model
 
 
+class Barnes_Model2():
+
+    def __init__(self, D = 1):
+
+        self.D = D
+
+    def compute_Q(self,engine, step=0.1):
+
+        pi = engine.pressure_i.profile
+        pe = engine.pressure_e.profile
+
+        a = engine.a_minor
+        Lpi = - a * engine.pressure_i.grad_log.profile  # L_pi^inv
+        Lpe = - a * engine.pressure_e.grad_log.profile  # L_pe^inv
+
+        # Qs = 3/2 D (a/Lps) ps / pi**(-5/2)
+        D = self.D
+        Qi = 1.5 * D * Lpi / pi**(-1.5) # assume p_ref = pi
+        Qe = 1.5 * D * Lpe * pe / pi**(-2.5)
+
+        zero  = 0*pi
+        Gamma = zero  # do not evolve particles
+
+        # Perturb
+        Qi_pi = 1.5 * D * (Lpi+step) / pi**(-1.5) # assume p_ref = pi
+        Qe_pe = 1.5 * D * (Lpe+step) * pe / pi**(-2.5)
+
+        dQi_pi = (Qi_pi - Qi) / step
+        dQe_pe = (Qe_pe - Qe) / step
+
+        # save
+        engine.Gamma  = trl.profile(zero, half=True)
+        engine.Qi     = trl.profile(Qi, half=True) 
+        engine.Qe     = trl.profile(Qe, half=True) 
+        engine.G_n    = trl.profile(zero , half=True)
+        engine.G_pi   = trl.profile(zero, half=True)
+        engine.G_pe   = trl.profile(zero, half=True)
+        engine.Qi_n   = trl.profile(zero , half=True)
+        engine.Qi_pi  = trl.profile(dQi_pi, half=True)
+        engine.Qi_pe  = trl.profile(zero, half=True)
+        engine.Qe_n   = trl.profile(zero , half=True)
+        engine.Qe_pi  = trl.profile(zero, half=True)
+        engine.Qe_pe  = trl.profile(dQe_pe, half=True)
+
 
 class GX_Flux_Model():
 
@@ -177,13 +221,17 @@ class GX_Flux_Model():
         self.time = time
 
         # should pass (R/Lx) to GX
-        R   = engine.R_major
         rax = engine.rho_axis
         # load gradient scale length
-        Ln  = - R * engine.density.grad_log.profile     # L_n^inv
-        Lpi = - R * engine.pressure_i.grad_log.profile  # L_pi^inv
-        Lpe = - R * engine.pressure_e.grad_log.profile  # L_pe^inv
+        #R   = engine.R_major
+        #Ln  = - R * engine.density.grad_log.profile     # L_n^inv
+        #Lpi = - R * engine.pressure_i.grad_log.profile  # L_pi^inv
+        #Lpe = - R * engine.pressure_e.grad_log.profile  # L_pe^inv
         # this R should be a profile (?)
+        a = engine.a_minor
+        Ln  = - a * engine.density.grad_log.profile     # L_n^inv
+        Lpi = - a * engine.pressure_i.grad_log.profile  # L_pi^inv
+        Lpe = - a * engine.pressure_e.grad_log.profile  # L_pe^inv
 
         # turbulent flux calls, for each radial flux tube
         idx = np.arange(1, engine.N_radial) # drop first point

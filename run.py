@@ -26,7 +26,7 @@ N = 6 # number of radial points (N-2 flux tubes)
 rho_edge = 0.8    # rho = r/a : normalized radius
 rho_axis = np.linspace(0,rho_edge,N) # radial axis
 
-model = False #'GX'
+model = 'diffusive' #'GX'
 
 ### Set up time controls
 alpha = 1          # explicit to implicit mixer
@@ -114,6 +114,8 @@ while (j < N_steps):
 
     if (engine.model == 'GX'):
         engine.model_gx.prep_commands(engine, j, Time) # use GX
+    elif (engine.model == 'diffusive'):
+        engine.barnes_model.compute_Q(engine)
     else:
         engine.compute_flux() # use analytic flux model
 

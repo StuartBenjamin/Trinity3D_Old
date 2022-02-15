@@ -100,19 +100,24 @@ class Trinity_Engine():
         self.source_pi = Gaussian(rax, A=Spi_height, sigma=Spi_width)
         self.source_pe = Gaussian(rax, A=Spe_height, sigma=Spe_width)
 
-        ### init flux models
-        self.model_G  = mf.Flux_model()
-        self.model_Qi = mf.Flux_model()
-        self.model_Qe = mf.Flux_model()
 
-        ### init GX commands
-        if (self.model == 'GX'):
+        ### init flux models
+        if (model == 'GX'):
             fout = 'gx-files/temp.gx'
             gx = mf.GX_Flux_Model(fout)
             gx.init_geometry()
     
             self.f_cmd = fout
             self.model_gx = gx
+
+        elif (model == 'diffusive'):
+            bm = mf.Barnes_Model2()
+            self.barnes_model = bm
+
+        else:
+            self.model_G  = mf.Flux_model()
+            self.model_Qi = mf.Flux_model()
+            self.model_Qe = mf.Flux_model()
 
     # this is a toy model of Flux based on ReLU + neoclassical
     #     to be replaced by GX or STELLA import module
