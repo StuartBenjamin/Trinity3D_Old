@@ -25,7 +25,8 @@ pe_edge = 2
 N = 6 # number of radial points (N-2 flux tubes)
 rho_edge = 0.8    # rho = r/a : normalized radius
 rho_axis = np.linspace(0,rho_edge,N) # radial axis
-#drho = 1/N # temp
+
+model = False #'GX'
 
 ### Set up time controls
 alpha = 1          # explicit to implicit mixer
@@ -75,7 +76,6 @@ engine = trl.Trinity_Engine(alpha=alpha,
                             pi_edge   = pi_edge,
                             pe_core   = pe_core,
                             pe_edge   = pe_edge,
-#                            T0       = T0,
                             R_major  = R_major,
                             a_minor  = a_minor,
                             Ba       = Ba,
@@ -86,7 +86,9 @@ engine = trl.Trinity_Engine(alpha=alpha,
                             Spi_width  = Spi_width, 
                             Spi_height = Spi_height, 
                             Spe_width  = Spe_width,  
-                            Spe_height = Spe_height 
+                            Spe_height = Spe_height,
+                            ###
+                            model      = model
                             )
 
 
@@ -110,8 +112,11 @@ j = 0
 #    "better to have functions than scripts"
 while (j < N_steps):
 
-    engine.model_gx.prep_commands(engine, j, Time)
-    #engine.compute_flux()
+    if (engine.model == 'GX'):
+        engine.model_gx.prep_commands(engine, j, Time) # use GX
+    else:
+        engine.compute_flux() # use analytic flux model
+
     engine.normalize_fluxes()
     engine.calc_flux_coefficients()
     engine.calc_psi_n()

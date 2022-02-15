@@ -32,7 +32,8 @@ class Trinity_Engine():
                        Spi_width  = 0.1, 
                        Spi_height = 0, 
                        Spe_width  = 0.1,  
-                       Spe_height = 0 
+                       Spe_height = 0,
+                       model      = 'GX'
                        ):
 
         self.N_radial = N           # if this is total points, including core and edge, then GX simulates (N-2) points
@@ -42,8 +43,9 @@ class Trinity_Engine():
         self.pi_edge   = pi_edge
         self.pe_core   = pe_core
         self.pe_edge   = pe_edge
-        #self.drho     = 1/N # for now assume equal spacing, 
-                            #    could be computed in general
+
+        self.model    = model
+
         self.rho_edge = rho_edge
         self.drho     = rho_edge / (N-1)
         rho_axis = np.linspace(0,rho_edge,N) # radial axis
@@ -104,12 +106,13 @@ class Trinity_Engine():
         self.model_Qe = mf.Flux_model()
 
         ### init GX commands
-        fout = 'gx-files/temp.gx'
-        gx = mf.GX_Flux_Model(fout)
-        gx.init_geometry()
-
-        self.f_cmd = fout
-        self.model_gx = gx
+        if (self.model == 'GX'):
+            fout = 'gx-files/temp.gx'
+            gx = mf.GX_Flux_Model(fout)
+            gx.init_geometry()
+    
+            self.f_cmd = fout
+            self.model_gx = gx
 
     # this is a toy model of Flux based on ReLU + neoclassical
     #     to be replaced by GX or STELLA import module
