@@ -1,10 +1,12 @@
 import numpy as np
 from netCDF4 import Dataset
 
+import subprocess
+import sys # unused
+
 class GX_Runner():
 
     # This class handles GX input files, and also execution
-    #   copied from GX-ready.py
 
     def __init__(self,template):
         
@@ -126,3 +128,85 @@ def read_GX_output(fname):
 
     #print('  read GX output: qflux = ', med)
     return med # this is the qflux
+
+
+
+class VMEC_GX_geometry_module():
+
+    # this class handles VMEC-GX Geometry .ing input files
+
+    def __init__(self, f_sample='gx-geometry-sample.ing',
+                       tag  ='default',
+                       path = './'
+                       ):
+
+        self.path = path
+
+        self.data = self.read(path + f_sample)
+        self.tag  = tag
+
+
+    def read(self,fin):
+
+        with open(fin) as f:
+            indata = f.readlines()
+
+        data = {} # create dictionary
+        for line in indata:
+
+            # remove comments
+            info = line.split('#')[0]
+
+            # skip blanks
+            if info.strip() == '':
+                continue
+
+            # parse
+            key,val = info.split('=')
+            key = key.strip()
+            val = val.strip()
+
+            # save
+            data[key] = val
+
+        return data
+
+
+    def write(self, fname): # writes a .ing file
+
+        # load
+        data = self.data
+        path = self.path
+        
+        # set spacing
+        longest_key =  max( data.keys(), key=len) 
+        N_space = len(longest_key) 
+
+        # write
+        fout = path + fname + '.ing'
+        with open(fout,'w') as f:
+            for pair in data.items():
+                s = '  {:%i}  =  {}' % N_space
+                #print(s.format(*pair))   # print to screen for debugging
+                print(s.format(*pair), file=f)
+
+    def set_vmec(self,wout):
+        self.data['vmec_file'] = wout
+
+    def init_radius(self,rho):
+
+        # set radius
+        s = rho**2
+        self.data['desired_normalized_toroidal_flux'] = s
+
+        # write input
+        fname = self.tag + '-psi-{:.2f}'.format(s)
+        self.write(fname)
+
+        # run
+        path = self.path
+        cmd = ['./{:}convert_VMEC_to_GX'.format(path),  path+fname]
+
+        f_log = path + fname + '.log'
+        with open(f_log, 'w') as fp:
+            subprocess.call(cmd,stdout=fp)
