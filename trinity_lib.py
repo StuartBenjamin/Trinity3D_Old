@@ -284,11 +284,11 @@ class Trinity_Engine():
                                 
         psi_npi_plus  = g * (Ai_pos + 3*Fnp / pi_plus / 4) 
         psi_npi_minus = g * (Ai_neg - 3*Fnm / pi_minus / 4) 
-        psi_npi_zero  = g * (Bi - 3./4*( Fnm/pi_minus - Fnp/pi_plus) ) 
+        psi_npi_zero  = g * (Bi - 3*( Fnm/pi_minus - Fnp/pi_plus) / 4) 
     
-        psi_npe_plus  = g * Ae_pos
-        psi_npe_minus = g * Ae_neg
-        psi_npe_zero  = g * Be
+        psi_npe_plus  = g * (Ae_pos + 3*Fnp / pe_plus / 4)
+        psi_npe_minus = g * (Ae_neg - 3*Fnm / pe_minus / 4)
+        psi_npe_zero  = g * (Be - 3*( Fnm/pe_minus - Fnp/pe_plus) / 4)
 
         # save (automatically computes matricies in class function)
         self.psi_nn  = psi_profiles(psi_nn_zero,
@@ -353,9 +353,9 @@ class Trinity_Engine():
         psi_pipi_minus = g * (Ai_neg - 5/4 * F_m / pi_minus) 
         psi_pipi_zero  = g * (Bi - 5/4 * ( F_m/pi_minus - F_p/pi_plus) ) 
     
-        psi_pipe_plus  = g * Ae_pos
-        psi_pipe_minus = g * Ae_neg
-        psi_pipe_zero  = g * Be
+        psi_pipe_plus  = g * (Ae_pos + 5/4 * F_p / pe_plus )
+        psi_pipe_minus = g * (Ae_neg - 5/4 * F_p / pe_minus)
+        psi_pipe_zero  = g * (Be - 5/4 * ( F_m/pe_minus - F_p/pe_plus) )
 
         # save (automatically computes matricies in class function)
         self.psi_pin  = psi_profiles(psi_pin_zero,
@@ -415,9 +415,9 @@ class Trinity_Engine():
         psi_pepi_minus = g * (Ai_neg - 5/4 * F_m / pi_minus) 
         psi_pepi_zero  = g * (Bi - 5/4 * ( F_m/pi_minus - F_p/pi_plus) ) 
     
-        psi_pepe_plus  = g * Ae_pos
-        psi_pepe_minus = g * Ae_neg
-        psi_pepe_zero  = g * Be
+        psi_pepe_plus  = g * (Ae_pos + 5/4 * F_p / pe_plus )
+        psi_pepe_minus = g * (Ae_neg - 5/4 * F_m / pe_minus)
+        psi_pepe_zero  = g * (Be - 5/4 * ( F_m/pe_minus - F_p/pe_plus) )
 
         # save (automatically computes matricies in class function)
         self.psi_pen  = psi_profiles(psi_pen_zero,
