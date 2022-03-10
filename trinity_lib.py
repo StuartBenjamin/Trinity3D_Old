@@ -11,6 +11,7 @@ import models as mf
 # There is a sub class for fluxes of each (n, pi, pe) evolution
 
 class Trinity_Engine():
+    # values need to be adjusted for specific ion species                                       !
     def __init__(self, N = 10, # number of radial points
                        n_core = 4,
                        n_edge = 0.5,
@@ -102,6 +103,8 @@ class Trinity_Engine():
 
 
         ### init flux models
+        # Current models have i and e very similar, contrary to the approximations made in Barnes.
+        # Not sure if anything needs to be updated for inter-species                                                !
         if (model == 'GX'):
             fout = 'gx-files/temp.gx'
             gx = mf.GX_Flux_Model(fout)
@@ -149,6 +152,7 @@ class Trinity_Engine():
 
 
         # derivatives
+        # These should be different for ions and electrons?                         !
         #G_n, G_pi, G_pe    = vec(s.model_G.flux_gradients)(*Lx)
         #Qi_n, Qi_pi, Qi_pe = vec(s.model_Qi.flux_gradients)(*Lx)
         #Qe_n, Qe_pi, Qe_pe = vec(s.model_Qi.flux_gradients)(*Lx)
