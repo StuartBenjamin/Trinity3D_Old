@@ -48,10 +48,6 @@ Spi_width  = 0.2
 Spe_width  = 0.2
 
 
-# temp fix, pass global param into library
-#    this is what should be in the "Trinity Engine"
-trl.rho_axis = rho_axis
-
 
 ### will be static > dynamic profile
 #pressure = trl.profile(n*T0)
@@ -60,7 +56,7 @@ trl.rho_axis = rho_axis
 Ba = 3 # average field on LCFS
 R_major = 5   # meter
 a_minor = 0.5 # meter
-area     = trl.profile(np.linspace(0.01,a_minor,N)) # parabolic area, simple torus
+#area     = trl.profile(np.linspace(0.01,a_minor,N)) # parabolic area, simple torus
 
 
 ### Run Trinity!
@@ -106,11 +102,8 @@ Time = 0
 density    = engine.density
 pressure_i = engine.pressure_i
 pressure_e = engine.pressure_e
-#Gamma     = engine.Gamma
-#Q_i       = engine.Qi
-#Q_e       = engine.Qe
 d3_prof.plot( density, pressure_i, pressure_e, Time)
-#d3_flux.plot( Gamma, Q_i, Q_e, Time)
+
 j = 0 
 # Put this into "Trinity Runner" class
 #    "better to have functions than scripts"
@@ -158,7 +151,6 @@ while (j < N_steps):
         writer.save(engine)
 
 
-
     Time += dtau
     j += 1
 
@@ -169,7 +161,7 @@ d3_prof.title(rlabel)
 
 d3_flux.label(titles=['Gamma','Qi','Qe'])
 
-engine.plot_sources()
+#engine.plot_sources()
 
 path = './' # should get path from trinity engine's GX_IO, and if GX is not used?
 fout = 'trinity_log.npy'

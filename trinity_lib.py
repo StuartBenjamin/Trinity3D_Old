@@ -4,6 +4,11 @@ import pdb
 
 import models as mf 
 
+import profiles as pf
+profile           = pf.Profile
+flux_coefficients = pf.Flux_coefficients
+psi_profiles      = pf.Psi_profiles
+
 # ignore divide by 0 warnings
 #np.seterr(divide='ignore', invalid='ignore')
 
@@ -11,6 +16,7 @@ import models as mf
 # There is a sub class for fluxes of each (n, pi, pe) evolution
 
 class Trinity_Engine():
+
     def __init__(self, N = 10, # number of radial points
                        n_core = 4,
                        n_edge = 0.5,
@@ -50,6 +56,7 @@ class Trinity_Engine():
         self.drho     = rho_edge / (N-1)
         rho_axis = np.linspace(0,rho_edge,N) # radial axis
         self.rho_axis = rho_axis
+        pf.rho_axis   = rho_axis
 
         self.dtau     = dtau
         self.alpha    = alpha
@@ -60,7 +67,7 @@ class Trinity_Engine():
         self.Ba      = Ba # average field on LCFS
         self.R_major = R_major # meter
         self.a_minor = a_minor # meter
-        self.area     = profile(np.linspace(0.01,a_minor,N)) # parabolic area, simple torus
+        self.area     = profile(np.linspace(0.01,a_minor,N), half=True) # parabolic area, simple torus
 
 
         ### init profiles
@@ -126,12 +133,19 @@ class Trinity_Engine():
     def compute_flux(self):
 
         ### calc gradients
-        grad_n  = self.density.grad.profile 
-        grad_pi = self.pressure_i.grad.profile
-        grad_pe = self.pressure_e.grad.profile
-        kn  = - self.density.grad_log.profile     # L_n^inv
-        kpi = - self.pressure_i.grad_log.profile  # L_pi^inv
-        kpe = - self.pressure_e.grad_log.profile  # L_pe^inv
+        grad_n  = self.density.grad.   midpoints 
+        grad_pi = self.pressure_i.grad.midpoints
+        grad_pe = self.pressure_e.grad.midpoints
+
+        ### new 3/14
+        # use the positions from flux tubes in between radial grid steps
+        kn  = - self.density.grad_log   .midpoints 
+        kpi = - self.pressure_i.grad_log.midpoints
+        kpe = - self.pressure_e.grad_log.midpoints
+        ###
+
+        #import pdb
+        #pdb.set_trace()
 
         # run model (opportunity for parallelization)
         #Lx = np.array( [Ln_inv, Lpi_inv, Lpe_inv] )
@@ -139,7 +153,9 @@ class Trinity_Engine():
         G_neo  = - self.model_G.neo  * grad_n
         Qi_neo = - self.model_Qi.neo * grad_pi
         Qe_neo = - self.model_Qe.neo * grad_pe
-        
+       
+
+        ### Change these function calls to evaluations at the half grid
         s   = self
         vec = np.vectorize
         #G  = vec(s.model_G .flux)(*Lx) + G_neo 
@@ -160,6 +176,115 @@ class Trinity_Engine():
 
 
         # save
+        ### Instead of evaluating half here, set the half per force.
+        self.Gamma  = pf.Flux_profile(G)
+        self.Qi     = pf.Flux_profile(Qi) 
+        self.Qe     = pf.Flux_profile(Qe) 
+        
+        self.G_n    = pf.Flux_profile(G_n   )
+        self.G_pi   = pf.Flux_profile(G_pi  )
+        self.G_pe   = pf.Flux_profile(G_pe  )
+        self.Qi_n   = pf.Flux_profile(Qi_n )
+        self.Qi_pi  = pf.Flux_profile(Qi_pi)
+        self.Qi_pe  = pf.Flux_profile(Qi_pe)
+        self.Qe_n   = pf.Flux_profile(Qe_n )
+        self.Qe_pi  = pf.Flux_profile(Qe_pi)
+        self.Qe_pe  = pf.Flux_profile(Qe_pe)
+
+    def normalize_fluxes(self):
+
+        # load
+        n     = self.density   .midpoints 
+        pi    = self.pressure_i.midpoints 
+        pe    = self.pressure_e.midpoints 
+
+        Gamma = self.Gamma.profile
+        Qi    = self.Qi.profile
+        Qe    = self.Qe.profile
+
+        # properly, this should be defined for the flux tubes
+        area  = self.area.midpoints
+        Ba    = self.Ba
+
+        # calc
+        A = area / Ba**2
+        Fn = A * Gamma * pi**(1.5) / n**(0.5)
+        Fpi = A * Qi * pi**(2.5) / n**(1.5)
+        Fpe = A * Qe * pi**(2.5) / n**(1.5)
+
+        Fn  = pf.Flux_profile(Fn )
+        Fpi = pf.Flux_profile(Fpi)
+        Fpe = pf.Flux_profile(Fpe)
+
+        # save
+        self.Fn  = Fn
+        self.Fpi = Fpi
+        self.Fpe = Fpe
+
+    def compute_flux_old(self):
+
+        ### calc gradients
+        grad_n  = self.density.grad.profile 
+        grad_pi = self.pressure_i.grad.profile
+        grad_pe = self.pressure_e.grad.profile
+        kn  = - self.density.grad_log.profile     # L_n^inv
+        kpi = - self.pressure_i.grad_log.profile  # L_pi^inv
+        kpe = - self.pressure_e.grad_log.profile  # L_pe^inv
+
+        ### new 3/14
+        # use the positions from flux tubes in between radial grid steps
+        #kn  = - self.density.grad_log   .plus.profile #[:-1]  # computes an extra unphysical point
+        #kpi = - self.pressure_i.grad_log.plus.profile #[:-1] 
+        #kpe = - self.pressure_e.grad_log.plus.profile #[:-1] 
+        ###
+
+        #import pdb
+        #pdb.set_trace()
+
+        # run model (opportunity for parallelization)
+        #Lx = np.array( [Ln_inv, Lpi_inv, Lpe_inv] )
+
+        G_neo  = - self.model_G.neo  * grad_n
+        Qi_neo = - self.model_Qi.neo * grad_pi
+        Qe_neo = - self.model_Qe.neo * grad_pe
+       
+
+        ### Change these function calls to evaluations at the half grid
+        s   = self
+        vec = np.vectorize
+        #G  = vec(s.model_G .flux)(*Lx) + G_neo 
+        #Qi = vec(s.model_Qi.flux)(*Lx) + Qi_neo
+        #Qe = vec(s.model_Qe.flux)(*Lx) + Qe_neo
+        G  = vec(s.model_G .flux)(kn,0*kpi, 0*kpe) + G_neo 
+        Qi = vec(s.model_Qi.flux)(0*kn, kpi, 0*kpe) + Qi_neo
+        Qe = vec(s.model_Qe.flux)(0*kn, 0*kpi, kpe) + Qe_neo
+
+
+        # derivatives
+        #G_n, G_pi, G_pe    = vec(s.model_G.flux_gradients)(*Lx)
+        #Qi_n, Qi_pi, Qi_pe = vec(s.model_Qi.flux_gradients)(*Lx)
+        #Qe_n, Qe_pi, Qe_pe = vec(s.model_Qi.flux_gradients)(*Lx)
+        G_n, G_pi, G_pe    = vec(s.model_G.flux_gradients) (kn,0*kpi, 0*kpe) 
+        Qi_n, Qi_pi, Qi_pe = vec(s.model_Qi.flux_gradients)(0*kn, kpi, 0*kpe)
+        Qe_n, Qe_pi, Qe_pe = vec(s.model_Qi.flux_gradients)(0*kn, 0*kpi, kpe)
+
+
+        # save
+        ### Instead of evaluating half here, set the half per force.
+        #self.Gamma.plus   = profile(G[1: ] )
+        #self.Gamma.minus  = profile(G[:-1] )
+        #self.Qi        = profile(Qi) 
+        #self.Qe        = profile(Qe) 
+        #
+        #self.G_n   = profile(G_n   )
+        #self.G_pi  = profile(G_pi  )
+        #self.G_pe  = profile(G_pe  )
+        #self.Qi_n   = profile(Qi_n )
+        #self.Qi_pi  = profile(Qi_pi)
+        #self.Qi_pe  = profile(Qi_pe)
+        #self.Qe_n   = profile(Qe_n )
+        #self.Qe_pi  = profile(Qe_pi)
+        #self.Qe_pe  = profile(Qe_pe)
         self.Gamma     = profile(G, half=True)
         self.Qi        = profile(Qi, half=True) 
         self.Qe        = profile(Qe, half=True) 
@@ -175,7 +300,7 @@ class Trinity_Engine():
         self.Qe_pe  = profile(Qe_pe, half=True)
 
 
-    def normalize_fluxes(self):
+    def normalize_fluxes_old(self):
 
         # load
         n     = self.density.profile
@@ -596,7 +721,7 @@ class Trinity_Engine():
         plt.legend()
         plt.grid()
 
-
+    # can be retired
     # first attempt at exporting gradients for GX
     def write_GX_command(self,j,Time):
         
@@ -619,243 +744,7 @@ class Trinity_Engine():
                 .format(j, k, Time, rax[k], sax[k], R*kti[k], R*kn[k]), file=f)
         
 
-# the class computes and stores normalized flux F, AB coefficients, and psi for the tridiagonal matrix
-# it will need a flux Q, and profiles nT
-# it should know whether ions or electrons are being computed, or density...
-class flux_coefficients():
 
-    # x is state vector (n, pi, pe)
-    # Y is normalized flux (F,I)
-    # Z is dlog flux (d log Gamma / d L_x ), evaluated at +- half step
-    def __init__(self,x,Y,Z,dZ,norm):
-
-        self.state   = x
-        self.flux    = Y # this is normalized flux F,I
-        self.RawFlux = Z # this is Gamma,Q
-        self.dRawFlux = dZ # this is Gamma,Q
-        self.norm    = norm # normalizlation constant (R/a)/drho
-
-        # plus,minus,zero : these are the A,B coefficients
-        self.plus  = self.C_plus()
-        self.minus = self.C_minus()
-        self.zero  = self.C_zero()
-
-
-    def C_plus(self):
-
-        norm = self.norm
-
-        x  = self.state.profile
-        xp = self.state.plus.profile
-        Yp = self.flux.plus.profile
-        Zp = self.RawFlux.plus.profile
-        dZp = self.dRawFlux.plus.profile
-
-        with np.errstate(divide='ignore', invalid='ignore'):
-            dLogZp = np.nan_to_num( dZp / Zp )
-
-        Cp = - norm * (x / xp**2) * Yp * dLogZp
-        return profile(Cp)
-
-    def C_minus(self):
-
-        norm = self.norm
-        
-        x  = self.state.profile
-        xm = self.state.minus.profile
-        Ym = self.flux.minus.profile
-        Zm = self.RawFlux.minus.profile
-        dZm = self.dRawFlux.minus.profile
-        
-        with np.errstate(divide='ignore', invalid='ignore'):
-            dLogZm = np.nan_to_num( dZm / Zm )
-
-        Cm = - norm * (x / xm**2) * Ym * dLogZm
-        return profile(Cm)
-
-    def C_zero(self):
-
-        norm = self.norm
-
-        x  = self.state.profile
-        xp = self.state.plus.profile
-        xm = self.state.minus.profile
-        xp1 = self.state.plus1.profile
-        xm1 = self.state.minus1.profile
-        
-        Yp = self.flux.plus.profile
-        Zp = self.RawFlux.plus.profile
-        dZp = self.dRawFlux.plus.profile
-
-        Ym = self.flux.minus.profile
-        Zm = self.RawFlux.minus.profile
-        dZm = self.dRawFlux.minus.profile
-        
-        with np.errstate(divide='ignore', invalid='ignore'):
-            dLogZp = np.nan_to_num( dZp / Zp )
-            dLogZm = np.nan_to_num( dZm / Zm )
-
-        cp = xp1 / xp**2 * Yp * dLogZp
-        cm = xm1 / xm**2 * Ym * dLogZm
-        Cz = norm * ( cp + cm ) 
-        return profile(Cz)
-
-
-# This class organizes the psi-profiles in tri-diagonal matrix
-class psi_profiles():
-
-    def __init__(self,psi_zero,
-                      psi_plus,
-                      psi_minus,
-                      neumann=False):
-
-        # save profiles
-        self.plus  = profile( psi_plus )
-        self.minus = profile( psi_minus )
-        self.zero  = profile( psi_zero )
-
-        # formulate matrix
-        M = tri_diagonal(psi_zero,
-                         psi_plus,
-                         psi_minus)
-
-        if (neumann):
-            # make modification for boundary condition
-            M[0,1] -= psi_minus[0]  
-
-        # save matrix
-        self.matrix = M
-
-# a general class for handling profiles (n, p, F, gamma, Q, etc)
-# with options to evaluate half steps and gradients at init
-class profile():
-    # should consider capitalizing Profile(), for good python form
-    def __init__(self,arr, grad=False, half=False, full=False):
-
-        # take a 1D array to be density, for example
-        self.profile = np.array(arr) 
-        self.length  = len(arr)
-        global rho_axis
-        self.axis    = rho_axis
-        # assumes fixed radial griding, which (if irregular) could also be a profile, defined as a function of index
-
-        # pre-calculate gradients, half steps, or full steps
-        if (grad):
-            self.grad     =  profile(self.gradient(), half=half, full=full)
-            self.grad_log =  profile(self.log_gradient(), half=half, full=full)
-
-        if (half): # defines half step
-            self.plus  = profile(self.halfstep_pos())
-            self.minus = profile(self.halfstep_neg())
-
-        if (full): # defines full stup
-            self.plus1  = profile(self.fullstep_pos())
-            self.minus1 = profile(self.fullstep_neg())
-
-    # pos/neg are forward and backwards
-    def halfstep_neg(self):
-        # x_j\pm 1/2 = (x_j + x_j \pm 1) / 2
-        xj = self.profile
-        x1 = np.roll(xj,1)
-        x1[0] = xj[0]
-        return (xj + x1) / 2
-
-    def halfstep_pos(self):
-        # x_j\pm 1/2 = (x_j + x_j \pm 1) / 2
-        xj = self.profile
-        x1 = np.roll(xj,-1)
-        x1[-1] = xj[-1]
-        return (xj + x1) / 2
-
-    def fullstep_pos(self):
-        x0 = self.profile
-        x1 = np.roll(x0,-1)
-        x1[-1] = x0[-1]
-        return x1
-
-    def fullstep_neg(self):
-        x0 = self.profile
-        x1 = np.roll(x0,1)
-        x1[0] = x0[0]
-        return x1
-
-    def gradient(self):
-        # assume equal spacing
-        # 3 point - first deriv: u_j+1 - 2u + u_j-1
-        xj = self.profile
-        xp = np.roll(xj,-1)
-        xm = np.roll(xj, 1)
-
-        dx = 1/len(xj) # assumes spacing is from (0,1)
-        deriv = (xp - xm) / (2*dx)
-        deriv[0]  = 0
-        #deriv[0]  = deriv[1]      # should a one-sided stencil be used here too?
-                                  # should I set it to 0? in a transport solver, is the 0th point on axis?
-                                  # I don't think GX will be run for the 0th point. So should that point be excluded from TRINITY altogether?
-                                  #      or should it be included as a ghost point?
-
-        # this is a second order accurate one-sided stencil
-        deriv[-1]  = ( 3*xj[-1] -4*xj[-2] + xj[-3])  / (2*dx)
-
-        # Bill, from fortran trinity
-        deriv[-1]  = ( 23*xj[-1] -21*xj[-2] - 3*xj[-3] + xj[-4])  / (24*dx)
-
-        return deriv
-        # can recursively make gradient also a profile class
-        # need to test this
-
-    def log_gradient(self):
-        # this is actually the gradient of the log...
-
-        with np.errstate(divide='ignore', invalid='ignore'):
-            gradlog = np.nan_to_num(self.gradient() / self.profile )
-
-        return gradlog
-
-    def plot(self,show=False,new_fig=False,label=''):
-
-        if (new_fig):
-            plt.figure(figsize=(4,4))
-
-        #ax = np.linspace(0,1,self.length)
-        #plt.plot(ax,self.profile,'.-')
-
-        if (label):
-            plt.plot(self.axis,self.profile,'.-',label=label)
-        else:
-            plt.plot(self.axis,self.profile,'.-')
-
-        if (show):
-            plt.show()
-
-
-    # operator overloads that automatically dereference the profiles
-    def __add__(A,B):
-        if isinstance(B, A.__class__):
-            return A.profile + B.profile
-        else:
-            return A.profile + B
-
-    def __sub__(A,B):
-        if isinstance(B, A.__class__):
-            return A.profile - B.profile
-        else:
-            return A.profile - B
-
-    def __mul__(A,B):
-        if isinstance(B, A.__class__):
-            return A.profile * B.profile
-        else:
-            return A.profile * B
-
-    def __truediv__(A,B):
-        if isinstance(B, A.__class__):
-            return A.profile / B.profile
-        else:
-            return A.profile / B
-
-    def __rmul__(A,B):
-        return A.__mul__(B)
 
 
 # Initialize Trinity profiles
@@ -877,15 +766,7 @@ def init_profile(x,debug=False):
 ##### Evolve Trinity Equations
 
 ### Define LHS
-# make tri-diagonal matrix
 
-def tri_diagonal(a,b,c):
-    N = len(a)
-    M = np.diag(a)
-    for j in np.arange(N-1):
-        M[j,j+1] = b[j]   # upper, drop last point
-        M[j+1,j] = c[j+1] # lower, drop first 
-    return M
 
 # 1) should I treat the main equation as the middle of an array
 # 2) or append the boundaries as ancillary to the main array?

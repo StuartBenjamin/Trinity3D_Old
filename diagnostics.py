@@ -69,8 +69,8 @@ class diagnostic_3:
         a0,a1,a2 = self.axs
         tlabel = 'T = {:.2e}'.format(time)
 
-        quick_plot(a0, f,       tlabel)
-        quick_plot(a1, g,  tlabel)
+        quick_plot(a0, f, tlabel)
+        quick_plot(a1, g, tlabel)
         quick_plot(a2, h, tlabel)
 
     def title(self,title):
