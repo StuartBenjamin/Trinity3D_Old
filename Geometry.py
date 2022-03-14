@@ -1,5 +1,5 @@
 ### this lives as an instance of the Trinity Engine
-#   to handle flux tubes and GX's geometry moduleA
+#   to handle flux tubes and GX's geometry module
 
 from netCDF4 import Dataset
 import copy
@@ -69,49 +69,4 @@ class FluxTube():
 
         fprim = '[ {:.2f},       {:.2f}     ]'.format(kn, kn)
         gx.inputs['species']['fprim'] = fprim
-
-
-
-
-# unused pseudo code
-class Geometry():
-
-    def __init__(self, N_radius):
-
-        self.N_radius = N_radius # the number of points in Trinity grid
-
-        ## lets start by assuming the number of GX points is the same, 
-        #     but potentially it could be fewer 
-        #     if want to come up with a flux interpolation scheme
-
-
-        ###  load an input template
-        #    later, this should come from Trinity input file
-        f_input = 'gx-files/gx-sample.in' 
-        self.input_template = GX_Runner(f_input)
-
-        ### list for storing flux tubes
-        self.flux_tubes = []
-
-
-    def load_fluxtube(self, f_geo):
-
-        ft = FluxTube(f_geo)       # init an instance of flux tube class
-        ft.load_gx_input(self.input_template)
-        self.flux_tubes.append(ft) # store in list of flux tubes
-
-    def load_VMEC(self, f_vmec):
-        # reads a VMEC wout file
-        pass
-
-    def run_GX_geometry_module(self):
-        # this takes an existing VMEC file, and runs gx.ing to generate a flux tube
-        # should store information about the flux tubes
-        pass
-
-
-    def run_VMEC(self):
-        # this updates (an existing) VMEC geometry
-        #    based on the pressure profile, determined by n,T, and source terms in Trinity
-        pass
 

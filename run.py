@@ -26,24 +26,26 @@ N = 6 # number of radial points (N-2 flux tubes)
 rho_edge = 0.8    # rho = r/a : normalized radius
 rho_axis = np.linspace(0,rho_edge,N) # radial axis
 
-model = 'diffusive' #'GX'
+#model = 'diffusive'   # Barnes test 2
+#model = 'GX'          # use slurm to call GX
+model = 'ReLU'        # default
 
 ### Set up time controls
 alpha = 1          # explicit to implicit mixer
-dtau  = 1         # step size 
-N_steps  = 5       # total Time = dtau * N_steps
-N_prints = 5 
+dtau  = 0.1         # step size 
+N_steps  = 10       # total Time = dtau * N_steps
+N_prints = 10 
 N_step_print = N_steps // N_prints   # how often to print # thanks Sarah!
 ###
 
 
 ### Set up source
 Sn_height  = 0
-Spi_height = 3
+Spi_height = 2
 Spe_height = 2
 Sn_width   = 0.2
 Spi_width  = 0.2
-Spe_width  = 0.3
+Spe_width  = 0.2
 
 
 # temp fix, pass global param into library
@@ -95,6 +97,8 @@ engine = trl.Trinity_Engine(alpha=alpha,
 d3_prof  = dgn.diagnostic_3()
 d3_flux  = dgn.diagnostic_3()
 
+writer = dgn.ProfileSaver()
+
 #fout = 'gx-files/temp.gx'
 #model_gx = mf.GX_Flux_Model(fout)
 
@@ -112,7 +116,7 @@ j = 0
 #    "better to have functions than scripts"
 while (j < N_steps):
 
-    if (engine.model == 'GX'):
+    if   (engine.model == 'GX'):
         engine.model_gx.prep_commands(engine, j, Time) # use GX
     elif (engine.model == 'diffusive'):
         engine.barnes_model.compute_Q(engine)
@@ -151,6 +155,7 @@ while (j < N_steps):
         #engine.model_gx.prep_commands(engine, j, Time)
 
         # is it better for model_gx to live in run scope or in engine?
+        writer.save(engine)
 
 
 
@@ -166,4 +171,11 @@ d3_flux.label(titles=['Gamma','Qi','Qe'])
 
 engine.plot_sources()
 
+path = './' # should get path from trinity engine's GX_IO, and if GX is not used?
+fout = 'trinity_log.npy'
+writer.export(fout)
+
 plt.show()
+
+import pdb
+pdb.set_trace()

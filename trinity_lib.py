@@ -54,6 +54,8 @@ class Trinity_Engine():
         self.dtau     = dtau
         self.alpha    = alpha
 
+        self.time = 0
+
         ### will be from VMEC
         self.Ba      = Ba # average field on LCFS
         self.R_major = R_major # meter
@@ -574,6 +576,9 @@ class Trinity_Engine():
         self.density    = profile(n,  grad=True, half=True, full=True)
         self.pressure_i = profile(pi, grad=True, half=True, full=True)
         self.pressure_e = profile(pe, grad=True, half=True, full=True)
+
+        # step time
+        self.time += self.dtau
 
     def plot_sources(self):
 

@@ -151,6 +151,7 @@ class Barnes_Model2():
         engine.Qe_pe  = trl.profile(dQe_pe, half=True)
 
 
+WAIT_TIME = 1  # this should come from the Trinity Engine
 class GX_Flux_Model():
 
     def __init__(self,fname):
@@ -160,7 +161,8 @@ class GX_Flux_Model():
         #    later, this should come from Trinity input file
         f_input = 'gx-files/gx-sample.in' 
         self.input_template = GX_Runner(f_input)
-        self.path = 'temp/'
+        #self.path = 'temp/'
+        self.path = 'run-dir/'
 
         ### This keeps a record of GX comands, it might be retired
         # init file for writing GX commands
@@ -188,6 +190,7 @@ class GX_Flux_Model():
 
 
     def init_geometry(self):
+        # assumes GX input files already exist
 
         ### load flux tube geometry
         # these should come from Trinity input file
@@ -202,6 +205,16 @@ class GX_Flux_Model():
         for fin in geo_inputs:
             self.load_fluxtube(fin)
 
+    def create_geometry_from_vmec(self,wout):
+
+        # load sample geometry file
+
+        # make changes (i.e. specify radius, ntheta etc.)
+
+        # write new file and run GX-VMEC geometry module
+
+        # wait, load new geometry files
+        pass
 
     def load_fluxtube(self, f_geo):
 
@@ -267,7 +280,7 @@ class GX_Flux_Model():
         self.wait()
 
         # read
-        _time.sleep(5)
+        _time.sleep(WAIT_TIME)
 
         print('starting to read')
         for j in (idx-1): 
@@ -316,7 +329,6 @@ class GX_Flux_Model():
         # to be specified by Trinity input file, or by time stamp
         root = 'gx-files/'
         path = self.path
-        #path = 'run-dir/' 
         tag  = 't{:}-r{:}-{:}'.format(t_id, r_id, job_id)
 
         fout  = tag + '.in'
@@ -358,7 +370,8 @@ class GX_Flux_Model():
         if ( exists(f_nc) == False ):
 
             # attempt to call
-            cmd = ['srun', '-N', '1', '-t', '2:00:00', '--ntasks=1', '--gpus-per-task=1', path+'./gx', path+tag]
+            cmd = ['srun', '-N', '1', '-t', '2:00:00', '--ntasks=1', '--gpus-per-task=1', path+'./gx', path+tag+'.in'] # new gx binary
+            #cmd = ['srun', '-N', '1', '-t', '2:00:00', '--ntasks=1', '--gpus-per-task=1', path+'./gx', path+tag]
     
             print('Calling', tag)
             print_time()
@@ -374,7 +387,7 @@ class GX_Flux_Model():
             print_time()
 
         else:
-            print('  found {:} already exists'.format(tag) )
+            print('  gx output {:} already exists'.format(tag) )
 
         return f_nc
 

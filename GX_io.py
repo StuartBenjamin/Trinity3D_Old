@@ -4,6 +4,8 @@ from netCDF4 import Dataset
 import subprocess
 import sys # unused
 
+import os
+
 class GX_Runner():
 
     # This class handles GX input files, and also execution
@@ -50,6 +52,11 @@ class GX_Runner():
 
 
     def write(self, fout='temp.in'):
+
+        # do not overwrite
+        if (os.path.exists(fout)):
+            print( '  input exists, skipping write', fout )
+            return
 
         with open(fout,'w') as f:
         
