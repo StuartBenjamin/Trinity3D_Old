@@ -60,6 +60,8 @@ class Trinity_Engine():
 
         self.dtau     = dtau
         self.alpha    = alpha
+        self.N_steps  = N_steps
+        self.N_prints = N_prints
 
         self.time = 0
 

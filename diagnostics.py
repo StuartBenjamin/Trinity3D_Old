@@ -125,20 +125,17 @@ class diagnostic_4:
         a = self.axs[j]
         a.legend()
 
-class ProfileSaver:
-
-    def __init__(self, fout='trinity.log'):
-#        self.f = open(fout, 'w')
-
-#        head = '{:}, {:.6e}, {:.6e}, {:.6e}, {:.6e}, {:.6e}, {:.6e}'.format(t, n, Ti, Te, Gamma, Qi, Qe)
-
-        #### I need to save a 3D array. Its not so simple. I think saving a numpy object might be better than converting to a list of numbers like TRANSP. Or I can save a netCDF for more universality.
-
 # I could probably generalize the diagnostic function,
 # such that the window size is variably set in INIT
 
+class ProfileSaver:
+
+    def __init__(self):
+
+        # saves TRINITY data as a nested dictionary
         log = {}
 
+        # init profiles
         log['time']  = []
         log['n']     = []
         log['pi']    = []
@@ -166,6 +163,22 @@ class ProfileSaver:
         self.log['Gamma'].append(G)
         self.log['Qi'].append(Qi)
         self.log['Qe'].append(Qe)
+
+    def store_system(self,engine):
+
+        settings = {}
+
+        settings['alpha']    = engine.alpha
+        settings['dtau']     = engine.dtau
+        settings['N_steps']  = engine.N_steps
+
+        settings['N_prints'] = engine.N_prints
+
+        settings['N_radial'] = engine.N_radial
+        settings['rho_edge'] = engine.rho_edge
+
+        self.log['system'] = settings
+        
 
     def export(self, fout='trinity_log.npy'):
         np.save(fout, self.log)

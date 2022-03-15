@@ -32,8 +32,8 @@ model = 'ReLU'        # default
 
 ### Set up time controls
 alpha = 1          # explicit to implicit mixer
-dtau  = 0.1         # step size 
-N_steps  = 10       # total Time = dtau * N_steps
+dtau  = 0.001         # step size 
+N_steps  = 500       # total Time = dtau * N_steps
 N_prints = 10 
 N_step_print = N_steps // N_prints   # how often to print # thanks Sarah!
 ###
@@ -165,6 +165,8 @@ d3_flux.label(titles=['Gamma','Qi','Qe'])
 
 path = './' # should get path from trinity engine's GX_IO, and if GX is not used?
 fout = 'trinity_log.npy'
+
+writer.store_system(engine)
 writer.export(fout)
 
 plt.show()
