@@ -165,19 +165,35 @@ class ProfileSaver:
         self.log['Qe'].append(Qe)
 
     def store_system(self,engine):
+    # saves settings for reproducing runs
 
-        settings = {}
+        # time step info lives here
+        time_settings = {}
+        time_settings['alpha']    = engine.alpha
+        time_settings['dtau']     = engine.dtau
+        time_settings['N_steps']  = engine.N_steps
+        time_settings['N_prints'] = engine.N_prints
+        time_settings['model']    = engine.model
+        self.log['system'] = time_settings
 
-        settings['alpha']    = engine.alpha
-        settings['dtau']     = engine.dtau
-        settings['N_steps']  = engine.N_steps
+        # profile info lives here
 
-        settings['N_prints'] = engine.N_prints
-
-        settings['N_radial'] = engine.N_radial
-        settings['rho_edge'] = engine.rho_edge
-
-        self.log['system'] = settings
+        profile_settings = {}
+        profile_settings['N_radial']   = engine.N_radial
+        profile_settings['rho_edge']   = engine.rho_edge
+        profile_settings['n_core']     = engine.n_core  
+        profile_settings['n_edge']     = engine.n_edge 
+        profile_settings['pi_core']    = engine.pi_core
+        profile_settings['pi_edge']    = engine.pi_edge
+        profile_settings['pe_core']    = engine.pe_core
+        profile_settings['pe_edge']    = engine.pe_edge
+        profile_settings['Sn_width']   = engine.Sn_width      
+        profile_settings['Sn_height']  = engine.Sn_height  
+        profile_settings['Spi_width']  = engine.Spi_width   
+        profile_settings['Spi_height'] = engine.Spi_height 
+        profile_settings['Spe_width']  = engine.Spe_width    
+        profile_settings['Spe_height'] = engine.Spe_height 
+        self.log['profiles'] = profile_settings
         
 
     def export(self, fout='trinity_log.npy'):

@@ -63,6 +63,13 @@ class Trinity_Engine():
         self.N_steps  = N_steps
         self.N_prints = N_prints
 
+        self.Sn_width   = Sn_width      
+        self.Sn_height  = Sn_height  
+        self.Spi_width  = Spi_width   
+        self.Spi_height = Spi_height 
+        self.Spe_width  = Spe_width    
+        self.Spe_height = Spe_height 
+
         self.time = 0
 
         ### will be from VMEC
