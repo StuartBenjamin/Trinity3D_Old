@@ -193,6 +193,9 @@ class ProfileSaver:
         profile_settings['Spi_height'] = engine.Spi_height 
         profile_settings['Spe_width']  = engine.Spe_width    
         profile_settings['Spe_height'] = engine.Spe_height 
+        profile_settings['source_n' ]   = engine.source_n
+        profile_settings['source_pi']   = engine.source_pi
+        profile_settings['source_pe']   = engine.source_pe
         self.log['profiles'] = profile_settings
         
 

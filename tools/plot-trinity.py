@@ -31,8 +31,9 @@ Qe    =      np.array( data['Qe'    ] )
 #        major radius, and other geoemtry info?
 
 settings = data['system']
-N_rho    = settings['N_radial']
-rho_edge = settings['rho_edge']
+profile_data = data['profiles']
+N_rho    = profile_data['N_radial']
+rho_edge = profile_data['rho_edge']
 axis        = np.linspace(0,rho_edge,N_rho) # radial axis
 mid_axis    = (axis[1:] + axis[:-1])/2
 pf.rho_axis = axis
@@ -45,8 +46,15 @@ def init_profile(x,debug=False):
 
 N = len(time)
 
-fig,axs = plt.subplots( 3, 5, figsize=(13,9) )
+fig,axs = plt.subplots( 3, 6, figsize=(15,9) )
 
+# run settings
+alpha = settings['alpha']
+dtau  = settings['dtau']
+rlabel = r'$\alpha = {} :: d\tau = {:.3e}$'.format(alpha,dtau)
+plt.suptitle(rlabel)
+
+# time evolution
 for t in np.arange(N):
 
     axs[0,0].plot(axis,n [t] ,'.-')
@@ -83,9 +91,20 @@ axs[0,2].set_title(r'$\nabla$')
 axs[0,3].set_title(r'$L^{-1}$')
 axs[0,4].set_title('diffusivity')
 
+# sources
+source_n  = profile_data['source_n' ] 
+source_pi = profile_data['source_pi']
+source_pe = profile_data['source_pe']
+
+axs[0,5].plot(axis, source_n , '.-')
+axs[1,5].plot(axis, source_pi, '.-')
+axs[2,5].plot(axis, source_pe, '.-')
+axs[0,5].set_title('Sources')
+
+
 plt.tight_layout()
+
+plt.show()
 
 import pdb
 pdb.set_trace()
-
-plt.show()
