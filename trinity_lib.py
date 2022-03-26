@@ -84,6 +84,10 @@ class Trinity_Engine():
 
         # need to implement <|grad rho|>, by reading surface area from VMEC
         grho = -1
+        # BUG: grho should be > 0; while geo_factor = - grho / drho / area should be negative
+        #      see Barnes (7.62) and (7.115)
+        #      but doing so causes fluxes to evolve in opposite direction
+        # adding this "artificial" (-) to grho fixes it
         drho       = rho_edge / (N-1)
         area       = profile(np.linspace(0.01,a_minor,N), half=True) # parabolic area, simple torus
         self.grho  = grho
@@ -173,8 +177,6 @@ class Trinity_Engine():
         Qi_neo = - self.model_Qi.neo * grad_pi
         Qe_neo = - self.model_Qe.neo * grad_pe
        
-        #import pdb
-        #pdb.set_trace()
 
         ### Change these function calls to evaluations at the half grid
         s   = self
@@ -574,17 +576,20 @@ class Trinity_Engine():
     def time_step_LHS(self):
  
         # load, dropping last point for Dirchlet fixed boundary condition
-        M_nn  = self.psi_nn .matrix[:-1, :-1]         
-        M_npi = self.psi_npi.matrix[:-1, :-1]         
-        M_npe = self.psi_npe.matrix[:-1, :-1]         
+        M_nn   = self.psi_nn .matrix[:-1, :-1]         
+        M_npi  = self.psi_npi.matrix[:-1, :-1]         
+        M_npe  = self.psi_npe.matrix[:-1, :-1]         
 
-        M_pin  = self.psi_pin .matrix[:-1, :-1]         
-        M_pipi = self.psi_pipi.matrix[:-1, :-1]         
-        M_pipe = self.psi_pipe.matrix[:-1, :-1]         
- 
-        M_pen  = self.psi_pen .matrix[:-1, :-1]         
-        M_pepi = self.psi_pepi.matrix[:-1, :-1]         
-        M_pepe = self.psi_pepe.matrix[:-1, :-1]         
+        # BUG: according to Barnes (7.115) there should be a factor of 2/3 here
+        #         but adding it creates strange behavior (the profiles kink in the 3rd to last point)
+        #         while removing it is more regular
+        M_pin  = self.psi_pin .matrix[:-1, :-1] # * (2./3) 
+        M_pipi = self.psi_pipi.matrix[:-1, :-1] # * (2./3) 
+        M_pipe = self.psi_pipe.matrix[:-1, :-1] # * (2./3)      
+
+        M_pen  = self.psi_pen .matrix[:-1, :-1] # * (2./3)       
+        M_pepi = self.psi_pepi.matrix[:-1, :-1] # * (2./3)       
+        M_pepe = self.psi_pepe.matrix[:-1, :-1] # * (2./3)       
 
         N_block = self.N_radial - 1
         I = np.identity(N_block)
@@ -597,7 +602,7 @@ class Trinity_Engine():
         #              [ Z    , Z      , M_pepe ],
         #            ])
         M = np.block([
-                      [ M_nn , M_npi , M_npe  ], # this should have factor 2/3
+                      [ M_nn , M_npi , M_npe  ], 
                       [ M_pin, M_pipi, M_pipe ],
                       [ M_pen, M_pepi, M_pepe ]
                      ])
@@ -671,8 +676,8 @@ class Trinity_Engine():
     
         # should each psi have its own bvec? rename bvec to bvec_n if so
         bvec_n  =  n_prev  + dtau*(1 - alpha)*force_n  + dtau*source_n  + dtau*alpha*boundary_n   ## BUG! this is the source of peaking n-1 point
-        bvec_pi =  pi_prev + dtau*(1 - alpha)*force_pi + dtau*source_pi + dtau*alpha*boundary_pi
-        bvec_pe =  pe_prev + dtau*(1 - alpha)*force_pe + dtau*source_pe + dtau*alpha*boundary_pe
+        bvec_pi =  pi_prev + (2./3) * dtau*(1 - alpha)*force_pi + dtau*source_pi + dtau*alpha*boundary_pi
+        bvec_pe =  pe_prev + (2./3) * dtau*(1 - alpha)*force_pe + dtau*source_pe + dtau*alpha*boundary_pe
        
         # there was a major bug here with the pressure parts of RHS state vector
 
@@ -762,6 +767,7 @@ class Trinity_Engine():
 #     with default gradients, half steps, and full steps
 def init_profile(x,debug=False):
 
+    x[0] = x[1]
     X = profile(x, grad=True, half=True, full=True)
     return X
 
