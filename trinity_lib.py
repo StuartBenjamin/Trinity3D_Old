@@ -33,12 +33,15 @@ class Trinity_Engine():
                        N_steps  = 1000,    # total Time = dtau * N_steps
                        N_prints = 10,
                        rho_edge = 0.8,
-                       Sn_width   = 0.1,   
                        Sn_height  = 0,  
-                       Spi_width  = 0.1, 
-                       Spi_height = 0, 
-                       Spe_width  = 0.1,  
                        Spe_height = 0,
+                       Spi_height = 0, 
+                       Sn_width   = 0.1,   
+                       Spi_width  = 0.1, 
+                       Spe_width  = 0.1,  
+                       Sn_center  = 0.0,   
+                       Spi_center = 0.0, 
+                       Spe_center = 0.0,  
                        model      = 'GX'
                        ):
 
@@ -62,12 +65,15 @@ class Trinity_Engine():
         self.N_steps  = N_steps
         self.N_prints = N_prints
 
-        self.Sn_width   = Sn_width      
         self.Sn_height  = Sn_height  
-        self.Spi_width  = Spi_width   
         self.Spi_height = Spi_height 
-        self.Spe_width  = Spe_width    
         self.Spe_height = Spe_height 
+        self.Sn_width   = Sn_width      
+        self.Spi_width  = Spi_width   
+        self.Spe_width  = Spe_width    
+        self.Sn_center  = Sn_center   
+        self.Spi_center = Spi_center 
+        self.Spe_center = Spe_center  
 
         self.time = 0
 
@@ -77,7 +83,7 @@ class Trinity_Engine():
         self.a_minor = a_minor # meter
 
         # need to implement <|grad rho|>, by reading surface area from VMEC
-        grho = 1
+        grho = -1
         drho       = rho_edge / (N-1)
         area       = profile(np.linspace(0.01,a_minor,N), half=True) # parabolic area, simple torus
         self.grho  = grho
@@ -120,9 +126,9 @@ class Trinity_Engine():
         # temp, Gaussian model. Later this should be adjustable
         Gaussian  = np.vectorize(mf.Gaussian)
         rax = rho_axis
-        self.source_n  = Gaussian(rax, A=Sn_height , sigma=Sn_width)
-        self.source_pi = Gaussian(rax, A=Spi_height, sigma=Spi_width)
-        self.source_pe = Gaussian(rax, A=Spe_height, sigma=Spe_width)
+        self.source_n  = Gaussian(rax, A=Sn_height , sigma=Sn_width , x0=Sn_center)
+        self.source_pi = Gaussian(rax, A=Spi_height, sigma=Spi_width, x0=Spi_center)
+        self.source_pe = Gaussian(rax, A=Spe_height, sigma=Spe_width, x0=Spe_center)
 
 
         ### init flux models
@@ -699,7 +705,7 @@ class Trinity_Engine():
         n_next, pi_next, pe_next = np.reshape( y_next,(3,N_mat) )
 
         # check if legit, the forcefully sets the core derivative to 0
-        n  = np.concatenate([ [n_next[1]] , n_next[1:] , [n_edge] ]) 
+        n  = np.concatenate([ [n_next[1]] , n_next[1:] , [n_edge]  ]) 
         pi = np.concatenate([ [pi_next[1]], pi_next[1:], [pi_edge] ]) 
         pe = np.concatenate([ [pe_next[1]], pe_next[1:], [pe_edge] ])
 

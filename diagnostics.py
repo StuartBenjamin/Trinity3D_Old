@@ -177,22 +177,27 @@ class ProfileSaver:
         self.log['system'] = time_settings
 
         # profile info lives here
-
         profile_settings = {}
         profile_settings['N_radial']   = engine.N_radial
         profile_settings['rho_edge']   = engine.rho_edge
+        profile_settings['grho']       = engine.grho
+        profile_settings['drho']       = engine.drho
+        profile_settings['area']       = engine.area.profile
         profile_settings['n_core']     = engine.n_core  
         profile_settings['n_edge']     = engine.n_edge 
         profile_settings['pi_core']    = engine.pi_core
         profile_settings['pi_edge']    = engine.pi_edge
         profile_settings['pe_core']    = engine.pe_core
         profile_settings['pe_edge']    = engine.pe_edge
-        profile_settings['Sn_width']   = engine.Sn_width      
         profile_settings['Sn_height']  = engine.Sn_height  
-        profile_settings['Spi_width']  = engine.Spi_width   
         profile_settings['Spi_height'] = engine.Spi_height 
-        profile_settings['Spe_width']  = engine.Spe_width    
         profile_settings['Spe_height'] = engine.Spe_height 
+        profile_settings['Sn_width']   = engine.Sn_width      
+        profile_settings['Spi_width']  = engine.Spi_width   
+        profile_settings['Spe_width']  = engine.Spe_width    
+        profile_settings['Sn_center']  = engine.Sn_center  
+        profile_settings['Spi_center'] = engine.Spi_center 
+        profile_settings['Spe_center'] = engine.Spe_center 
         profile_settings['source_n' ]   = engine.source_n
         profile_settings['source_pi']   = engine.source_pi
         profile_settings['source_pe']   = engine.source_pe
