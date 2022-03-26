@@ -676,8 +676,10 @@ class Trinity_Engine():
     
         # should each psi have its own bvec? rename bvec to bvec_n if so
         bvec_n  =  n_prev  + dtau*(1 - alpha)*force_n  + dtau*source_n  + dtau*alpha*boundary_n   ## BUG! this is the source of peaking n-1 point
-        bvec_pi =  pi_prev + (2./3) * dtau*(1 - alpha)*force_pi + dtau*source_pi + dtau*alpha*boundary_pi
-        bvec_pe =  pe_prev + (2./3) * dtau*(1 - alpha)*force_pe + dtau*source_pe + dtau*alpha*boundary_pe
+        bvec_pi =  pi_prev + dtau*(1 - alpha)*force_pi + dtau*source_pi + dtau*alpha*boundary_pi
+        bvec_pe =  pe_prev + dtau*(1 - alpha)*force_pe + dtau*source_pe + dtau*alpha*boundary_pe
+        #bvec_pi =  pi_prev + (2./3) * dtau*(1 - alpha)*force_pi + dtau*source_pi + dtau*alpha*boundary_pi
+        #bvec_pe =  pe_prev + (2./3) * dtau*(1 - alpha)*force_pe + dtau*source_pe + dtau*alpha*boundary_pe
        
         # there was a major bug here with the pressure parts of RHS state vector
 
