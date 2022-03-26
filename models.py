@@ -64,7 +64,8 @@ class Flux_model():
 
         # store
         self.neo = D_neo
-        self.neo = 0 # turn off neo for debugging
+        #self.neo = -D_neo ## debug the neoclassical diffusion pointing the wrong way
+        #self.neo = 0 # turn off neo for debugging
         self.n_critical_gradient  = n_critical_gradient   
         self.pi_critical_gradient = pi_critical_gradient 
         self.pe_critical_gradient = pe_critical_gradient 
@@ -83,7 +84,7 @@ class Flux_model():
         D_pe = ReLU(kpe, a=self.pe_critical_gradient, m=self.pe_flux_slope) #*0
 
         D_turb = D_n + D_pi + D_pe # does not include neoclassical part
-#        D_turb = 0 # turn turbulence off for debugging
+        D_turb = 0 # turn turbulence off for debugging
         return D_turb
 
     # compute the derivative with respect to gradient scale length

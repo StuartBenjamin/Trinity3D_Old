@@ -53,7 +53,6 @@ class Trinity_Engine():
         self.model    = model
 
         self.rho_edge = rho_edge
-        self.drho     = rho_edge / (N-1)
         rho_axis = np.linspace(0,rho_edge,N) # radial axis
         self.rho_axis = rho_axis
         pf.rho_axis   = rho_axis
@@ -76,8 +75,15 @@ class Trinity_Engine():
         self.Ba      = Ba # average field on LCFS
         self.R_major = R_major # meter
         self.a_minor = a_minor # meter
-        self.area     = profile(np.linspace(0.01,a_minor,N), half=True) # parabolic area, simple torus
 
+        # need to implement <|grad rho|>, by reading surface area from VMEC
+        grho = 1
+        drho       = rho_edge / (N-1)
+        area       = profile(np.linspace(0.01,a_minor,N), half=True) # parabolic area, simple torus
+        self.grho  = grho
+        self.drho  = drho
+        self.area  = area
+        self.geometry_factor = - grho / (drho * area.profile)
 
         ### init profiles
         #     temporary profiles, later init from VMEC
@@ -153,8 +159,6 @@ class Trinity_Engine():
         kpe = - self.pressure_e.grad_log.midpoints
         ###
 
-        #import pdb
-        #pdb.set_trace()
 
         # run model (opportunity for parallelization)
         #Lx = np.array( [Ln_inv, Lpi_inv, Lpe_inv] )
@@ -163,6 +167,8 @@ class Trinity_Engine():
         Qi_neo = - self.model_Qi.neo * grad_pi
         Qe_neo = - self.model_Qe.neo * grad_pe
        
+        #import pdb
+        #pdb.set_trace()
 
         ### Change these function calls to evaluations at the half grid
         s   = self
@@ -384,12 +390,6 @@ class Trinity_Engine():
 
     def calc_psi_n(self):
     
-        # need to implement <|grad rho|>, by reading surface area from VMEC
-        grho = 1 
-        drho  = self.drho
-        area  = self.area.profile
-        geometry_factor = - grho / (area * drho)
-    
         # load
         Fnp = self.Fn.plus.profile
         Fnm = self.Fn.minus.profile
@@ -411,7 +411,7 @@ class Trinity_Engine():
         Be     = self.Cn_pe.zero.profile 
     
         # tri diagonal matrix elements
-        g = geometry_factor
+        g = self.geometry_factor
         psi_nn_plus  = g * (An_pos - Fnp / n_p / 4) 
         psi_nn_minus = g * (An_neg + Fnm / n_m / 4) 
         psi_nn_zero  = g * (Bn + ( Fnm/n_m - Fnp/n_p ) / 4) 
@@ -425,6 +425,15 @@ class Trinity_Engine():
         psi_npe_plus  = g * Ae_pos
         psi_npe_minus = g * Ae_neg
         psi_npe_zero  = g * Be
+
+        ### add neoclassical term psi_s = -s * D / 2 / drho
+
+        # get D
+#        D = self.model_G.neo
+#        psi_neo = - D / (2 * drho)
+#        psi_nn_plus += psi_neo
+#        psi_nn_minus += psi_neo
+        # new code
 
         # save (automatically computes matricies in class function)
         self.psi_nn  = psi_profiles(psi_nn_zero,
@@ -445,12 +454,6 @@ class Trinity_Engine():
         #    M_npe[0,1] -= (psi_npe_minus.profile[0]) 
    
     def calc_psi_pi(self):
-    
-        # need to implement <|grad rho|>, by reading surface area from VMEC
-        grho = 1 
-        drho  = self.drho
-        area  = self.area.profile
-        geometry_factor = - grho / (area * drho)
     
         # load
         F_p = self.Fpi.plus#.profile
@@ -478,7 +481,7 @@ class Trinity_Engine():
         mu3 = self.mu3
     
         # tri diagonal matrix elements
-        g = geometry_factor
+        g = self.geometry_factor
         psi_pin_plus  = g * (An_pos - 3/4 * F_p / n_p) - mu1 / n 
         psi_pin_minus = g * (An_neg + 3/4 * F_m / n_m) + mu1 / n
         psi_pin_zero  = g * (Bn +  3/4 * ( F_m/n_m - F_p/n_p ) ) 
@@ -508,12 +511,6 @@ class Trinity_Engine():
 
     def calc_psi_pe(self):
     
-        # need to implement <|grad rho|>, by reading surface area from VMEC
-        grho = 1 
-        drho  = self.drho
-        area  = self.area.profile
-        geometry_factor = - grho / (area * drho)
-    
         # load
         F_p = self.Fpe.plus.profile
         F_m = self.Fpe.minus.profile
@@ -540,7 +537,7 @@ class Trinity_Engine():
         mu3 = self.mu3
     
         # tri diagonal matrix elements
-        g = geometry_factor
+        g = self.geometry_factor
         psi_pen_plus  = g * (An_pos - 3/4 * F_p / n_p) - mu1 / n 
         psi_pen_minus = g * (An_neg + 3/4 * F_m / n_m) + mu1 / n
         psi_pen_zero  = g * (Bn +  3/4 * ( F_m/n_m - F_p/n_p ) ) 
@@ -635,7 +632,7 @@ class Trinity_Engine():
         psi_pepi = self.psi_pepi.matrix
         psi_pepe = self.psi_pepe.matrix
    
-        grho = 1 # temp
+        grho = self.grho
         g = - grho/area
         force_n  = g * (Fnp - Fnm) / drho
         force_pi = g * (Fip - Fim) / drho
@@ -673,7 +670,6 @@ class Trinity_Engine():
        
         # there was a major bug here with the pressure parts of RHS state vector
 
-        #bvec3 = np.concatenate( [bvec_n, 0*bvec_pi, 0*bvec_pe] )
         bvec3 = np.concatenate( [bvec_n, bvec_pi, bvec_pe] )
         return bvec3
 
