@@ -7,22 +7,8 @@ import models      as mf
 
 import pdb
 
-### main
-
-# go into the trinity engine
- 
-## Set initial conditions
-n_core  = 3
-n_edge  = 3
-
-pi_core = 5 
-pi_edge = 2
-
-pe_core = 5
-pe_edge = 2 
-
 # set up grid
-N = 6 # number of radial points (N-2 flux tubes)
+N = 20 # number of radial points (N-2 flux tubes)
 rho_edge = 0.8    # rho = r/a : normalized radius
 rho_axis = np.linspace(0,rho_edge,N) # radial axis
 
@@ -31,22 +17,33 @@ rho_axis = np.linspace(0,rho_edge,N) # radial axis
 model = 'ReLU'        # default
 
 ### Set up time controls
-alpha = 1          # explicit to implicit mixer
+alpha = 0          # explicit to implicit mixer
 dtau  = 0.001         # step size 
 N_steps  = 500       # total Time = dtau * N_steps
 N_prints = 10 
 N_step_print = N_steps // N_prints   # how often to print # thanks Sarah!
 ###
 
+## Set initial conditions
+n_core  = 3
+n_edge  = 2
+
+pi_core = 3 
+pi_edge = 2
+
+pe_core = 3
+pe_edge = 2 
 
 ### Set up source
 Sn_height  = 0
-Spi_height = 2
-Spe_height = 2
+Spi_height = 0
+Spe_height = 0
 Sn_width   = 0.2
 Spi_width  = 0.2
 Spe_width  = 0.2
-
+Sn_center   = 0.3
+Spi_center  = 0.5
+Spe_center  = 0.3
 
 
 ### will be static > dynamic profile
@@ -79,12 +76,15 @@ engine = trl.Trinity_Engine(alpha=alpha,
                             Ba       = Ba,
                             rho_edge = rho_edge,
                             ###
-                            Sn_width   = Sn_width,   
                             Sn_height  = Sn_height,  
-                            Spi_width  = Spi_width, 
                             Spi_height = Spi_height, 
-                            Spe_width  = Spe_width,  
                             Spe_height = Spe_height,
+                            Sn_width   = Sn_width,   
+                            Spi_width  = Spi_width, 
+                            Spe_width  = Spe_width,  
+                            Sn_center   = Sn_center,   
+                            Spi_center  = Spi_center, 
+                            Spe_center  = Spe_center,  
                             ###
                             model      = model
                             )
@@ -102,7 +102,7 @@ Time = 0
 density    = engine.density
 pressure_i = engine.pressure_i
 pressure_e = engine.pressure_e
-d3_prof.plot( density, pressure_i, pressure_e, Time)
+#d3_prof.plot( density, pressure_i, pressure_e, Time)
 
 j = 0 
 # Put this into "Trinity Runner" class
@@ -171,5 +171,3 @@ writer.export(fout)
 
 plt.show()
 
-import pdb
-pdb.set_trace()
