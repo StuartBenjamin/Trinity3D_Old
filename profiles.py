@@ -148,14 +148,17 @@ class Flux_profile():
 
     # This class takes outputs from the N-1 flux tubes
     # and prepares (2) profiles of length N on the grid
-    # the (+) profile has dummy info on the 0 idx
-    # the (-) profile has dummy info on the -1 idx
+    # the (+) profile has dummy info on the -1 idx
+    # the (-) profile has dummy info on the 0 idx
     # let dummy info be a repeated value (though technically, it could be omitted all together. We include it, to simplify array indexing
 
     def __init__(self, arr):
 
-        plus  = np.concatenate( [ [arr[0]], arr  ] )
-        minus = np.concatenate( [ arr, [arr[-1]] ] )
+        ### this was the source of the g<0 bug
+        plus  = np.concatenate( [ arr, [arr[-1]] ] )
+        minus = np.concatenate( [ [arr[0]], arr  ] )
+        #plus  = np.concatenate( [ [arr[0]], arr  ] )
+        #minus = np.concatenate( [ arr, [arr[-1]] ] )
 
         self.plus = Profile(plus)
         self.minus = Profile(minus)

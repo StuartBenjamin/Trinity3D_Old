@@ -83,7 +83,8 @@ class Trinity_Engine():
         self.a_minor = a_minor # meter
 
         # need to implement <|grad rho|>, by reading surface area from VMEC
-        grho = -1
+        grho = 1
+        #grho = -1
         # BUG: grho should be > 0; while geo_factor = - grho / drho / area should be negative
         #      see Barnes (7.62) and (7.115)
         #      but doing so causes fluxes to evolve in opposite direction
@@ -244,118 +245,118 @@ class Trinity_Engine():
         self.Fpi = Fpi
         self.Fpe = Fpe
 
-    def compute_flux_old(self):
-
-        ### calc gradients
-        grad_n  = self.density.grad.profile 
-        grad_pi = self.pressure_i.grad.profile
-        grad_pe = self.pressure_e.grad.profile
-        kn  = - self.density.grad_log.profile     # L_n^inv
-        kpi = - self.pressure_i.grad_log.profile  # L_pi^inv
-        kpe = - self.pressure_e.grad_log.profile  # L_pe^inv
-
-        ### new 3/14
-        # use the positions from flux tubes in between radial grid steps
-        #kn  = - self.density.grad_log   .plus.profile #[:-1]  # computes an extra unphysical point
-        #kpi = - self.pressure_i.grad_log.plus.profile #[:-1] 
-        #kpe = - self.pressure_e.grad_log.plus.profile #[:-1] 
-        ###
-
-        #import pdb
-        #pdb.set_trace()
-
-        # run model (opportunity for parallelization)
-        #Lx = np.array( [Ln_inv, Lpi_inv, Lpe_inv] )
-
-        G_neo  = - self.model_G.neo  * grad_n
-        Qi_neo = - self.model_Qi.neo * grad_pi
-        Qe_neo = - self.model_Qe.neo * grad_pe
-       
-
-        ### Change these function calls to evaluations at the half grid
-        s   = self
-        vec = np.vectorize
-        #G  = vec(s.model_G .flux)(*Lx) + G_neo 
-        #Qi = vec(s.model_Qi.flux)(*Lx) + Qi_neo
-        #Qe = vec(s.model_Qe.flux)(*Lx) + Qe_neo
-        G  = vec(s.model_G .flux)(kn,0*kpi, 0*kpe) + G_neo 
-        Qi = vec(s.model_Qi.flux)(0*kn, kpi, 0*kpe) + Qi_neo
-        Qe = vec(s.model_Qe.flux)(0*kn, 0*kpi, kpe) + Qe_neo
-
-
-        # derivatives
-        #G_n, G_pi, G_pe    = vec(s.model_G.flux_gradients)(*Lx)
-        #Qi_n, Qi_pi, Qi_pe = vec(s.model_Qi.flux_gradients)(*Lx)
-        #Qe_n, Qe_pi, Qe_pe = vec(s.model_Qi.flux_gradients)(*Lx)
-        G_n, G_pi, G_pe    = vec(s.model_G.flux_gradients) (kn,0*kpi, 0*kpe) 
-        Qi_n, Qi_pi, Qi_pe = vec(s.model_Qi.flux_gradients)(0*kn, kpi, 0*kpe)
-        Qe_n, Qe_pi, Qe_pe = vec(s.model_Qi.flux_gradients)(0*kn, 0*kpi, kpe)
-
-
-        # save
-        ### Instead of evaluating half here, set the half per force.
-        #self.Gamma.plus   = profile(G[1: ] )
-        #self.Gamma.minus  = profile(G[:-1] )
-        #self.Qi        = profile(Qi) 
-        #self.Qe        = profile(Qe) 
-        #
-        #self.G_n   = profile(G_n   )
-        #self.G_pi  = profile(G_pi  )
-        #self.G_pe  = profile(G_pe  )
-        #self.Qi_n   = profile(Qi_n )
-        #self.Qi_pi  = profile(Qi_pi)
-        #self.Qi_pe  = profile(Qi_pe)
-        #self.Qe_n   = profile(Qe_n )
-        #self.Qe_pi  = profile(Qe_pi)
-        #self.Qe_pe  = profile(Qe_pe)
-        self.Gamma     = profile(G, half=True)
-        self.Qi        = profile(Qi, half=True) 
-        self.Qe        = profile(Qe, half=True) 
-        
-        self.G_n   = profile(G_n , half=True)
-        self.G_pi  = profile(G_pi, half=True)
-        self.G_pe  = profile(G_pe, half=True)
-        self.Qi_n   = profile(Qi_n , half=True)
-        self.Qi_pi  = profile(Qi_pi, half=True)
-        self.Qi_pe  = profile(Qi_pe, half=True)
-        self.Qe_n   = profile(Qe_n , half=True)
-        self.Qe_pi  = profile(Qe_pi, half=True)
-        self.Qe_pe  = profile(Qe_pe, half=True)
-
-
-    def normalize_fluxes_old(self):
-
-        # load
-        n     = self.density.profile
-        pi    = self.pressure_i.profile
-        pe    = self.pressure_e.profile
-        Gamma = self.Gamma.profile
-        Qi    = self.Qi.profile
-        Qe    = self.Qe.profile
-        area  = self.area.profile
-        Ba    = self.Ba
-
-        # calc
-        A = area / Ba**2
-        Fn = A * Gamma * pi**(1.5) / n**(0.5)
-        Fpi = A * Qi * pi**(2.5) / n**(1.5)
-        Fpe = A * Qe * pi**(2.5) / n**(1.5)
-
-        Fn  = profile(Fn,half=True,grad=True)
-        Fpi = profile(Fpi,half=True,grad=True)
-        Fpe = profile(Fpe,half=True,grad=True)
-        # set inner boundary condition
-        Fn .minus.profile[0] = 0
-        Fpi.minus.profile[0] = 0
-        Fpe.minus.profile[0] = 0
-        # this actually 0 anyways, 
-        #    because F ~ Gamma, which depends on grad n, 
-        #    and grad n is small near the core
-
-        # save
-        self.Fn  = Fn
-        self.Fpi = Fpi
-        self.Fpe = Fpe
+#    def compute_flux_old(self):
+#
+#        ### calc gradients
+#        grad_n  = self.density.grad.profile 
+#        grad_pi = self.pressure_i.grad.profile
+#        grad_pe = self.pressure_e.grad.profile
+#        kn  = - self.density.grad_log.profile     # L_n^inv
+#        kpi = - self.pressure_i.grad_log.profile  # L_pi^inv
+#        kpe = - self.pressure_e.grad_log.profile  # L_pe^inv
+#
+#        ### new 3/14
+#        # use the positions from flux tubes in between radial grid steps
+#        #kn  = - self.density.grad_log   .plus.profile #[:-1]  # computes an extra unphysical point
+#        #kpi = - self.pressure_i.grad_log.plus.profile #[:-1] 
+#        #kpe = - self.pressure_e.grad_log.plus.profile #[:-1] 
+#        ###
+#
+#        #import pdb
+#        #pdb.set_trace()
+#
+#        # run model (opportunity for parallelization)
+#        #Lx = np.array( [Ln_inv, Lpi_inv, Lpe_inv] )
+#
+#        G_neo  = - self.model_G.neo  * grad_n
+#        Qi_neo = - self.model_Qi.neo * grad_pi
+#        Qe_neo = - self.model_Qe.neo * grad_pe
+#       
+#
+#        ### Change these function calls to evaluations at the half grid
+#        s   = self
+#        vec = np.vectorize
+#        #G  = vec(s.model_G .flux)(*Lx) + G_neo 
+#        #Qi = vec(s.model_Qi.flux)(*Lx) + Qi_neo
+#        #Qe = vec(s.model_Qe.flux)(*Lx) + Qe_neo
+#        G  = vec(s.model_G .flux)(kn,0*kpi, 0*kpe) + G_neo 
+#        Qi = vec(s.model_Qi.flux)(0*kn, kpi, 0*kpe) + Qi_neo
+#        Qe = vec(s.model_Qe.flux)(0*kn, 0*kpi, kpe) + Qe_neo
+#
+#
+#        # derivatives
+#        #G_n, G_pi, G_pe    = vec(s.model_G.flux_gradients)(*Lx)
+#        #Qi_n, Qi_pi, Qi_pe = vec(s.model_Qi.flux_gradients)(*Lx)
+#        #Qe_n, Qe_pi, Qe_pe = vec(s.model_Qi.flux_gradients)(*Lx)
+#        G_n, G_pi, G_pe    = vec(s.model_G.flux_gradients) (kn,0*kpi, 0*kpe) 
+#        Qi_n, Qi_pi, Qi_pe = vec(s.model_Qi.flux_gradients)(0*kn, kpi, 0*kpe)
+#        Qe_n, Qe_pi, Qe_pe = vec(s.model_Qi.flux_gradients)(0*kn, 0*kpi, kpe)
+#
+#
+#        # save
+#        ### Instead of evaluating half here, set the half per force.
+#        #self.Gamma.plus   = profile(G[1: ] )
+#        #self.Gamma.minus  = profile(G[:-1] )
+#        #self.Qi        = profile(Qi) 
+#        #self.Qe        = profile(Qe) 
+#        #
+#        #self.G_n   = profile(G_n   )
+#        #self.G_pi  = profile(G_pi  )
+#        #self.G_pe  = profile(G_pe  )
+#        #self.Qi_n   = profile(Qi_n )
+#        #self.Qi_pi  = profile(Qi_pi)
+#        #self.Qi_pe  = profile(Qi_pe)
+#        #self.Qe_n   = profile(Qe_n )
+#        #self.Qe_pi  = profile(Qe_pi)
+#        #self.Qe_pe  = profile(Qe_pe)
+#        self.Gamma     = profile(G, half=True)
+#        self.Qi        = profile(Qi, half=True) 
+#        self.Qe        = profile(Qe, half=True) 
+#        
+#        self.G_n   = profile(G_n , half=True)
+#        self.G_pi  = profile(G_pi, half=True)
+#        self.G_pe  = profile(G_pe, half=True)
+#        self.Qi_n   = profile(Qi_n , half=True)
+#        self.Qi_pi  = profile(Qi_pi, half=True)
+#        self.Qi_pe  = profile(Qi_pe, half=True)
+#        self.Qe_n   = profile(Qe_n , half=True)
+#        self.Qe_pi  = profile(Qe_pi, half=True)
+#        self.Qe_pe  = profile(Qe_pe, half=True)
+#
+#
+#    def normalize_fluxes_old(self):
+#
+#        # load
+#        n     = self.density.profile
+#        pi    = self.pressure_i.profile
+#        pe    = self.pressure_e.profile
+#        Gamma = self.Gamma.profile
+#        Qi    = self.Qi.profile
+#        Qe    = self.Qe.profile
+#        area  = self.area.profile
+#        Ba    = self.Ba
+#
+#        # calc
+#        A = area / Ba**2
+#        Fn = A * Gamma * pi**(1.5) / n**(0.5)
+#        Fpi = A * Qi * pi**(2.5) / n**(1.5)
+#        Fpe = A * Qe * pi**(2.5) / n**(1.5)
+#
+#        Fn  = profile(Fn,half=True,grad=True)
+#        Fpi = profile(Fpi,half=True,grad=True)
+#        Fpe = profile(Fpe,half=True,grad=True)
+#        # set inner boundary condition
+#        Fn .minus.profile[0] = 0
+#        Fpi.minus.profile[0] = 0
+#        Fpe.minus.profile[0] = 0
+#        # this actually 0 anyways, 
+#        #    because F ~ Gamma, which depends on grad n, 
+#        #    and grad n is small near the core
+#
+#        # save
+#        self.Fn  = Fn
+#        self.Fpi = Fpi
+#        self.Fpe = Fpe
 
 
     # Compute A and B profiles for density and pressure
@@ -680,6 +681,7 @@ class Trinity_Engine():
         bvec_pe =  pe_prev + dtau*(1 - alpha)*force_pe + dtau*source_pe + dtau*alpha*boundary_pe
         #bvec_pi =  pi_prev + (2./3) * dtau*(1 - alpha)*force_pi + dtau*source_pi + dtau*alpha*boundary_pi
         #bvec_pe =  pe_prev + (2./3) * dtau*(1 - alpha)*force_pe + dtau*source_pe + dtau*alpha*boundary_pe
+
        
         # there was a major bug here with the pressure parts of RHS state vector
 
