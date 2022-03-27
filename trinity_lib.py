@@ -490,7 +490,7 @@ class Trinity_Engine():
         mu3 = self.mu3
     
         # tri diagonal matrix elements
-        g = self.geometry_factor
+        g = self.geometry_factor * 2/3 # 2/3 is for pressure
         psi_pin_plus  = g * (An_pos - 3/4 * F_p / n_p) - mu1 / n 
         psi_pin_minus = g * (An_neg + 3/4 * F_m / n_m) + mu1 / n
         psi_pin_zero  = g * (Bn +  3/4 * ( F_m/n_m - F_p/n_p ) ) 
@@ -546,7 +546,7 @@ class Trinity_Engine():
         mu3 = self.mu3
     
         # tri diagonal matrix elements
-        g = self.geometry_factor
+        g = self.geometry_factor * 2/3 # 2/3 is for pressure
         psi_pen_plus  = g * (An_pos - 3/4 * F_p / n_p) - mu1 / n 
         psi_pen_minus = g * (An_neg + 3/4 * F_m / n_m) + mu1 / n
         psi_pen_zero  = g * (Bn +  3/4 * ( F_m/n_m - F_p/n_p ) ) 
@@ -578,8 +578,8 @@ class Trinity_Engine():
  
         # load, dropping last point for Dirchlet fixed boundary condition
         M_nn   = self.psi_nn .matrix[:-1, :-1]         
-        M_npi  = self.psi_npi.matrix[:-1, :-1]         
-        M_npe  = self.psi_npe.matrix[:-1, :-1]         
+        M_npi  = self.psi_npi.matrix[:-1, :-1]   
+        M_npe  = self.psi_npe.matrix[:-1, :-1]  
 
         # BUG: according to Barnes (7.115) there should be a factor of 2/3 here
         #         but adding it creates strange behavior (the profiles kink in the 3rd to last point)
@@ -587,7 +587,7 @@ class Trinity_Engine():
         M_pin  = self.psi_pin .matrix[:-1, :-1] # * (2./3) 
         M_pipi = self.psi_pipi.matrix[:-1, :-1] # * (2./3) 
         M_pipe = self.psi_pipe.matrix[:-1, :-1] # * (2./3)      
-
+ 
         M_pen  = self.psi_pen .matrix[:-1, :-1] # * (2./3)       
         M_pepi = self.psi_pepi.matrix[:-1, :-1] # * (2./3)       
         M_pepe = self.psi_pepe.matrix[:-1, :-1] # * (2./3)       
@@ -597,11 +597,6 @@ class Trinity_Engine():
         Z = I*0 # block of 0s
         
         ## build block-diagonal matrices
-        #M = np.block([
-        #              [ M_nn , Z      , Z ],
-        #              [ Z    , M_pipi , Z ],
-        #              [ Z    , Z      , M_pepe ],
-        #            ])
         M = np.block([
                       [ M_nn , M_npi , M_npe  ], 
                       [ M_pin, M_pipi, M_pipe ],
@@ -633,6 +628,7 @@ class Trinity_Engine():
         drho    = self.drho
         alpha   = self.alpha
         dtau    = self.dtau
+
         # load matrix
         psi_nn  = self.psi_nn.matrix
         psi_npi = self.psi_npi.matrix
@@ -643,17 +639,15 @@ class Trinity_Engine():
         psi_pen  = self.psi_pen.matrix
         psi_pepi = self.psi_pepi.matrix
         psi_pepe = self.psi_pepe.matrix
-   
+
+        # compute forces (for alpha = 0, explicit mode)   
         grho = self.grho
         g = - grho/area
         force_n  = g * (Fnp - Fnm) / drho
         force_pi = g * (Fip - Fim) / drho
         force_pe = g * (Fep - Fem) / drho
 
-        #Gaussian  = np.vectorize(mf.Gaussian)
-        #source_n  = Gaussian(rax, A=Sn_height , sigma=Sn_width)
-        #source_pi = Gaussian(rax, A=Spi_height, sigma=Spi_width)
-        #source_pe = Gaussian(rax, A=Spe_height, sigma=Spe_width)
+        # load source terms
         source_n  = self.source_n[:-1]
         source_pi = self.source_pi[:-1]
         source_pe = self.source_pe[:-1]
@@ -677,10 +671,10 @@ class Trinity_Engine():
     
         # should each psi have its own bvec? rename bvec to bvec_n if so
         bvec_n  =  n_prev  + dtau*(1 - alpha)*force_n  + dtau*source_n  + dtau*alpha*boundary_n   ## BUG! this is the source of peaking n-1 point
-        bvec_pi =  pi_prev + dtau*(1 - alpha)*force_pi + dtau*source_pi + dtau*alpha*boundary_pi
-        bvec_pe =  pe_prev + dtau*(1 - alpha)*force_pe + dtau*source_pe + dtau*alpha*boundary_pe
-        #bvec_pi =  pi_prev + (2./3) * dtau*(1 - alpha)*force_pi + dtau*source_pi + dtau*alpha*boundary_pi
-        #bvec_pe =  pe_prev + (2./3) * dtau*(1 - alpha)*force_pe + dtau*source_pe + dtau*alpha*boundary_pe
+        #bvec_pi =  pi_prev + dtau*(1 - alpha)*force_pi + dtau*source_pi + dtau*alpha*boundary_pi
+        #bvec_pe =  pe_prev + dtau*(1 - alpha)*force_pe + dtau*source_pe + dtau*alpha*boundary_pe
+        bvec_pi =  pi_prev + (2/3) * dtau*(1 - alpha)*force_pi + dtau*source_pi + dtau*alpha*boundary_pi
+        bvec_pe =  pe_prev + (2/3) * dtau*(1 - alpha)*force_pe + dtau*source_pe + dtau*alpha*boundary_pe
 
        
         # there was a major bug here with the pressure parts of RHS state vector
