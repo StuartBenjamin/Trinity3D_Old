@@ -56,8 +56,10 @@ class Trinity_Engine():
         self.model    = model
 
         self.rho_edge = rho_edge
-        rho_axis = np.linspace(0,rho_edge,N) # radial axis
+        rho_axis = np.linspace(0,rho_edge,N)         # radial axis, N points
+        mid_axis = (rho_axis[1:] + rho_axis[:-1])/2  # centers, (N-1) points
         self.rho_axis = rho_axis
+        self.mid_axis = mid_axis
         pf.rho_axis   = rho_axis
 
         self.dtau     = dtau
@@ -130,10 +132,9 @@ class Trinity_Engine():
         ### sources
         # temp, Gaussian model. Later this should be adjustable
         Gaussian  = np.vectorize(mf.Gaussian)
-        rax = rho_axis
-        self.source_n  = Gaussian(rax, A=Sn_height , sigma=Sn_width , x0=Sn_center)
-        self.source_pi = Gaussian(rax, A=Spi_height, sigma=Spi_width, x0=Spi_center)
-        self.source_pe = Gaussian(rax, A=Spe_height, sigma=Spe_width, x0=Spe_center)
+        self.source_n  = Gaussian(rho_axis, A=Sn_height , sigma=Sn_width , x0=Sn_center)
+        self.source_pi = Gaussian(rho_axis, A=Spi_height, sigma=Spi_width, x0=Spi_center)
+        self.source_pe = Gaussian(rho_axis, A=Spe_height, sigma=Spe_width, x0=Spe_center)
 
 
         ### init flux models
@@ -229,6 +230,7 @@ class Trinity_Engine():
         # properly, this should be defined for the flux tubes
         area  = self.area.midpoints
         Ba    = self.Ba
+
 
         # calc
         A = area / Ba**2

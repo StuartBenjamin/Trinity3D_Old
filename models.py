@@ -11,6 +11,7 @@ from GX_io    import GX_Runner
 # read GX output
 from os.path import exists
 import trinity_lib as trl
+import profiles as pf
 import GX_io as gout
 
 ### this library contains model functons for flux behavior
@@ -234,21 +235,18 @@ class GX_Flux_Model():
         self.time = time
 
         # should pass (R/Lx) to GX
-        rax = engine.rho_axis
+        #rax = engine.rho_axis
         # load gradient scale length
         #R   = engine.R_major
-        #Ln  = - R * engine.density.grad_log.profile     # L_n^inv
-        #Lpi = - R * engine.pressure_i.grad_log.profile  # L_pi^inv
-        #Lpe = - R * engine.pressure_e.grad_log.profile  # L_pe^inv
         # this R should be a profile (?)
         a = engine.a_minor
-        Ln  = - a * engine.density.grad_log.profile     # L_n^inv
-        Lpi = - a * engine.pressure_i.grad_log.profile  # L_pi^inv
-        Lpe = - a * engine.pressure_e.grad_log.profile  # L_pe^inv
+        Ln  = - a * engine.density.grad_log   .midpoints  # L_n^inv
+        Lpi = - a * engine.pressure_i.grad_log.midpoints  # L_pi^inv
+        Lpe = - a * engine.pressure_e.grad_log.midpoints  # L_pe^inv
 
         # turbulent flux calls, for each radial flux tube
-        idx = np.arange(1, engine.N_radial) # drop first point
-        #idx = np.arange(1, engine.N_radial-1) # drop the first and last point
+        mid_axis = engine.mid_axis
+        idx = np.arange( len(mid_axis) ) 
 
         f0   = [''] * len(idx) 
         fn   = [''] * len(idx) 
@@ -259,8 +257,10 @@ class GX_Flux_Model():
         Qn   = np.zeros( len(idx) )
         Qpi  = np.zeros( len(idx) )
         Qpe  = np.zeros( len(idx) )
+
         for j in idx: 
-            rho = rax[j]
+            rho = mid_axis[j]
+            #rho = rax[j]
             kn  = Ln [j]
             kpi = Lpi[j]
             kpe = Lpe[j]
@@ -271,10 +271,11 @@ class GX_Flux_Model():
             self.write_command(j, rho, kn       , kpi + step, kpe       )
             self.write_command(j, rho, kn       , kpi       , kpe + step)
 
-            f0 [j-1] = self.gx_command(j, rho, kn      , kpi        , kpe        , '0' )
-            fn [j-1] = self.gx_command(j, rho, kn+step , kpi        , kpe        , '1' )
-            fpi[j-1] = self.gx_command(j, rho, kn      , kpi + step , kpe        , '2' )
-            fpe[j-1] = self.gx_command(j, rho, kn      , kpi        , kpe + step , '3' )
+            f0 [j] = self.gx_command(j, rho, kn      , kpi        , kpe        , '0' )
+            fn [j] = self.gx_command(j, rho, kn+step , kpi        , kpe        , '1' )
+            fpi[j] = self.gx_command(j, rho, kn      , kpi + step , kpe        , '2' )
+            fpe[j] = self.gx_command(j, rho, kn      , kpi        , kpe + step , '3' )
+            # used to have [j-1] when using rho_axis instead of mid_axis
 
         ### collect parallel runs
         self.wait()
@@ -283,32 +284,36 @@ class GX_Flux_Model():
         _time.sleep(WAIT_TIME)
 
         print('starting to read')
-        for j in (idx-1): 
+        for j in idx: 
+        #for j in (idx-1): 
             Q0 [j] = read_gx(f0 [j])
             Qn [j] = read_gx(fn [j])
             Qpi[j] = read_gx(fpi[j])
             Qpe[j] = read_gx(fpe[j])
 
-        Qflux  = array_cat(Q0)
-        Qi_n   = array_cat( (Qn -Q0) / step )
-        Qi_pi  = array_cat( (Qpi-Q0) / step )
-        Qi_pe  = array_cat( (Qpe-Q0) / step )
+        Qflux  =  Q0
+        Qi_n   =  (Qn  - Q0) / step 
+        Qi_pi  =  (Qpi - Q0) / step 
+        Qi_pe  =  (Qpe - Q0) / step 
+
+        # need to add neoclassical diffusion
 
         # save, this is what engine.compute_flux() writes
         zero = 0*Qflux
         eps = 1e-8 + zero # want to avoid divide by zero
-        engine.Gamma  = trl.profile(eps, half=True)
-        engine.Qi     = trl.profile(Qflux, half=True) 
-        engine.Qe     = trl.profile(Qflux, half=True) 
-        engine.G_n    = trl.profile(zero , half=True)
-        engine.G_pi   = trl.profile(zero, half=True)
-        engine.G_pe   = trl.profile(zero, half=True)
-        engine.Qi_n   = trl.profile(Qi_n , half=True)
-        engine.Qi_pi  = trl.profile(Qi_pi, half=True)
-        engine.Qi_pe  = trl.profile(Qi_pe, half=True)
-        engine.Qe_n   = trl.profile(Qi_n , half=True)
-        engine.Qe_pi  = trl.profile(Qi_pi, half=True)
-        engine.Qe_pe  = trl.profile(Qi_pe, half=True)
+
+        engine.Gamma  = pf.Flux_profile(eps  )
+        engine.Qi     = pf.Flux_profile(Qflux) 
+        engine.Qe     = pf.Flux_profile(Qflux) 
+        engine.G_n    = pf.Flux_profile(zero )
+        engine.G_pi   = pf.Flux_profile(zero )
+        engine.G_pe   = pf.Flux_profile(zero )
+        engine.Qi_n   = pf.Flux_profile(Qi_n )
+        engine.Qi_pi  = pf.Flux_profile(Qi_pi)
+        engine.Qi_pe  = pf.Flux_profile(Qi_pe)
+        engine.Qe_n   = pf.Flux_profile(Qi_n )
+        engine.Qe_pi  = pf.Flux_profile(Qi_pi)
+        engine.Qe_pe  = pf.Flux_profile(Qi_pe)
         # set electron flux = to ions for now
 
     #  sets up GX input, executes GX, returns input file name
@@ -323,13 +328,15 @@ class GX_Flux_Model():
         t_id = self.t_id # time integer
 
         #.format(t_id, r_id, time, rho, s, kti, kn), file=f)
-        ft = self.flux_tubes[r_id - 1]
+        ft = self.flux_tubes[r_id] 
+        #ft = self.flux_tubes[r_id - 1] #old
         ft.set_gradients(kn, kti, kte)
         
         # to be specified by Trinity input file, or by time stamp
         root = 'gx-files/'
         path = self.path
-        tag  = 't{:}-r{:}-{:}'.format(t_id, r_id, job_id)
+        tag  = 't{:02}-r{:}-{:}'.format(t_id, r_id, job_id)
+        #tag  = 't{:}-r{:}-{:}'.format(t_id, r_id, job_id)
 
         fout  = tag + '.in'
         fsave = tag + '-restart.nc'
@@ -360,7 +367,7 @@ class GX_Flux_Model():
 
         ### execute
         ft.gx_input.write(root + path + fout)
-        qflux = self.run_gx(tag, root+path)
+        qflux = self.run_gx(tag, root+path) # this returns a file name
         return qflux
 
 
@@ -389,7 +396,7 @@ class GX_Flux_Model():
         else:
             print('  gx output {:} already exists'.format(tag) )
 
-        return f_nc
+        return f_nc # this is a file name
 
         
     # first attempt at exporting gradients for GX
@@ -418,6 +425,7 @@ def print_time():
     print('  time:', dt)
 
 # double the inside point (no flux tube run there)
+### unused
 def array_cat(arr):
     return np.concatenate( [ [arr[0]] , arr ] )
 
@@ -425,6 +433,9 @@ def array_cat(arr):
 def read_gx(f_nc):
     try:
         qflux = gout.read_GX_output( f_nc )
+        if ( np.isnan(qflux).any() ):
+             print('  nans found in', f_nc, '(setting NaNs to 0)')
+             qflux = np.nan_to_num(qflux)
 
         tag = f_nc.split('/')[-1]
         print('  {:} qflux: {:}'.format(tag, qflux))

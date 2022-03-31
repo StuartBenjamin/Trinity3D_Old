@@ -37,6 +37,11 @@ for f in data:
 
     t = f.variables['time'][:]
     q = f.groups['Fluxes'].variables['qflux'][:,0]
+    # check for nans
+    if ( np.isnan(q).any() ):
+         print('  nans found')
+         q = np.nan_to_num(q)
+    # fix nan_to_num here
     plt.plot(t,q,'.-',label=fins[j])
 
     # median of a sliding median

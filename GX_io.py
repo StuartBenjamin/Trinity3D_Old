@@ -127,7 +127,11 @@ def read_GX_output(fname):
 
     t = f.variables['time'][:]
     q = f.groups['Fluxes'].variables['qflux'][:,0]
-    #plt.plot(t,q,'.-',label=fins[j])
+
+    # check for NANs
+    if ( np.isnan(q).any() ):
+         print('  nans found in', fname)
+         q = np.nan_to_num(q)
 
     # median of a sliding median
     N = len(q)
