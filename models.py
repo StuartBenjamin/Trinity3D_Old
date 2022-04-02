@@ -155,15 +155,15 @@ class Barnes_Model2():
 WAIT_TIME = 1  # this should come from the Trinity Engine
 class GX_Flux_Model():
 
-    def __init__(self,fname):
+    def __init__(self,fname, path='run-dir/'):
 
 
         ###  load an input template
         #    later, this should come from Trinity input file
         f_input = 'gx-files/gx-sample.in' 
         self.input_template = GX_Runner(f_input)
-        #self.path = 'temp/'
-        self.path = 'run-dir/'
+        self.path = path
+        # check that path exists, if it does not, mkdir and copy gx executable
 
         ### This keeps a record of GX comands, it might be retired
         # init file for writing GX commands
@@ -265,17 +265,18 @@ class GX_Flux_Model():
             kpi = Lpi[j]
             kpe = Lpe[j]
 
-            # stores a log of the GX calls
+            # stores a log of the GX calls (this step is not actually necessary)
+            #  I should add time stamps somehow
             self.write_command(j, rho, kn       , kpi       , kpe       )
             self.write_command(j, rho, kn + step, kpi       , kpe       )
             self.write_command(j, rho, kn       , kpi + step, kpe       )
             self.write_command(j, rho, kn       , kpi       , kpe + step)
 
+            # writes the GX input file and calls the slurm job
             f0 [j] = self.gx_command(j, rho, kn      , kpi        , kpe        , '0' )
             fn [j] = self.gx_command(j, rho, kn+step , kpi        , kpe        , '1' )
             fpi[j] = self.gx_command(j, rho, kn      , kpi + step , kpe        , '2' )
             fpe[j] = self.gx_command(j, rho, kn      , kpi        , kpe + step , '3' )
-            # used to have [j-1] when using rho_axis instead of mid_axis
 
         ### collect parallel runs
         self.wait()
@@ -285,7 +286,6 @@ class GX_Flux_Model():
 
         print('starting to read')
         for j in idx: 
-        #for j in (idx-1): 
             Q0 [j] = read_gx(f0 [j])
             Qn [j] = read_gx(fn [j])
             Qpi[j] = read_gx(fpi[j])
@@ -329,14 +329,12 @@ class GX_Flux_Model():
 
         #.format(t_id, r_id, time, rho, s, kti, kn), file=f)
         ft = self.flux_tubes[r_id] 
-        #ft = self.flux_tubes[r_id - 1] #old
         ft.set_gradients(kn, kti, kte)
         
         # to be specified by Trinity input file, or by time stamp
-        root = 'gx-files/'
+        #root = 'gx-files/'
         path = self.path
         tag  = 't{:02}-r{:}-{:}'.format(t_id, r_id, job_id)
-        #tag  = 't{:}-r{:}-{:}'.format(t_id, r_id, job_id)
 
         fout  = tag + '.in'
         fsave = tag + '-restart.nc'
@@ -349,7 +347,7 @@ class GX_Flux_Model():
         else:
             ft.gx_input.inputs['Restart']['restart'] = 'true'
             fload = 't{:}-r{:}-restart.nc'.format(t_id-1, r_id)
-            ft.gx_input.inputs['Restart']['restart_from_file'] = '"{:}"'.format(root + path + fload)
+            ft.gx_input.inputs['Restart']['restart_from_file'] = '"{:}"'.format(path + fload)
             ft.gx_input.inputs['Controls']['init_amp'] = '0.0'
             # restart from the same file (prev time step), to ensure parallelizability
 
@@ -358,7 +356,7 @@ class GX_Flux_Model():
             # save basepoint
             ft.gx_input.inputs['Restart']['save_for_restart'] = 'true'
             fsave = 't{:}-r{:}-restart.nc'.format(t_id, r_id)
-            ft.gx_input.inputs['Restart']['restart_to_file'] = '"{:}"'.format(root + path + fsave)
+            ft.gx_input.inputs['Restart']['restart_to_file'] = '"{:}"'.format(path + fsave)
 
         else:
             # perturb gradients
@@ -366,8 +364,8 @@ class GX_Flux_Model():
             # make sure I don't redundantly rewrite the restart file here
 
         ### execute
-        ft.gx_input.write(root + path + fout)
-        qflux = self.run_gx(tag, root+path) # this returns a file name
+        ft.gx_input.write(path + fout)
+        qflux = self.run_gx(tag, path) # this returns a file name
         return qflux
 
 
@@ -426,10 +424,10 @@ def print_time():
 
 # double the inside point (no flux tube run there)
 ### unused
-def array_cat(arr):
-    return np.concatenate( [ [arr[0]] , arr ] )
+#def array_cat(arr):
+#    return np.concatenate( [ [arr[0]] , arr ] )
 
-# read a GX netCDF output file
+# read a GX netCDF output file, returns flux
 def read_gx(f_nc):
     try:
         qflux = gout.read_GX_output( f_nc )
@@ -443,6 +441,5 @@ def read_gx(f_nc):
 
     except:
         print('  issue reading', f_nc)
-        # pdb.set_trace
         return 0 # for safety, this will be problematic
 

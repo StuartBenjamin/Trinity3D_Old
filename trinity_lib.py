@@ -42,7 +42,8 @@ class Trinity_Engine():
                        Sn_center  = 0.0,   
                        Spi_center = 0.0, 
                        Spe_center = 0.0,  
-                       model      = 'GX'
+                       model      = 'GX',
+                       gx_path    = 'gx-files/run-dir/'
                        ):
 
         self.N_radial = N           # if this is total points, including core and edge, then GX simulates (N-2) points
@@ -140,7 +141,8 @@ class Trinity_Engine():
         ### init flux models
         if (model == 'GX'):
             fout = 'gx-files/temp.gx'
-            gx = mf.GX_Flux_Model(fout)
+            self.path = gx_path
+            gx = mf.GX_Flux_Model(fout, path=gx_path)
             gx.init_geometry()
     
             self.f_cmd = fout

@@ -8,30 +8,32 @@ import models      as mf
 import pdb
 
 # set up grid
-N = 20 # number of radial points (N-2 flux tubes)
+N = 6 # number of radial points (N-2 flux tubes)
 rho_edge = 0.8    # rho = r/a : normalized radius
 rho_axis = np.linspace(0,rho_edge,N) # radial axis
 
 #model = 'diffusive'   # Barnes test 2
-#model = 'GX'          # use slurm to call GX
-model = 'ReLU'        # default
+model = 'GX'          # use slurm to call GX
+#model = 'ReLU'        # default
+
+gx_path = 'gx-files/testing-new-run/'
 
 ### Set up time controls
-alpha = 0          # explicit to implicit mixer
-dtau  = 0.001         # step size 
-N_steps  = 500       # total Time = dtau * N_steps
+alpha = 1          # explicit to implicit mixer
+dtau  = 2         # step size 
+N_steps  = 50       # total Time = dtau * N_steps
 N_prints = 10 
 N_step_print = N_steps // N_prints   # how often to print # thanks Sarah!
 ###
 
 ## Set initial conditions
 n_core  = 3
-n_edge  = 2
+n_edge  = 3
 
-pi_core = 3 
+pi_core = 5
 pi_edge = 2
 
-pe_core = 3
+pe_core = 5
 pe_edge = 2 
 
 ### Set up source
@@ -86,7 +88,8 @@ engine = trl.Trinity_Engine(alpha=alpha,
                             Spi_center  = Spi_center, 
                             Spe_center  = Spe_center,  
                             ###
-                            model      = model
+                            model      = model,
+                            gx_path    = gx_path
                             )
 
 
@@ -115,6 +118,7 @@ while (j < N_steps):
         engine.barnes_model.compute_Q(engine)
     else:
         engine.compute_flux() # use analytic flux model
+
 
     engine.normalize_fluxes()
     engine.calc_flux_coefficients()
@@ -163,8 +167,9 @@ d3_flux.label(titles=['Gamma','Qi','Qe'])
 
 #engine.plot_sources()
 
-path = './' # should get path from trinity engine's GX_IO, and if GX is not used?
-fout = 'trinity_log.npy'
+#path = './' # should get path from trinity engine's GX_IO, and if GX is not used?
+#fout = 'trinity_log.npy'
+fout = 'log_trinity.npy'
 
 writer.store_system(engine)
 writer.export(fout)

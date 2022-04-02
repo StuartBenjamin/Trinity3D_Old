@@ -13,7 +13,7 @@ import profiles as pf
     and makes a number of plots showing profiles and fluxes,
     all in one pannel.
 
-    Updated 15 March 2022, T. M. Qian
+    Updated 1 April 2022, T. M. Qian
 '''
 
 fin = sys.argv[1]
@@ -38,11 +38,16 @@ axis        = np.linspace(0,rho_edge,N_rho) # radial axis
 mid_axis    = (axis[1:] + axis[:-1])/2
 pf.rho_axis = axis
 
+# sources
+source_n  = profile_data['source_n' ] 
+source_pi = profile_data['source_pi']
+source_pe = profile_data['source_pe']
 
 def init_profile(x,debug=False):
 
     X = pf.Profile(x, grad=True, half=True, full=True)
     return X
+
 
 N = len(time)
 
@@ -57,29 +62,35 @@ plt.suptitle(rlabel)
 # time evolution
 for t in np.arange(N):
 
+    # plot profiles
     axs[0,0].plot(axis,n [t] ,'.-')
     axs[1,0].plot(axis,pi[t] ,'.-')
     axs[2,0].plot(axis,pe[t] ,'.-')
 
-    axs[0,1].plot(mid_axis,Gamma [t] ,'.-')
-    axs[1,1].plot(mid_axis,Qi[t]     ,'.-')
-    axs[2,1].plot(mid_axis,Qe[t]     ,'.-')
+    # plot fluxes
+    axs[0,1].plot(mid_axis,Gamma [t] ,'x-')
+    axs[1,1].plot(mid_axis,Qi[t]     ,'x-')
+    axs[2,1].plot(mid_axis,Qe[t]     ,'x-')
 
-    density     = init_profile(n[t] )    # try doing this outside the loop, it worked accidentally
+    # Wrap data in Profile class for computing gradients
+    density     = init_profile(n[t] )   
     pressure_i  = init_profile(pi[t])
     pressure_e  = init_profile(pe[t])
 
+    # plot log gradient
     axs[0,2].plot(axis,-density.grad_log.profile    ,'.-')
     axs[1,2].plot(axis,-pressure_i.grad_log.profile ,'.-')
     axs[2,2].plot(axis,-pressure_e.grad_log.profile ,'.-')
            
+    # plot gradient
     axs[0,3].plot(axis,-density   .grad.profile ,'.-')
     axs[1,3].plot(axis,-pressure_i.grad.profile ,'.-')
     axs[2,3].plot(axis,-pressure_e.grad.profile ,'.-')
            
-    axs[0,4].plot(mid_axis,Gamma[t] / -density.grad.midpoints ,'.-')
-    axs[1,4].plot(mid_axis,Qi[t] / -pressure_i.grad.midpoints ,'.-')
-    axs[2,4].plot(mid_axis,Qe[t] / -pressure_e.grad.midpoints ,'.-')
+    # plot diffusivity
+    axs[0,4].plot(mid_axis,Gamma[t] / -density.grad.midpoints ,'x-')
+    axs[1,4].plot(mid_axis,Qi[t] / -pressure_i.grad.midpoints ,'x-')
+    axs[2,4].plot(mid_axis,Qe[t] / -pressure_e.grad.midpoints ,'x-')
 
 axs[0,0].set_ylabel('n' , rotation='horizontal', labelpad=15)
 axs[1,0].set_ylabel('pi', rotation='horizontal', labelpad=15)
@@ -91,11 +102,8 @@ axs[0,2].set_title(r'$\nabla$')
 axs[0,3].set_title(r'$L^{-1}$')
 axs[0,4].set_title('diffusivity')
 
-# sources
-source_n  = profile_data['source_n' ] 
-source_pi = profile_data['source_pi']
-source_pe = profile_data['source_pe']
 
+# plot sources
 axs[0,5].plot(axis, source_n , '.-')
 axs[1,5].plot(axis, source_pi, '.-')
 axs[2,5].plot(axis, source_pe, '.-')
@@ -105,6 +113,3 @@ axs[0,5].set_title('Sources')
 plt.tight_layout()
 
 plt.show()
-
-import pdb
-pdb.set_trace()
