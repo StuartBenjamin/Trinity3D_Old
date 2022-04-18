@@ -4,7 +4,10 @@ import numpy as np
 from netCDF4 import Dataset
 import sys
 
+SCALE = 1 #2.90 # hard coded for JET
 _plot = True
+
+SAVE = True
 N_zeta = 20
 N_theta = 20
 
@@ -48,6 +51,7 @@ class vmec():
         self.nfp         = get(f,'nfp')
         self.ns          = get(f,'ns')
         self.mnmax       = get(f,'mnmax')
+        self.aminor      = get(f,'Aminor_p')
 
         # 1D array
         self.xm          = get(f,'xm')
@@ -197,19 +201,23 @@ vf = vmec(fin)
 
 N_surf = vf.ns
 
+
 area = []
 for s in np.arange(N_surf):
-    a = vf.get_surface_area(surface=s, N_zeta=N_zeta, N_theta=N_theta)
+    a = vf.get_surface_area(surface=s, N_zeta=N_zeta, N_theta=N_theta) * SCALE**2
     area.append(a)
 
 
 ### write
-tag = fin[5:-3]
-fout = 'surf_%s.csv' % tag
-with open(fout,'w') as fc:
-   
-    print( 'N_zeta, N_theta: %f, %f' % (N_zeta, N_theta) )
-    for j in np.arange(N_surf):
-        print('%i, %f' % (j, area[j]), file=fc)
-
-
+ns = vf.ns-1
+asq = vf.aminor**2
+if SAVE:
+    tag = fin[5:-3]
+    fout = 'surf_%s.csv' % tag
+    with open(fout,'w') as fc:
+       
+        print( 'N_zeta, N_theta: %f, %f' % (N_zeta, N_theta) )
+        for j in np.arange(N_surf):
+            print('%i, %f, %f, %f' % (j, j/ns,  area[j], area[j]/asq), file=fc)
+    
+    
