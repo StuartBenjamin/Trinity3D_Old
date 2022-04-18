@@ -95,6 +95,9 @@ for t in np.arange(N):
 axs[0,0].set_ylabel('n' , rotation='horizontal', labelpad=15)
 axs[1,0].set_ylabel('pi', rotation='horizontal', labelpad=15)
 axs[2,0].set_ylabel('pe', rotation='horizontal', labelpad=15)
+axs[0,0].set_ylim( bottom=0 )
+axs[1,0].set_ylim( bottom=0 )
+axs[2,0].set_ylim( bottom=0 )
 
 axs[0,0].set_title('profile')
 axs[0,1].set_title('flux')
