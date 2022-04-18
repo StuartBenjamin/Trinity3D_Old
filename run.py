@@ -8,21 +8,30 @@ import models      as mf
 import pdb
 
 # set up grid
-N = 6 # number of radial points (N-2 flux tubes)
-rho_edge = 0.8    # rho = r/a : normalized radius
+N = 5 # number of radial points (N-1 flux tubes)
+rho_edge = 0.85    # rho = r/a : normalized radius
 rho_axis = np.linspace(0,rho_edge,N) # radial axis
 
 #model = 'diffusive'   # Barnes test 2
 model = 'GX'          # use slurm to call GX
 #model = 'ReLU'        # default
 
-gx_path = 'gx-files/testing-new-run/'
+gx_path = 'gx-files/run-dir/'
+#gx_path = 'gx-files/JET/'
+#gx_path = 'gx-files/JET-QA/'
+#gx_path = 'gx-files/ITER-run/'
+vmec_path = 'gx-geometry/'
+#vmec_wout = 'wout_ITER_15MABURN.nc'
+#vmec_wout = 'wout_w7x.nc'
+#vmec_wout = 'wout_QA_nfp2-46-hires.nc'
+#vmec_wout = 'wout_JET.nc'
+vmec_wout = '' # defaults to preloaded flux tubes (can extend this to be user supplied flux tubes)
 
 ### Set up time controls
 alpha = 1          # explicit to implicit mixer
 dtau  = 2         # step size 
-N_steps  = 50       # total Time = dtau * N_steps
-N_prints = 10 
+N_steps  = 5       # total Time = dtau * N_steps
+N_prints = 5 
 N_step_print = N_steps // N_prints   # how often to print # thanks Sarah!
 ###
 
@@ -30,11 +39,11 @@ N_step_print = N_steps // N_prints   # how often to print # thanks Sarah!
 n_core  = 3
 n_edge  = 3
 
-pi_core = 5
-pi_edge = 2
+pi_core = 7
+pi_edge = 3
 
-pe_core = 5
-pe_edge = 2 
+pe_core = 7
+pe_edge = 3 
 
 ### Set up source
 Sn_height  = 0
@@ -48,13 +57,10 @@ Spi_center  = 0.5
 Spe_center  = 0.3
 
 
-### will be static > dynamic profile
-#pressure = trl.profile(n*T0)
-#temperature = trl.profile(T)
 ### will be from VMEC
-Ba = 3 # average field on LCFS
-R_major = 5   # meter
-a_minor = 0.5 # meter
+Ba = 4 # average field on LCFS
+R_major = 2.94   # meter
+a_minor = 0.94 # meter
 #area     = trl.profile(np.linspace(0.01,a_minor,N)) # parabolic area, simple torus
 
 
@@ -89,7 +95,9 @@ engine = trl.Trinity_Engine(alpha=alpha,
                             Spe_center  = Spe_center,  
                             ###
                             model      = model,
-                            gx_path    = gx_path
+                            gx_path    = gx_path,
+                            vmec_path  = vmec_path,
+                            vmec_wout  = vmec_wout
                             )
 
 
@@ -135,12 +143,12 @@ while (j < N_steps):
         density    = engine.density
         pressure_i = engine.pressure_i
         pressure_e = engine.pressure_e
-        Fn  = engine.Fn
-        Fpi = engine.Fpi
-        Fpe = engine.Fpe
-        Gamma     = engine.Gamma
-        Q_i       = engine.Qi
-        Q_e       = engine.Qe
+        Fn         = engine.Fn
+        Fpi        = engine.Fpi
+        Fpe        = engine.Fpe
+        Gamma      = engine.Gamma
+        Q_i        = engine.Qi
+        Q_e        = engine.Qe
 
         print('  Plot: t =',j)
         d3_prof.plot( density, pressure_i, pressure_e, Time)
@@ -174,5 +182,6 @@ fout = 'log_trinity.npy'
 writer.store_system(engine)
 writer.export(fout)
 
+print('TRINITY Complete. Exiting normally')
 plt.show()
 
