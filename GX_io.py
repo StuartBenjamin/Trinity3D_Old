@@ -2,8 +2,6 @@ import numpy as np
 from netCDF4 import Dataset
 
 import subprocess
-import sys # unused
-
 import os
 
 class GX_Runner():
@@ -146,17 +144,22 @@ class VMEC_GX_geometry_module():
 
     # this class handles VMEC-GX Geometry .ing input files
 
-    def __init__(self, f_sample='gx-geometry-sample.ing',
-                       tag  ='default',
-                       path = './'
+    def __init__(self, f_sample    = 'gx-geometry-sample.ing',
+                       tag         = 'default',
+                       input_path  = 'gx-files/',
+                       output_path = './'
                        ):
 
-        self.path = path
+        self.data = self.read(input_path + f_sample)
 
-        self.data = self.read(path + f_sample)
+        self.output_path = output_path
+        self.input_path  = input_path
         self.tag  = tag
 
 
+    # this function is run at __init__
+    #    it parses a sample GX_geometry.ing input file
+    #    as a dictionary for future modifications
     def read(self,fin):
 
         with open(fin) as f:
@@ -187,7 +190,7 @@ class VMEC_GX_geometry_module():
 
         # load
         data = self.data
-        path = self.path
+        path = self.output_path
         
         # set spacing
         longest_key =  max( data.keys(), key=len) 
@@ -201,8 +204,18 @@ class VMEC_GX_geometry_module():
                 #print(s.format(*pair))   # print to screen for debugging
                 print(s.format(*pair), file=f)
 
-    def set_vmec(self,wout):
-        self.data['vmec_file'] = wout
+
+    def set_vmec(self,wout, vmec_path='./', output_path='./'):
+
+        # copy vmec output from vmec_path to output_path
+        #cmd = 'cp {:}{:} {:}'.format(vmec_path, wout, output_path)
+        #os.system(cmd)
+
+        self.data['vmec_file'] = '"{:}"'.format(wout)
+        self.data['out_path'] = '"{:}"'.format(output_path)
+        self.data['vmec_path'] = '"{:}"'.format(vmec_path) 
+
+
 
     def init_radius(self,rho):
 
@@ -211,13 +224,16 @@ class VMEC_GX_geometry_module():
         self.data['desired_normalized_toroidal_flux'] = s
 
         # write input
+        in_path  = self.input_path
+        out_path = self.output_path
         fname = self.tag + '-psi-{:.2f}'.format(s)
         self.write(fname)
+        print('  wrote .ing', out_path+fname)
 
         # run
-        path = self.path
-        cmd = ['./{:}convert_VMEC_to_GX'.format(path),  path+fname]
+        cmd = ['./{:}convert_VMEC_to_GX'.format(in_path),  out_path+fname]
 
-        f_log = path + fname + '.log'
+        f_log = out_path + fname + '.log'
         with open(f_log, 'w') as fp:
             subprocess.call(cmd,stdout=fp)
+

@@ -1,8 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import pdb
 
 import models as mf 
+from netCDF4 import Dataset
 
 import profiles as pf
 profile           = pf.Profile
@@ -14,6 +14,8 @@ psi_profiles      = pf.Psi_profiles
 
 # This class contains TRINITY calculations and stores partial results as member objects
 # There is a sub class for fluxes of each (n, pi, pe) evolution
+
+_use_vmec = True # temp, put this in an input file later
 
 class Trinity_Engine():
 
@@ -43,7 +45,9 @@ class Trinity_Engine():
                        Spi_center = 0.0, 
                        Spe_center = 0.0,  
                        model      = 'GX',
-                       gx_path    = 'gx-files/run-dir/'
+                       gx_path    = 'gx-files/run-dir/',
+                       vmec_path  = './',
+                       vmec_wout  = ''
                        ):
 
         self.N_radial = N           # if this is total points, including core and edge, then GX simulates (N-2) points
@@ -142,11 +146,21 @@ class Trinity_Engine():
         if (model == 'GX'):
             fout = 'gx-files/temp.gx'
             self.path = gx_path
-            gx = mf.GX_Flux_Model(fout, path=gx_path)
-            gx.init_geometry()
-    
+            gx = mf.GX_Flux_Model(fout, 
+                                  path = gx_path, 
+                                  vmec_path = vmec_path,
+                                  vmec_wout = vmec_wout,
+                                  midpoints = mid_axis
+                                  )
             self.f_cmd = fout
+            self.vmec_wout = vmec_wout
+
+            # read VMEC
+            self.read_VMEC( vmec_wout, path=vmec_path, use_vmec=_use_vmec )
+
+            gx.init_geometry()
             self.model_gx = gx
+    
 
         elif (model == 'diffusive'):
             bm = mf.Barnes_Model2()
@@ -156,6 +170,21 @@ class Trinity_Engine():
             self.model_G  = mf.Flux_model()
             self.model_Qi = mf.Flux_model()
             self.model_Qe = mf.Flux_model()
+
+    def read_VMEC(self, wout, path='gx-geometry/', use_vmec=False):
+
+        self.vmec_wout = wout
+
+        if wout == '':
+            print('  Trinity Lib: no vmec file given, using default flux tubes for GX')
+            return
+
+        vmec = Dataset( path+wout, mode='r')
+
+        if use_vmec:
+            self.R_major = vmec.variables['Rmajor_p'][:]
+            self.a_minor = vmec.variables['Aminor_p'][:]
+            self.Ba      = vmec.variables['volavgB'][:]
 
     # this is a toy model of Flux based on ReLU + neoclassical
     #     to be replaced by GX or STELLA import module

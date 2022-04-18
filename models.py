@@ -1,5 +1,4 @@
 import numpy as np
-import pdb
 import subprocess
 from datetime import datetime
 import time as _time
@@ -9,10 +8,11 @@ from Geometry import FluxTube
 from GX_io    import GX_Runner
 
 # read GX output
-from os.path import exists
 import trinity_lib as trl
 import profiles as pf
-import GX_io as gout
+import GX_io as gx_io
+import os
+from glob import glob
 
 ### this library contains model functons for flux behavior
 
@@ -155,7 +155,12 @@ class Barnes_Model2():
 WAIT_TIME = 1  # this should come from the Trinity Engine
 class GX_Flux_Model():
 
-    def __init__(self,fname, path='run-dir/'):
+    def __init__(self, fname, # is this used?
+                       path='run-dir/', 
+                       vmec_path='./',
+                       vmec_wout="",
+                       midpoints=[]
+                ):
 
 
         ###  load an input template
@@ -164,6 +169,10 @@ class GX_Flux_Model():
         self.input_template = GX_Runner(f_input)
         self.path = path
         # check that path exists, if it does not, mkdir and copy gx executable
+        
+        self.midpoints = midpoints
+        self.vmec_path = vmec_path
+        self.vmec_wout = vmec_wout
 
         ### This keeps a record of GX comands, it might be retired
         # init file for writing GX commands
@@ -191,20 +200,65 @@ class GX_Flux_Model():
 
 
     def init_geometry(self):
-        # assumes GX input files already exist
 
         ### load flux tube geometry
         # these should come from Trinity input file
-        geo_inputs = ['gx-files/gx_wout_gonzalez-2021_psiN_0.102_gds21_nt_36_geo.nc',
-        'gx-files/gx_wout_gonzalez-2021_psiN_0.295_gds21_nt_38_geo.nc',  
-        'gx-files/gx_wout_gonzalez-2021_psiN_0.500_gds21_nt_40_geo.nc',
-        'gx-files/gx_wout_gonzalez-2021_psiN_0.704_gds21_nt_42_geo.nc',
-        'gx-files/gx_wout_gonzalez-2021_psiN_0.897_gds21_nt_42_geo.nc']
+        
+        vmec = self.vmec_wout
+        if vmec != "":
 
-        ### list for storing flux tubes
+            # else launch flux tubes from VMEC
+            f_geo     = 'gx-geometry-sample.ing'
+            geo_path  = 'gx-files/'    # this says where the convert executable lives, and where to find the sample .ing file
+            out_path  = self.path
+            vmec_path = self.vmec_path
+
+            ing = gx_io.VMEC_GX_geometry_module( f_sample = f_geo,
+                                                 input_path = geo_path,
+                                                 output_path = out_path,
+                                                 tag = vmec[5:-3]
+                                              )
+            ing.set_vmec( vmec, 
+                          vmec_path   = vmec_path, 
+                          output_path = out_path )
+
+            #rax = [0.435, 0.615, 0.753, 0.869] # hard coded from Bill
+            #rax = [1.888888925e-01, 3.777777851e-01, 5.666666627e-01, 7.555555701e-01] # from Noah
+            #for rho in rax:
+            for rho in self.midpoints:
+                ing.init_radius(rho) 
+
+            # gather output files
+            geo_files = glob(out_path + 'gx*geo.nc')
+
+            # kludgy fix, if the inner most flux tube is too small for VMEC resolution
+            #     just copy the second inner most flux tube
+            #     the gradients will be different (and correct) even though the geometries are faked
+            #if len(geo_files) < len(self.midpoints):
+            #    geo_files = np.concatenate( [[geo_files[0]], geo_files] )
+
+        else:
+            # load default files (assumed to be existing)
+            print('  no VMEC wout given, loading default files')
+            geo_files = [ 'gx-files/gx_wout_gonzalez-2021_psiN_0.102_gds21_nt_36_geo.nc',
+                          'gx-files/gx_wout_gonzalez-2021_psiN_0.295_gds21_nt_38_geo.nc',  
+                          'gx-files/gx_wout_gonzalez-2021_psiN_0.500_gds21_nt_40_geo.nc',
+                          'gx-files/gx_wout_gonzalez-2021_psiN_0.704_gds21_nt_42_geo.nc',
+                          'gx-files/gx_wout_gonzalez-2021_psiN_0.897_gds21_nt_42_geo.nc']
+
+        print(' Found these flux tubes', geo_files)
+
+        ### store flux tubes in a list
         self.flux_tubes = []
-        for fin in geo_inputs:
+        for fin in geo_files:
             self.load_fluxtube(fin)
+
+
+        # make a directory for restart files
+        restart_dir = self.path + 'restarts' # this name is hard-coded to agree with that in gx_command(), a better name may be restart_dir/ or a variable naming such
+        if os.path.exists(restart_dir) == False:
+            os.mkdir(restart_dir)
+
 
     def create_geometry_from_vmec(self,wout):
 
@@ -267,16 +321,20 @@ class GX_Flux_Model():
 
             # stores a log of the GX calls (this step is not actually necessary)
             #  I should add time stamps somehow
-            self.write_command(j, rho, kn       , kpi       , kpe       )
-            self.write_command(j, rho, kn + step, kpi       , kpe       )
-            self.write_command(j, rho, kn       , kpi + step, kpe       )
-            self.write_command(j, rho, kn       , kpi       , kpe + step)
+#            self.write_command(j, rho, kn       , kpi       , kpe       )
+#            self.write_command(j, rho, kn + step, kpi       , kpe       )
+#            self.write_command(j, rho, kn       , kpi + step, kpe       )
+#            self.write_command(j, rho, kn       , kpi       , kpe + step)
+
 
             # writes the GX input file and calls the slurm job
             f0 [j] = self.gx_command(j, rho, kn      , kpi        , kpe        , '0' )
-            fn [j] = self.gx_command(j, rho, kn+step , kpi        , kpe        , '1' )
             fpi[j] = self.gx_command(j, rho, kn      , kpi + step , kpe        , '2' )
-            fpe[j] = self.gx_command(j, rho, kn      , kpi        , kpe + step , '3' )
+            #fn [j] = self.gx_command(j, rho, kn+step , kpi        , kpe        , '1' )
+            #fpe[j] = self.gx_command(j, rho, kn      , kpi        , kpe + step , '3' )
+
+            # turn off density, since particle flux is set to 0
+            # turn off pe, since Qe = Qi
 
         ### collect parallel runs
         self.wait()
@@ -287,14 +345,17 @@ class GX_Flux_Model():
         print('starting to read')
         for j in idx: 
             Q0 [j] = read_gx(f0 [j])
-            Qn [j] = read_gx(fn [j])
             Qpi[j] = read_gx(fpi[j])
-            Qpe[j] = read_gx(fpe[j])
+            #Qn [j] = read_gx(fn [j])
+            #Qpe[j] = read_gx(fpe[j])
 
         Qflux  =  Q0
-        Qi_n   =  (Qn  - Q0) / step 
         Qi_pi  =  (Qpi - Q0) / step 
-        Qi_pe  =  (Qpe - Q0) / step 
+        #Qi_n   =  (Qn  - Q0) / step 
+        #Qi_pe  =  (Qpe - Q0) / step 
+        Qi_n = 0*Q0 # this is already the init state
+        Qi_pe = Qi_pi
+
 
         # need to add neoclassical diffusion
 
@@ -341,38 +402,59 @@ class GX_Flux_Model():
 
         ### Decide whether to load restart
         if (t_id == 0): 
-            # first time step
+            # skip only for first time step
             ft.gx_input.inputs['Restart']['restart'] = 'false'
 
         else:
             ft.gx_input.inputs['Restart']['restart'] = 'true'
-            fload = 't{:}-r{:}-restart.nc'.format(t_id-1, r_id)
+            fload = 'restarts/t{:}-r{:}-{:}save.nc'.format(t_id-1, r_id, job_id)
             ft.gx_input.inputs['Restart']['restart_from_file'] = '"{:}"'.format(path + fload)
             ft.gx_input.inputs['Controls']['init_amp'] = '0.0'
             # restart from the same file (prev time step), to ensure parallelizability
 
-        ### Decide whether to save restart
-        if (job_id == '0'):
-            # save basepoint
-            ft.gx_input.inputs['Restart']['save_for_restart'] = 'true'
-            fsave = 't{:}-r{:}-restart.nc'.format(t_id, r_id)
-            ft.gx_input.inputs['Restart']['restart_to_file'] = '"{:}"'.format(path + fsave)
+        
+        #### save restart file (always)
+        ft.gx_input.inputs['Restart']['save_for_restart'] = 'true'
+        fsave = 'restarts/t{:}-r{:}-{:}save.nc'.format(t_id, r_id, job_id)
+        ft.gx_input.inputs['Restart']['restart_to_file'] = '"{:}"'.format(path + fsave)
 
-        else:
-            # perturb gradients
-            ft.gx_input.inputs['Restart']['save_for_restart'] = 'false' 
-            # make sure I don't redundantly rewrite the restart file here
 
+#  old conventions (these restart all types 0-3 from a single node
+#        ### Decide whether to load restart
+#        if (t_id == 0): 
+#            # first time step
+#            ft.gx_input.inputs['Restart']['restart'] = 'false'
+#
+#        else:
+#            ft.gx_input.inputs['Restart']['restart'] = 'true'
+#            fload = 't{:}-r{:}-restart.nc'.format(t_id-1, r_id)
+#            ft.gx_input.inputs['Restart']['restart_from_file'] = '"{:}"'.format(path + fload)
+#            ft.gx_input.inputs['Controls']['init_amp'] = '0.0'
+#            # restart from the same file (prev time step), to ensure parallelizability
+#
+#        ### Decide whether to save restart
+#        if (job_id == '0'):
+#            # save basepoint
+#            ft.gx_input.inputs['Restart']['save_for_restart'] = 'true'
+#            fsave = 't{:}-r{:}-restart.nc'.format(t_id, r_id)
+#            ft.gx_input.inputs['Restart']['restart_to_file'] = '"{:}"'.format(path + fsave)
+#
+#        else:
+#            # perturb gradients
+#            ft.gx_input.inputs['Restart']['save_for_restart'] = 'false' 
+#            # make sure I don't redundantly rewrite the restart file here
+#
         ### execute
         ft.gx_input.write(path + fout)
         qflux = self.run_gx(tag, path) # this returns a file name
         return qflux
 
 
+
     def run_gx(self,tag,path):
 
         f_nc = path + tag + '.nc'
-        if ( exists(f_nc) == False ):
+        if ( os.path.exists(f_nc) == False ):
 
             # attempt to call
             cmd = ['srun', '-N', '1', '-t', '2:00:00', '--ntasks=1', '--gpus-per-task=1', path+'./gx', path+tag+'.in'] # new gx binary
@@ -430,7 +512,7 @@ def print_time():
 # read a GX netCDF output file, returns flux
 def read_gx(f_nc):
     try:
-        qflux = gout.read_GX_output( f_nc )
+        qflux = gx_io.read_GX_output( f_nc )
         if ( np.isnan(qflux).any() ):
              print('  nans found in', f_nc, '(setting NaNs to 0)')
              qflux = np.nan_to_num(qflux)
