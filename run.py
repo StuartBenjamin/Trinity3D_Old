@@ -8,13 +8,13 @@ import models      as mf
 import pdb
 
 # set up grid
-N = 5 # number of radial points (N-1 flux tubes)
+N = 10 # number of radial points (N-1 flux tubes)
 rho_edge = 0.85    # rho = r/a : normalized radius
 rho_axis = np.linspace(0,rho_edge,N) # radial axis
 
 #model = 'diffusive'   # Barnes test 2
-model = 'GX'          # use slurm to call GX
-#model = 'ReLU'        # default
+#model = 'GX'          # use slurm to call GX
+model = 'ReLU'        # default
 
 gx_path = 'gx-files/run-dir/'
 #gx_path = 'gx-files/JET/'
@@ -29,26 +29,26 @@ vmec_wout = '' # defaults to preloaded flux tubes (can extend this to be user su
 
 ### Set up time controls
 alpha = 1          # explicit to implicit mixer
-dtau  = 2         # step size 
+dtau  = 0.5         # step size 
 N_steps  = 5       # total Time = dtau * N_steps
 N_prints = 5 
 N_step_print = N_steps // N_prints   # how often to print # thanks Sarah!
 ###
 
 ## Set initial conditions
-n_core  = 3
+n_core  = 5
 n_edge  = 3
 
 pi_core = 7
-pi_edge = 3
+pi_edge = 2
 
 pe_core = 7
-pe_edge = 3 
+pe_edge = 2 
 
 ### Set up source
-Sn_height  = 0
-Spi_height = 0
-Spe_height = 0
+Sn_height  = 0.5
+Spi_height = 1
+Spe_height = 1
 Sn_width   = 0.2
 Spi_width  = 0.2
 Spe_width  = 0.2
@@ -133,6 +133,8 @@ while (j < N_steps):
     engine.calc_psi_n()
     engine.calc_psi_pi() 
     engine.calc_psi_pe() 
+
+    engine.calc_sources()
     engine.calc_y_next()
 
     engine.update()
@@ -176,12 +178,11 @@ d3_flux.label(titles=['Gamma','Qi','Qe'])
 #engine.plot_sources()
 
 #path = './' # should get path from trinity engine's GX_IO, and if GX is not used?
-#fout = 'trinity_log.npy'
 fout = 'log_trinity.npy'
 
 writer.store_system(engine)
 writer.export(fout)
 
 print('TRINITY Complete. Exiting normally')
-plt.show()
+#plt.show()
 

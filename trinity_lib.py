@@ -9,6 +9,8 @@ profile           = pf.Profile
 flux_coefficients = pf.Flux_coefficients
 psi_profiles      = pf.Psi_profiles
 
+import fusion_lib as fus
+
 # ignore divide by 0 warnings
 #np.seterr(divide='ignore', invalid='ignore')
 
@@ -89,6 +91,9 @@ class Trinity_Engine():
         self.R_major = R_major # meter
         self.a_minor = a_minor # meter
 
+        # init normalizations
+        self.norms = self.Normalizations()
+
         # need to implement <|grad rho|>, by reading surface area from VMEC
         grho = 1
         #grho = -1
@@ -137,9 +142,9 @@ class Trinity_Engine():
         ### sources
         # temp, Gaussian model. Later this should be adjustable
         Gaussian  = np.vectorize(mf.Gaussian)
-        self.source_n  = Gaussian(rho_axis, A=Sn_height , sigma=Sn_width , x0=Sn_center)
-        self.source_pi = Gaussian(rho_axis, A=Spi_height, sigma=Spi_width, x0=Spi_center)
-        self.source_pe = Gaussian(rho_axis, A=Spe_height, sigma=Spe_width, x0=Spe_center)
+        self.aux_source_n  = Gaussian(rho_axis, A=Sn_height , sigma=Sn_width , x0=Sn_center)
+        self.aux_source_pi = Gaussian(rho_axis, A=Spi_height, sigma=Spi_width, x0=Spi_center)
+        self.aux_source_pe = Gaussian(rho_axis, A=Spe_height, sigma=Spe_width, x0=Spe_center)
 
 
         ### init flux models
@@ -523,7 +528,47 @@ class Trinity_Engine():
 
         Amat = I3 - self.dtau * self.alpha * M
         return Amat
+
+
+    # use auxiliary sources, add fusion power, subtract Bremstrahlung
+    def calc_sources(self):
     
+        # load axuiliary source terms
+        aux_source_n  = self.aux_source_n #[:-1]
+        aux_source_pi = self.aux_source_pi#[:-1]
+        aux_source_pe = self.aux_source_pe#[:-1]
+        
+        # load profiles
+        n_profile_m3 = self.density.profile * 1e20
+        Ti_profile_keV = self.pressure_i.profile / self.density.profile 
+        Te_profile_keV = self.pressure_e.profile / self.density.profile 
+
+        # compute fusion power
+        Ti_profile_eV = Ti_profile_keV * 1e3
+        P_fusion_Wm3 = fus.alpha_heating_DT( n_profile_m3, Ti_profile_eV )
+
+        # compute bremstrahlung radiation
+        P_brems_Wm3 = fus.radiation_bremstrahlung(n_profile_m3/1e20, Te_profile_keV) 
+
+        # non-dimensionalize
+        t_ref = self.a_minor / self.norms.vT_ref
+        p_ref = self.norms.n_ref * self.norms.T_ref * self.norms.e
+        gyro_scale = self.a_minor / self.norms.rho_ref
+
+        pressure_source_scale = t_ref / p_ref * gyro_scale**2 # converts from SI (W/m3)
+        P_fusion = P_fusion_Wm3 * pressure_source_scale
+        P_brems  = P_brems_Wm3  * pressure_source_scale
+
+        # store
+        self.P_fusion = P_fusion
+        self.P_brems  = P_brems
+
+        self.source_n  = aux_source_n
+        self.source_pi = aux_source_pi + P_fusion
+        self.source_pe = aux_source_pe - P_brems
+
+
+
     ### Define RHS
     def time_step_RHS(self):
  
@@ -562,7 +607,7 @@ class Trinity_Engine():
         force_pe = g * (Fep - Fem) / drho
 
         # load source terms
-        source_n  = self.source_n[:-1]
+        source_n  = self.source_n[:-1]   # later change this to be aux + fusion - brems
         source_pi = self.source_pi[:-1]
         source_pe = self.source_pe[:-1]
     
@@ -633,12 +678,13 @@ class Trinity_Engine():
         # step time
         self.time += self.dtau
 
+    # can be retired
     def plot_sources(self):
 
         rax = self.rho_axis
-        source_n  = self.source_n 
-        source_pi = self.source_pi
-        source_pe = self.source_pe
+        source_n  = self.aux_source_n 
+        source_pi = self.aux_source_pi
+        source_pe = self.aux_source_pe
 
         plt.figure(figsize=(4,4))
         plt.plot(rax, source_n, '.-', label=r'$S_n$')
@@ -671,6 +717,43 @@ class Trinity_Engine():
 #                print('{:d}, {:d}, {:.2e}, {:.4e}, {:.4e}, {:.6e}, {:.6e}' \
 #                .format(j, k, Time, rax[k], sax[k], R*kti[k], R*kn[k]), file=f)
         
+
+    # a subclass for handling normalizations in Trinity
+    class Normalizations():
+        def __init__(self, n_ref = 1e20,     # m3
+                           T_ref = 1e3,      # eV
+                           B_ref = 1,        # T
+                           m_ref = 1.67e-27, # kg, proton mass
+                          ):
+
+            self.e = 1.602e-19  # Colulomb
+            self.c = 2.99e8     # m/s
+
+
+            self.n_ref = n_ref
+            self.T_ref = T_ref
+            self.B_ref = B_ref
+
+            # this is a reference length scale
+            #   it is the (v_T,ref / Omega_ref) the distance thermal particle travels in cyclotron time
+            #   v_T = sqrt(2T/m_ref)
+            #   Omega_ref = e B_ref / m_ref c
+            #   m_ref is the proton mass.
+            self.rho_ref = 4.57e-3 # m
+
+            self.vT_ref = np.sqrt(2 * (T_ref*self.e) / m_ref)
+       
+
+            # this block current lives in calc_sources()
+            #   it could simplify code to do it here
+            #   but how to get a_minor out of the parent class?
+            #t_ref = a_minor / vT_ref
+            #p_ref = n_ref * T_ref * self.e
+            #gyro_scale = a_minor / self.rho_ref
+            #pressure_source_scale = t_ref / p_ref * gyro_scale**2 # converts from SI (W/m3)
+
+
+
 
 
 
