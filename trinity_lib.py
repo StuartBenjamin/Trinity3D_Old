@@ -322,6 +322,12 @@ class Trinity_Engine():
         self.mu2 = 0
         self.mu3 = 0
 
+    def calc_coillisions(self):
+        # this function computes the E terms (Barnes 7.73)
+        # there is one for each species.
+        pass
+        
+
     def calc_psi_n(self):
     
         # load

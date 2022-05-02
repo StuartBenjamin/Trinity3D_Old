@@ -130,6 +130,10 @@ while (j < N_steps):
 
     engine.normalize_fluxes()
     engine.calc_flux_coefficients()
+
+    # I think collisions and turb. heat exchange should be added here
+    engine.calc_collisions()
+
     engine.calc_psi_n()
     engine.calc_psi_pi() 
     engine.calc_psi_pe() 
