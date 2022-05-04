@@ -101,6 +101,18 @@ def alpha_heating_DT(n_profile, T_profile, f_tritium=0.5):
     P_alpha = rate * E_alpha  # alpha heating power profile in W / m3
     return P_alpha
 
+def alpha_heating_D_T(D_profile, T_profile, Ti_profile): 
+
+    Ti_profile_keV = Ti_profile / 1e3
+
+    sv = get_reactivity(xs['D-T'], Ti_profile_keV) / 1e6 # divide by 1e6 to convert from cm^-3 to m^-3. 
+    rate = D_profile * T_profile * sv  # reaction rate : second^{-1}, m^{-3}.
+
+    E_fusion = 17.6e6 * e     # fusion energy in Joules
+    E_alpha = E_fusion / 5    # alpha energy
+
+    P_alpha = rate * E_alpha  # alpha heating power profile in W / m3
+    return P_alpha
 
 def radiation_bremstrahlung(n_profile, T_profile, Zeff=1,
                                                   n_ref = 1e20, # /m3

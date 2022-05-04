@@ -4,8 +4,6 @@ import matplotlib.pyplot as plt
 import fusion_lib as flb
 
 
-
-
 # Make profiles
 N_radial = 11
 radial_grid = np.linspace(0,1,N_radial)
