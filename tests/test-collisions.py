@@ -41,10 +41,30 @@ Ne = np.array([  7.86138100e+19,   7.86367500e+19,   7.84880200e+19,
 
 Ni = Ne
 
-svec.add_species( Ni, Te/1e3, mass=2, charge=1, ion=True, name='Deuterium')
-svec.add_species( Ne, Ti/1e3, mass=1/1800, charge=-1, ion=False, name='electrons')
+svec.add_species_transp( Ni, Te, mass=2, charge=1, ion=True, name='Deuterium')
+svec.add_species_transp( Ne, Ti, mass=1/1800, charge=-1, ion=False, name='electrons')
 
 svec.compute_collision_matrix()
+def show_debug(self):
 
+    fig, ax = plt.subplots(1,2,figsize=(8,5))
+
+
+    ax[0].plot( self.nu[0,0], label='ii' )
+    ax[0].plot( self.nu[0,1], label='ie' )
+    ax[0].plot( self.nu[1,0], label='ei' )
+    ax[0].plot( self.nu[1,1], label='ee' )
+    ax[0].set_title(r'$\nu_\epsilon$')
+    ax[0].set_yscale('log')
+    ax[0].legend()
+
+    ax[1].plot( self.lamb[0,0], label='ii' )
+    ax[1].plot( self.lamb[0,1], label='ie' )
+    ax[1].plot( self.lamb[1,0], label='ei' )
+    ax[1].plot( self.lamb[1,1], label='ee' )
+    ax[1].set_title(r'$\log \Lambda$')
+    plt.show()
+
+show_debug(svec)
 import pdb
 pdb.set_trace()
