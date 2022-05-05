@@ -1,10 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-m_proton_cgs = 1.67e-24
+m_proton_cgs = 1.67e-24 # mass of proton in grams
 
-# We need a species class to keep track of mass, charge, and collisions
-#     or we can hard code it for now
+# The class keep track of mass, charge, and profiles for each species.
+#     It also computes log Lambda and nu for collisional energy exchange.
 class Species():
 
     def __init__(self):
@@ -124,9 +124,11 @@ class Species():
         return pair
 
 
+    ### For test function ###
+
     def add_species_transp(self, 
-                      n_profile_m3,     # density profile from Trinity (1e20 / m3)
-                      Temp_profile_eV,  # temperature profile from Trinity (keV)
+                      n_profile_m3,     # density profile from Transp (m3)
+                      Temp_profile_eV,  # temperature profile from Transp (eV)
                       mass   = 1,       # mass of species   (proton mass)
                       charge = 1,       # charge of species (proton charge)
                       ion    = True,    # boolean Ion or Electron
@@ -139,7 +141,9 @@ class Species():
         self.Z_vec.append( charge )
 
         self.isIon.append( ion )
-        self.species.append( name )
+        self.species.append( name ) # should I also save units somehow?
+        # maybe I had better save the units in the variable name, 
+        # and then call the name with units assumed
 
 
     # assume inputs are in TRANSP units
@@ -162,8 +166,7 @@ class Species():
     
         # compute lamb := log(Lambda)
         #    all logarithms used here are natural logs (base e)
-        #    the expressions below assume T_vec is given in keV and n_vec is given in 1e20/m3,
-        #    which are the units expected from Trinity.
+        #    assime [n] = /m3, [T] = eV, [m] = amu, [Z] = n charge
     
         n = np.array( self.n_vec ) / 1e6          # m-3          -> cc
         T = self.T_vec  

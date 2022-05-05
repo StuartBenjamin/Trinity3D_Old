@@ -49,22 +49,44 @@ def show_debug(self):
 
     fig, ax = plt.subplots(1,2,figsize=(8,5))
 
+    rax = np.linspace( 0,1, len(Ne) )
 
-    ax[0].plot( self.nu[0,0], label='ii' )
-    ax[0].plot( self.nu[0,1], label='ie' )
-    ax[0].plot( self.nu[1,0], label='ei' )
-    ax[0].plot( self.nu[1,1], label='ee' )
+
+    ax[0].plot( rax, self.nu[0,0], label='ii' )
+    ax[0].plot( rax, self.nu[0,1], label='ie' )
+    ax[0].plot( rax, self.nu[1,0], label='ei' )
+    ax[0].plot( rax, self.nu[1,1], label='ee' )
     ax[0].set_title(r'$\nu_\epsilon$')
     ax[0].set_yscale('log')
     ax[0].legend()
+    ax[0].grid()
 
-    ax[1].plot( self.lamb[0,0], label='ii' )
-    ax[1].plot( self.lamb[0,1], label='ie' )
-    ax[1].plot( self.lamb[1,0], label='ei' )
-    ax[1].plot( self.lamb[1,1], label='ee' )
+    ax[1].plot( rax, self.lamb[0,0], label='ii' )
+    ax[1].plot( rax, self.lamb[0,1], label='ie' )
+    ax[1].plot( rax, self.lamb[1,0], label='ei' )
+    ax[1].plot( rax, self.lamb[1,1], label='ee' )
     ax[1].set_title(r'$\log \Lambda$')
+    ax[1].grid()
+    plt.show()
+
+def show_profiles():
+
+    fig, ax = plt.subplots(2,1,figsize=(5,3) )
+
+    rax = np.linspace( 0,1, len(Ne) )
+    ax[0].plot(rax, Ne, label='ne')
+    ax[0].plot(rax, Ni, label='ni')
+    ax[1].plot(rax, Te, label='Te')
+    ax[1].plot(rax, Ti, label='Ti')
+
+    ax[0].legend()
+    ax[0].grid()
+    ax[1].legend()
+    ax[1].grid()
     plt.show()
 
 show_debug(svec)
+show_profiles()
+
 import pdb
 pdb.set_trace()
