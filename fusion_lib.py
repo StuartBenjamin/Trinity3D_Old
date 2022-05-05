@@ -12,11 +12,11 @@ masses = {'D': 2.014, 'T': 3.016, '3He': 3.016, '11B': 11.009305167,
           'p': 1.007276466620409}
 
 ### Define a dictionary of available Fusion Cross Sections
-xs_names = {'D-T': 'D_T_-_a_n.txt',              # D + T -> α + n
+xs_names = {'D-T': 'D_T_-_a_n.txt',              # D + T -> a + n
             'D-D_a': 'D_D_-_T_p.txt',            # D + D -> T + p
             'D-D_b': 'D_D_-_3He_n.txt',          # D + D -> 3He + n
-            'D-3He': 'D_3He_-_4He_p.txt',        # D + 3He -> α + p
-            'p-B': 'p_11B_-_3a.txt',             # p + 11B -> 3α
+            'D-3He': 'D_3He_-_4He_p.txt',        # D + 3He -> a + p
+            'p-B': 'p_11B_-_3a.txt',             # p + 11B -> 3a
             'T-T': 'T_T_-_4He_n_n.txt',          # T + T -> 4He + 2n
             'T-3He_a': 'T_3He_-_n_p_4He.txt',    # T + 3He -> 4He + n + p
             'T-3He_b': 'T_3He_-_D_4He.txt',      # T + 3He -> 4He + D
@@ -32,7 +32,7 @@ xs_labels = {'D-T': '$\mathrm{D-T}$',
             '3He-3He': '$\mathrm{^3He-^3He}$',
             }
 
-# Energy grid, 1 – 1000 keV, evenly spaced in log-space.
+# Energy grid, 1 - 1000 keV, evenly spaced in log-space.
 Egrid = np.logspace(0, 5, 1000)
 
 class Xsec:

@@ -73,62 +73,55 @@ Area = np.array([   3.690838,    7.380161,   11.06828 ,   14.75417 ,   18.4388  
         112.4412  ,  115.9635  ,  119.4911  ,  123.029   ,  126.5876  ,
         130.1814  ,  133.8356  ,  137.5802  ,  141.4491  ,  145.4804  ])
 
+# TRANSP 2D: RMAJOR
+R_major = np.array([ 2.989869,  2.989578,  2.989158,  2.98862 ,  2.987965,  2.987236,
+        2.98645 ,  2.985601,  2.984679,  2.983697,  2.982643,  2.981506,
+        2.980273,  2.978924,  2.977474,  2.97589 ,  2.974169,  2.972313,
+        2.970323,  2.968205,  2.965956,  2.963604,  2.961101,  2.958477,
+        2.955752,  2.952915,  2.949969,  2.946942,  2.94381 ,  2.940602,
+        2.937309,  2.933924,  2.930488,  2.926969,  2.923381,  2.919757,
+        2.916116,  2.912483,  2.908874,  2.904989])
+
+# TRANSP 2D: RMINOR
+a_minor = np.array([ 0.02665176,  0.05330632,  0.07993629,  0.1065383 ,  0.1331057 ,
+        0.1596857 ,  0.1862784 ,  0.2128672 ,  0.2395078 ,  0.2661823 ,
+        0.2927655 ,  0.3191756 ,  0.3453529 ,  0.3715778 ,  0.3977324 ,
+        0.4237332 ,  0.4494722 ,  0.4749279 ,  0.5001292 ,  0.525052  ,
+        0.5497054 ,  0.5740551 ,  0.5981105 ,  0.6218529 ,  0.6452584 ,
+        0.6683083 ,  0.6909816 ,  0.7132185 ,  0.7350282 ,  0.7563455 ,
+        0.7771662 ,  0.7974693 ,  0.8172022 ,  0.836369  ,  0.8549337 ,
+        0.8727913 ,  0.8899211 ,  0.906247  ,  0.9217266 ,  0.9362195 ])
 
 
-
-# Set up geometry
-R_major_m = 2.905
-a_minor_m = 0.936
-
-#area_profile_m2 = (2 * np.pi * R_major_m) * (2 * np.pi * radial_grid * a_minor_m)
-#dr = a_minor_m / (N_radial-1)
-
-radial_grid = np.linspace(0,1, len(Area) )
-r_grid_m = np.linspace(0,a_minor_m, len(Area) )
-dr = a_minor_m / len(Area) # approximate, what is a better way to get radial spacing?
+N_radial = len(Area)
+radial_grid = np.linspace(0,1, N_radial )
+dr = a_minor[-1] / N_radial
 V_profile_m3  = Area * dr 
 P_fusion_Wm3 = flb.alpha_heating_D_T(Nm1, Nm2, Ti)
 P_fusion_Wm  = P_fusion_Wm3 * Area
 
+P_fusion_total = flb.simps( P_fusion_Wm, a_minor, dx=dr )
+print(' Total alpha power (integral Simpson): {:.2e} MW'.format( P_fusion_total/1e6 ) )
+print(' Total fusion power (integral Simpson): {:.2e} MW'.format( 5*P_fusion_total/1e6 ) )
 
-# compute fusion
-#P_fusion_Wm3 = flb.alpha_heating_DT( n_profile_m3, T_profile_eV )
-#P_fusion_MWm3 = P_fusion_Wm3/1e6
-#P_fusion_MW   = P_fusion_MWm3 * V_profile_m3
-#P_fusion_MWm  = P_fusion_MWm3 * area_profile_m2
-#print(' Total fusion power (integral Simpson): {} MW'.format( flb.simps(P_fusion_MWm, a_minor_m*radial_grid, dx=dr) ) ) # this one looks accurate, but off by factor 1/2
-#print(' Total fusion power (Pfus * Vol): {} MW'.format( np.sum(P_fusion_MW) ) )
+fig,axs = plt.subplots(2,3, figsize=(10,6))
 
-
-#Total_Volume = (2*np.pi*R_major_m) * (np.pi * a_minor_m**2)
-#print('Total Volume: ', Total_Volume)
-#print('Fusion power density: ', P_fusion_MWm3[0])
-#print('Total Fusion: ', Total_Volume * P_fusion_MWm3[0])
-
-fig,axs = plt.subplots(2,3, figsize=(8,5))
-
-axs[0,0].plot( radial_grid, Nm1 , '.-' )
-axs[0,0].plot( radial_grid, Nm2 , '.-' )
-axs[1,0].plot( radial_grid, Ti, '.-' )
-axs[0,1].plot( radial_grid, P_fusion_Wm3 , '.-' )
+axs[0,0].plot( radial_grid, Nm1 , 'C2.-',label='D' )
+axs[0,0].plot( radial_grid, Nm2 , 'C1.-',label='T' )
+axs[0,0].legend()
+axs[1,0].plot( radial_grid, Ti/1e3, '.-' )
+axs[0,1].plot( radial_grid, P_fusion_Wm3/1e6 , '.-' )
 axs[1,1].plot( radial_grid, Area , '.-' )
-axs[0,2].plot( r_grid_m, P_fusion_Wm , '.-' )
-#axs[1,1].plot( radial_grid, P_brem_MWm3         , '.-' )
-#axs[1,2].plot( radial_grid, P_cyc_MWm3         , '.-' )
-#axs[1,0].plot( radial_grid, P_fusion_MWm3 , '.-' )
-#axs[4].plot( radial_grid, P_fusion_MW , '.-' )
+axs[0,2].plot( a_minor, P_fusion_Wm/1e6 , 'C4.-' )
+axs[1,2].plot( radial_grid, a_minor , '.-' )
 
-axs[0,0].set_title('density [m-3]')
-axs[1,0].set_title('Ion Temperature [eV]')
-#axs[1,1].set_title('Bremstrahlung Power Density')
-axs[0,1].set_title('Fusion power density [W/m3]')
-axs[1,1].set_title('Area [m2]')
-axs[0,2].set_title('Fusion power density [W/m]')
-#axs[1,2].set_title('Cyclotron power density')
-
+axs[0,0].set_title(r'Density [m$^{-3}$]')
+axs[1,0].set_title('Ion Temperature [keV]')
+axs[0,1].set_title(r'Alpha power density [MW/m$^3$]')
+axs[1,1].set_title(r'Surface Area [m$^2$]')
+axs[0,2].set_title('Alpha power distribution [MW/m]')
+axs[1,2].set_title('Minor Radius [m]')
 
 plt.tight_layout()
 plt.show()
 
-import pdb
-pdb.set_trace()
