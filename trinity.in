@@ -6,8 +6,8 @@
   alpha    = 1
 
 [path]
-  gx_path   = 'gx-files/run-dir/'
-  vmec_path = 'gx-geometry/'
+  gx_path   = gx-files/run-dir/
+  vmec_path = gx-geometry/
 
 [model]
   model = 'ReLU'         ! default
@@ -37,9 +37,9 @@
   Ba        = 4
   R_major   = 2.95
   a_minor   = 0.95
-  vmec_wout = 'wout_w7x.nc'
+  vmec_wout = wout_w7x.nc
   use_vmec  = False ! (B,R,a) can be overwritten from vmec
 
 [log]
   N_prints = 5
-  f_save   = 'log_trinity.npy'
+  f_save   = log_trinity

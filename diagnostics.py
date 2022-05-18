@@ -150,6 +150,20 @@ class ProfileSaver:
         log['P_brems_Wm3']  = [] 
         log['nu_ei_Hz']     = [] 
 
+        # power balance
+        log['power balance'] = {}
+        pb = log['power balance']
+        pb['force_n'] = []
+        pb['force_pi'] = []
+        pb['force_pe'] = []
+        pb['Ei'] = []
+        pb['Ee'] = []
+        pb['P_fusion'] = []
+        pb['P_brems'] = []
+        pb['aux_source_n'] = []
+        pb['aux_source_pi'] = []
+        pb['aux_source_pe'] = []
+
         self.log = log
 
     def save(self,engine):
@@ -174,6 +188,21 @@ class ProfileSaver:
         self.log['P_fusion_Wm3'].append( engine.P_fusion_Wm3 ) 
         self.log['P_brems_Wm3'] .append( engine.P_brems_Wm3 ) 
         self.log['nu_ei_Hz'].append( engine.nu_ei )
+
+        # store power balance
+        pb = self.log['power balance']
+        en = engine
+        pb['force_n']  .append( en.force_n  )
+        pb['force_pi'] .append( en.force_pi )
+        pb['force_pe'] .append( en.force_pe )
+        pb['Ei']       .append( en.Ei )
+        pb['Ee']       .append( en.Ee )
+        pb['P_fusion'] .append( en.P_fusion )
+        pb['P_brems']  .append( en.P_brems )
+        pb['aux_source_n'] .append( en.aux_source_n )
+        pb['aux_source_pi'].append( en.aux_source_pi )
+        pb['aux_source_pe'].append( en.aux_source_pe )
+
 
 
     def store_system(self,engine):
