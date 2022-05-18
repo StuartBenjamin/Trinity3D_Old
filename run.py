@@ -1,20 +1,71 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+import Trinity_io as t_input
+
 import trinity_lib as trl
 import diagnostics as dgn
 import models      as mf
 
 import pdb
+import os, sys
+
+fin = sys.argv[1]
+tr3d = t_input.Trinity_Input(fin)
+
+### read inputs
+
+N_radial = int   ( tr3d.inputs['grid']['N_radial'] )
+rho_edge = float ( tr3d.inputs['grid']['rho_edge'] )
+dtau     = float ( tr3d.inputs['grid']['dtau'    ] )
+alpha    = float ( tr3d.inputs['grid']['alpha'   ] )
+N_steps  = int   ( tr3d.inputs['grid']['N_steps' ] )
+
+
+model    = tr3d.inputs['model']['model']
+
+
+n_core  = float ( tr3d.inputs['profiles']['n_core' ] )
+n_edge  = float ( tr3d.inputs['profiles']['n_edge' ] )
+Ti_core = float ( tr3d.inputs['profiles']['Ti_core'] )
+Ti_edge = float ( tr3d.inputs['profiles']['Ti_edge'] )
+Te_core = float ( tr3d.inputs['profiles']['Te_core'] )
+Te_edge = float ( tr3d.inputs['profiles']['Te_edge'] )
+
+Sn_height  = float ( tr3d.inputs['sources']['Sn_height' ] ) 
+Spi_height = float ( tr3d.inputs['sources']['Spi_height'] ) 
+Spe_height = float ( tr3d.inputs['sources']['Spe_height'] ) 
+Sn_width   = float ( tr3d.inputs['sources']['Sn_width'  ] ) 
+Spi_width  = float ( tr3d.inputs['sources']['Spi_width' ] ) 
+Spe_width  = float ( tr3d.inputs['sources']['Spe_width' ] ) 
+Sn_center  = float ( tr3d.inputs['sources']['Sn_center' ] ) 
+Spi_center = float ( tr3d.inputs['sources']['Spi_center'] ) 
+Spe_center = float ( tr3d.inputs['sources']['Spe_center'] ) 
+
+R_major   = float ( tr3d.inputs['geometry']['R_major'] ) 
+a_minor   = float ( tr3d.inputs['geometry']['a_minor'] ) 
+Ba        = float ( tr3d.inputs['geometry']['Ba'     ] ) 
+
+
+N_prints = int ( tr3d.inputs['log']['N_prints'] )
+f_save   = tr3d.inputs['log']['f_save']
+
+'''
+   ToDo: there should be a section where I set default values
+
+   I think it would be best to put this in the TrinityLib itself
+'''
+#vmec_wout = float ( tr3d.inputs['geometry']['Ba'     ] ) 
+
+####
 
 # set up grid
-N = 10 # number of radial points (N-1 flux tubes)
-rho_edge = 0.85    # rho = r/a : normalized radius
-rho_axis = np.linspace(0,rho_edge,N) # radial axis
+rho_axis = np.linspace(0,rho_edge,N_radial) # radial axis
 
-#model = 'diffusive'   # Barnes test 2
-#model = 'GX'          # use slurm to call GX
-model = 'ReLU'        # default
+### Set up time controls
+N_step_print = N_steps // N_prints   # how often to print 
+
+
 
 gx_path = 'gx-files/run-dir/'
 #gx_path = 'gx-files/JET/'
@@ -27,41 +78,11 @@ vmec_path = 'gx-geometry/'
 #vmec_wout = 'wout_JET.nc'
 vmec_wout = '' # defaults to preloaded flux tubes (can extend this to be user supplied flux tubes)
 
-### Set up time controls
-alpha = 1          # explicit to implicit mixer
-dtau  = 0.5         # step size 
-N_steps  = 5       # total Time = dtau * N_steps
-N_prints = 5 
-N_step_print = N_steps // N_prints   # how often to print # thanks Sarah!
 ###
 
-## Set initial conditions
-n_core  = 5
-n_edge  = 3
-
-pi_core = 7
-pi_edge = 2
-
-pe_core = 7
-pe_edge = 2 
 
 ### Set up source
-Sn_height  = 0.5
-Spi_height = 1
-Spe_height = 1
-Sn_width   = 0.2
-Spi_width  = 0.2
-Spe_width  = 0.2
-Sn_center   = 0.3
-Spi_center  = 0.5
-Spe_center  = 0.3
 
-
-### will be from VMEC
-Ba = 4 # average field on LCFS
-R_major = 2.94   # meter
-a_minor = 0.94 # meter
-#area     = trl.profile(np.linspace(0.01,a_minor,N)) # parabolic area, simple torus
 
 
 ### Run Trinity!
@@ -72,13 +93,13 @@ engine = trl.Trinity_Engine(alpha=alpha,
                             N_steps=N_steps,
                             N_prints = N_prints,
                             ###
-                            N        = N,
+                            N        = N_radial,
                             n_core   = n_core,
                             n_edge   = n_edge,
-                            pi_core   = pi_core,
-                            pi_edge   = pi_edge,
-                            pe_core   = pe_core,
-                            pe_edge   = pe_edge,
+                            Ti_core   = Ti_core,
+                            Ti_edge   = Ti_edge,
+                            Te_core   = Te_core,
+                            Te_edge   = Te_edge,
                             R_major  = R_major,
                             a_minor  = a_minor,
                             Ba       = Ba,
@@ -101,8 +122,6 @@ engine = trl.Trinity_Engine(alpha=alpha,
                             )
 
 
-d3_prof  = dgn.diagnostic_3()
-d3_flux  = dgn.diagnostic_3()
 
 writer = dgn.ProfileSaver()
 
@@ -138,7 +157,8 @@ while (j < N_steps):
     engine.calc_psi_pi() 
     engine.calc_psi_pe() 
 
-    engine.calc_sources()
+    engine.calc_sources( )
+    #engine.calc_sources( alpha_heating=False, brems_radiation=False)
     engine.calc_y_next()
 
     engine.update()
@@ -157,36 +177,21 @@ while (j < N_steps):
         Q_e        = engine.Qe
 
         print('  Plot: t =',j)
-        d3_prof.plot( density, pressure_i, pressure_e, Time)
-        d3_flux.plot( Gamma, Q_i, Q_e, Time)
-
-
-        ### write GX commands
-        # later this could be on a separate time scale
-        #engine.model_gx.prep_commands(engine, j, Time)
-
-        # is it better for model_gx to live in run scope or in engine?
         writer.save(engine)
-
 
     Time += dtau
     j += 1
 
-rlabel = r'$\alpha = {} :: d\tau = {:.3e}$'.format(alpha,dtau)
-
-d3_prof.label(titles=['n','pi','pe'])
-d3_prof.title(rlabel)
-
-d3_flux.label(titles=['Gamma','Qi','Qe'])
-
-#engine.plot_sources()
 
 #path = './' # should get path from trinity engine's GX_IO, and if GX is not used?
-fout = 'log_trinity.npy'
 
 writer.store_system(engine)
-writer.export(fout)
+writer.export(f_save)
 
 print('TRINITY Complete. Exiting normally')
-#plt.show()
+cmd = 'python tools/profile-plot.py {}'.format(f_save)
+print('Calling plot function:')
+print('  ',cmd)
+os.system(cmd)
+
 
