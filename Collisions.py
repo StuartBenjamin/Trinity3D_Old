@@ -9,10 +9,10 @@ class Collision_Model():
 
     def __init__(self):
 
-        self.n_vec = []
-        self.T_vec = []
-        self.m_vec = []
-        self.Z_vec = []
+        self.n_cc = []
+        self.T_eV = []
+        self.m_mp = []
+        self.Z_e = []
         # it would be better if I defined these lists, using the assumed dimensions
         # right now I'm assuming NRL dimensions (cc, eV, proton mass, proton charge)
 
@@ -31,10 +31,10 @@ class Collision_Model():
         
         T_profile_keV = p_profile_n20keV / n_profile_20
         
-        self.T_vec.append( T_profile_keV * 1e3 )    # keV     -> eV
-        self.n_vec.append( n_profile_20 * 1e14 )    # 1e20/m3 -> cc
-        self.m_vec.append( mass )
-        self.Z_vec.append( charge )
+        self.T_eV.append( T_profile_keV * 1e3 )    # keV     -> eV
+        self.n_cc.append( n_profile_20 * 1e14 )    # 1e20/m3 -> cc
+        self.m_mp.append( mass ) 
+        self.Z_e .append( charge )
 
         self.isIon.append( ion )
         self.species.append( name )
@@ -53,18 +53,15 @@ class Collision_Model():
 
         # hard coded to the init convention that (D,e)
         #    how can this be improved, in a way that is generalizable to multiple ions?
-        self.T_vec[0] = Ti_eV
-        self.T_vec[1] = Te_eV
-        self.n_vec[0] = ni_cc
-        self.n_vec[1] = ne_cc
+        self.T_eV[0] = Ti_eV
+        self.T_eV[1] = Te_eV
+        self.n_cc[0] = ni_cc
+        self.n_cc[1] = ne_cc
 
     def export_species(self,j):
 
-        #isIon = self.isIon[j]
-        Z     = self.Z_vec[j]
-        m     = self.m_vec[j]
-
-        #return isIon, Z, m
+        Z     = self.Z_e[j]
+        m     = self.m_mp[j]
         return Z, m
 
 
@@ -117,60 +114,6 @@ class Collision_Model():
         ax[1].grid()
         plt.show()
 
-    # collisional heat exchange, as defined in NRL
-    def energy_collisions(self, s, u):
-
-
-        m = np.array( self.m_vec ) * m_proton_cgs  # proton mass -> grams
-        n = np.array( self.n_vec ) * 1e14          # 1e20/m3     -> cc
-        T = np.array( self.T_vec ) * 1e3           # keV         -> eV
-        Z = self.Z_vec
-
-        nu = 1.8e-19 * np.sqrt( m[s] * m[u]) * (Z[s] * Z[u])**2 * n[u] \
-                   * self.logLambda(s,u) \
-                   / ( m[s] * T[u] + m[u] * T[s] )**1.5
-    
-        return nu
-
-    ## These member functions compute elements N x N matrix using the existing profiles
-    def logLambda(self, s, u):
-    
-        # compute lamb := log(Lambda)
-        #    all logarithms used here are natural logs (base e)
-        #    the expressions below assume T_vec is given in keV and n_vec is given in 1e20/m3,
-        #    which are the units expected from Trinity.
-    
-        n = np.array( self.n_vec ) * 1e14      # 1e20/m3     -> cc
-        T = np.array( self.T_vec ) * 1e3       # keV         -> eV
-        m = self.m_vec       # only appears as dimensionless ratio
-        Z = self.Z_vec
-
-        pair = self.identify_pair(s,u) 
-
-        if (pair == 'ii'):
-            lamb = 23.0 - np.log(
-                 10**2.5 * (Z[s] * Z[u]) * (m[s] + m[u]) \
-                 / ( m[s] * T[u] + m[u] * T[s] ) \
-                 * np.sqrt( n[s] * Z[s]**2 / T[s] + n[u] * Z[u]**2 / T[u] ) \
-                 )
-    
-        elif (pair == 'ee'):
-            lamb = 23.5 - np.log( 10**3.24 * n[s]**0.5 / T[s]**1.25 ) \
-                - np.sqrt( 1e-5 + ( np.log(1e3 * T[s]) - 2)**2 / 16 )
-    
-        elif (pair == 'ie'):
-            lamb = 24.0 - np.log( 1e4 * np.sqrt( n[u] ) / T[u] )
-    
-        elif (pair == 'ei'):
-            lamb = 24.0 - np.log( 1e4 * np.sqrt( n[s] ) / T[s] )
-    
-        else: # not used
-            print('  ERROR: in collision operator logLambda() must be given keyword')
-            print('            pair == ii ee ie or ei')
-            return 0
-    
-        return lamb
-    
     # identifies collision type (ii, ie, ei, ee)
     def identify_pair(self,s,u):
 
@@ -183,9 +126,7 @@ class Collision_Model():
 
         return pair
 
-
     ### For test function ###
-
     def add_species_transp(self, 
                       n_profile_m3,     # density profile from Transp (m3)
                       Temp_profile_eV,  # temperature profile from Transp (eV)
@@ -195,10 +136,10 @@ class Collision_Model():
                       name='Hydrogen',  # optional name
                     ):
         
-        self.T_vec.append( Temp_profile_eV )
-        self.n_vec.append( n_profile_m3 )
-        self.m_vec.append( mass )
-        self.Z_vec.append( charge )
+        self.T_eV.append( Temp_profile_eV )
+        self.n_cc.append( n_profile_m3 / 1e6 )
+        self.m_mp.append( mass )
+        self.Z_e.append( charge )
 
         self.isIon.append( ion )
         self.species.append( name ) # should I also save units somehow?
@@ -206,14 +147,13 @@ class Collision_Model():
         # and then call the name with units assumed
 
 
-    # assume inputs are in TRANSP units
-    #    m3, eV, proton mass
     def energy_collisions_nrl(self, s, u):
+        #    assume [n] = cc, [T] = eV, [m] = g, [Z] = n charge
 
-        m = np.array( self.m_vec ) * m_proton_cgs  # proton mass -> grams
-        n = np.array( self.n_vec ) / 1e6           # m-3         -> cc
-        T = self.T_vec 
-        Z = self.Z_vec
+        m = np.array( self.m_mp ) * m_proton_cgs  # proton mass -> grams
+        n = np.array( self.n_cc )
+        T = self.T_eV
+        Z = self.Z_e
 
         nu = 1.8e-19 * np.sqrt( m[s] * m[u]) * (Z[s] * Z[u])**2 * n[u] \
                    * self.logLambda_nrl(s,u) \
@@ -226,12 +166,12 @@ class Collision_Model():
     
         # compute lamb := log(Lambda)
         #    all logarithms used here are natural logs (base e)
-        #    assime [n] = /m3, [T] = eV, [m] = amu, [Z] = n charge
+        #    assume [n] = cc, [T] = eV, [m] = amu, [Z] = n charge
     
-        n = np.array( self.n_vec ) / 1e6          # m-3          -> cc
-        T = self.T_vec  
-        Z = self.Z_vec
-        m = self.m_vec
+        n = np.array( self.n_cc ) #/ 1e6          # m-3          -> cc
+        T = self.T_eV
+        Z = self.Z_e
+        m = self.m_mp
 
         pair = self.identify_pair(s,u) 
 
@@ -266,8 +206,5 @@ class Collision_Model():
 
         self.nu_ei = nu_ei
         return nu_ei
-
-
-
 
 

@@ -10,7 +10,10 @@ import models      as mf
 import pdb
 import os, sys
 
-fin = sys.argv[1]
+try:
+    fin = sys.argv[1]
+except:
+    fin = 'trinity.in'
 tr3d = t_input.Trinity_Input(fin)
 
 ### read inputs
@@ -186,10 +189,12 @@ while (j < N_steps):
 #path = './' # should get path from trinity engine's GX_IO, and if GX is not used?
 
 writer.store_system(engine)
+import pdb
+pdb.set_trace()
 writer.export(f_save)
 
 print('TRINITY Complete. Exiting normally')
-cmd = 'python tools/profile-plot.py {}'.format(f_save)
+cmd = 'python tools/profile-plot.py {}.npy'.format(f_save)
 print('Calling plot function:')
 print('  ',cmd)
 os.system(cmd)

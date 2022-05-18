@@ -667,6 +667,11 @@ class Trinity_Engine():
         force_pi = g * (Fip - Fim) / drho
         force_pe = g * (Fep - Fem) / drho
 
+        # save for power balance 
+        self.force_n  = force_n 
+        self.force_pi = force_pi
+        self.force_pe = force_pe
+
         # load source terms
         source_n  = self.source_n[:-1]   # later change this to be aux + fusion - brems
         source_pi = self.source_pi[:-1]
@@ -701,8 +706,6 @@ class Trinity_Engine():
                      + dtau*source_pe + dtau*alpha*boundary_pe
 
        
-        # there was a major bug here with the pressure parts of RHS state vector
-
         bvec3 = np.concatenate( [bvec_n, bvec_pi, bvec_pe] )
         return bvec3
 
