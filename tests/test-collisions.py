@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import Collisions as clib
 
 
-svec = clib.Species()
+svec = clib.Collision_Model()
 
 
 Ti = np.array([ 8313.189,  8198.816,  8091.17 ,  7994.321,  7914.864,  7867.481,

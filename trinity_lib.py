@@ -10,6 +10,7 @@ flux_coefficients = pf.Flux_coefficients
 psi_profiles      = pf.Psi_profiles
 
 import fusion_lib as fus
+import Collisions 
 
 # ignore divide by 0 warnings
 #np.seterr(divide='ignore', invalid='ignore')
@@ -24,11 +25,10 @@ class Trinity_Engine():
     def __init__(self, N = 10, # number of radial points
                        n_core = 4,
                        n_edge = 0.5,
-                       pi_core = 8,
-                       pi_edge = 2,
-                       pe_core = 3,
-                       pe_edge = .3,
-                       T0 = 2,
+                       Ti_core = 8,
+                       Ti_edge = 2,
+                       Te_core = 3,
+                       Te_edge = .3,
                        R_major = 4,
                        a_minor = 1,
                        Ba = 3,
@@ -55,10 +55,15 @@ class Trinity_Engine():
         self.N_radial = N           # if this is total points, including core and edge, then GX simulates (N-2) points
         self.n_core   = n_core
         self.n_edge   = n_edge
-        self.pi_core   = pi_core
-        self.pi_edge   = pi_edge
-        self.pe_core   = pe_core
-        self.pe_edge   = pe_edge
+        self.Ti_core   = Ti_core
+        self.Ti_edge   = Ti_edge
+        self.Te_core   = Te_core
+        self.Te_edge   = Te_edge
+
+        self.pi_edge =  n_edge * Ti_edge
+        self.pe_edge =  n_edge * Te_edge
+        self.pi_core =  n_core * Ti_core
+        self.pe_core =  n_core * Te_core
 
         self.model    = model
 
@@ -92,7 +97,7 @@ class Trinity_Engine():
         self.a_minor = a_minor # meter
 
         # init normalizations
-        self.norms = self.Normalizations()
+        self.norms = self.Normalizations(a_minor=a_minor)
 
         # need to implement <|grad rho|>, by reading surface area from VMEC
         grho = 1
@@ -110,33 +115,22 @@ class Trinity_Engine():
 
         ### init profiles
         #     temporary profiles, later init from VMEC
-        n  = (n_core - n_edge)*(1 - (rho_axis/rho_edge)**2) + n_edge
-        pi = (pi_core-pi_edge)*(1 - (rho_axis/rho_edge)**2) + pi_edge
-        pe = (pe_core-pe_edge)*(1 - (rho_axis/rho_edge)**2) + pe_edge
+        n  = (n_core  - n_edge) *(1 - (rho_axis/rho_edge)**2) + n_edge
+        Ti = (Ti_core - Ti_edge)*(1 - (rho_axis/rho_edge)**2) + Ti_edge
+        Te = (Te_core - Te_edge)*(1 - (rho_axis/rho_edge)**2) + Te_edge
+        pi = n * Ti
+        pe = n * Te
 
         # save
         self.density     = init_profile(n)
         self.pressure_i  = init_profile(pi)
         self.pressure_e  = init_profile(pe)
 
-        ### init transport variables
-#        zeros =  profile( np.zeros(N) )
-#        self.Gamma     = zeros 
-#        self.Qi        = zeros
-#        self.Qe        = zeros
-#        self.dlogGamma = zeros
-#        self.dlogQi    = zeros
-#        self.dlogQe    = zeros
-#
-#        ### init flux coefficients
-#        self.Cn_n  = 0
-#        self.Cn_pi = 0 
-#        self.Cn_pe = 0
-#
-#        ### init psi profiles
-#        self.psi_nn  = 0
-#        self.psi_npi = 0
-#        self.psi_npe = 0
+        # init collision model
+        svec = Collisions.Collision_Model()
+        svec.add_species( n, pi, mass=2, charge=1, ion=True, name='Deuterium')
+        svec.add_species( n, pe, mass=1/1800, charge=-1, ion=False, name='electrons')
+        self.collision_model = svec
 
 
         ### sources
@@ -172,9 +166,10 @@ class Trinity_Engine():
             self.barnes_model = bm
 
         else:
-            self.model_G  = mf.Flux_model()
-            self.model_Qi = mf.Flux_model()
-            self.model_Qe = mf.Flux_model()
+            zero_flux = False
+            self.model_G  = mf.Flux_model(zero_flux=zero_flux)
+            self.model_Qi = mf.Flux_model(zero_flux=zero_flux)
+            self.model_Qe = mf.Flux_model(zero_flux=zero_flux)
 
     def read_VMEC(self, wout, path='gx-geometry/', use_vmec=False):
 
@@ -322,10 +317,35 @@ class Trinity_Engine():
         self.mu2 = 0
         self.mu3 = 0
 
-    def calc_coillisions(self):
+    def calc_collisions(self):
         # this function computes the E terms (Barnes 7.73)
         # there is one for each species.
-        pass
+
+        # update profiles in collision lib
+        cmod = self.collision_model
+        cmod.update_profiles(self)
+        cmod.compute_nu_ei()
+
+        # convert units
+        nu_ei      = cmod.nu_ei
+        t_ref      = self.norms.t_ref
+        gyro_scale = self.norms.gyro_scale
+        nu_norm    = nu_ei * t_ref * gyro_scale**2
+
+        # compute E 
+        pi = self.pressure_i.profile
+        pe = self.pressure_e.profile
+        ni = self.density.profile
+        ne = self.density.profile
+
+        Ei = nu_norm * pi * ( (pe/ne)/(pi/ni) - 1 )
+        Ee = nu_norm * pe * ( (pi/ni)/(pe/ne) - 1 )
+
+        # save
+        self.nu_ei = nu_ei
+        self.nu_ei_norm = nu_norm
+        self.Ei = Ei
+        self.Ee = Ee
         
 
     def calc_psi_n(self):
@@ -333,6 +353,7 @@ class Trinity_Engine():
         # load
         Fnp = self.Fn.plus.profile
         Fnm = self.Fn.minus.profile
+
         n_p = self.density.plus.profile
         n_m = self.density.minus.profile
         pi_plus  = self.pressure_i.plus.profile
@@ -396,11 +417,15 @@ class Trinity_Engine():
         # load
         F_p = self.Fpi.plus#.profile
         F_m = self.Fpi.minus#.profile
-        n     = self.density.profile
-        n_p = self.density.plus.profile
-        n_m = self.density.minus.profile
+        E  = self.Ei
+
+        n        = self.density.profile
+        n_p      = self.density.plus.profile
+        n_m      = self.density.minus.profile
+        pi       = self.pressure_i.profile
         pi_plus  = self.pressure_i.plus.profile
         pi_minus = self.pressure_i.minus.profile
+        pe       = self.pressure_e.profile
         pe_plus  = self.pressure_e.plus.profile
         pe_minus = self.pressure_e.minus.profile
         #
@@ -417,20 +442,27 @@ class Trinity_Engine():
         mu1 = self.mu1 # should be profiles when implemented
         mu2 = self.mu2 #   now these are all 0
         mu3 = self.mu3
-    
+
+        Zi, mi = self.collision_model.export_species(0) # hard coded index
+        Ze, me = self.collision_model.export_species(1) 
+
+        E_pi = - E * ( Zi / (Ze*pe - Zi*pi) + (3./2) * me*Zi / (mi*Ze*pe + me*Zi*pi) )
+        E_pe =   E * ( Ze / (Ze*pe - Zi*pi) - (3./2) * mi*Ze / (mi*Ze*pe + me*Zi*pi) )
+
         # tri diagonal matrix elements
         g = self.geometry_factor * 2/3 # 2/3 is for pressure
         psi_pin_plus  = g * (An_pos - 3/4 * F_p / n_p) - mu1 / n 
-        psi_pin_minus = g * (An_neg + 3/4 * F_m / n_m) + mu1 / n
-        psi_pin_zero  = g * (Bn +  3/4 * ( F_m/n_m - F_p/n_p ) ) 
+        psi_pin_minus = g * (An_neg + 3/4 * F_m / n_m) + mu1 / n 
+        psi_pin_zero  = g * (Bn +  3/4 * ( F_m/n_m - F_p/n_p ) ) \
+                          + (5./2) * (E/n)
                                 
         psi_pipi_plus  = g * (Ai_pos + 5/4 * F_p / pi_plus ) 
         psi_pipi_minus = g * (Ai_neg - 5/4 * F_m / pi_minus) 
-        psi_pipi_zero  = g * (Bi - 5/4 * ( F_m/pi_minus - F_p/pi_plus) ) 
+        psi_pipi_zero  = g * (Bi - 5/4 * ( F_m/pi_minus - F_p/pi_plus) ) + E_pi
     
         psi_pipe_plus  = g * Ae_pos
         psi_pipe_minus = g * Ae_neg
-        psi_pipe_zero  = g * Be
+        psi_pipe_zero  = g * Be + E_pe
 
         # save (automatically computes matricies in class function)
         self.psi_pin  = psi_profiles(psi_pin_zero,
@@ -450,11 +482,15 @@ class Trinity_Engine():
         # load
         F_p = self.Fpe.plus.profile
         F_m = self.Fpe.minus.profile
-        n     = self.density.profile
-        n_p = self.density.plus.profile
-        n_m = self.density.minus.profile
+        E   = self.Ee
+
+        n        = self.density.profile
+        n_p      = self.density.plus.profile
+        n_m      = self.density.minus.profile
+        pi       = self.pressure_i.profile
         pi_plus  = self.pressure_i.plus.profile
         pi_minus = self.pressure_i.minus.profile
+        pe       = self.pressure_e.profile
         pe_plus  = self.pressure_e.plus.profile
         pe_minus = self.pressure_e.minus.profile
         #
@@ -471,20 +507,27 @@ class Trinity_Engine():
         mu1 = self.mu1 # should be profiles when implemented
         mu2 = self.mu2 #   now these are all 0
         mu3 = self.mu3
+
+        Zi, mi = self.collision_model.export_species(0) # hard coded index
+        Ze, me = self.collision_model.export_species(1) 
+
+        E_pi =   E * ( Zi / (Zi*pi - Ze*pe) - (3./2) * me*Zi / (me*Zi*pi + mi*Ze*pe) )
+        E_pe = - E * ( Zi / (Zi*pi - Ze*pe) + (3./2) * mi*Ze / (me*Zi*pi + mi*Ze*pe) )
     
         # tri diagonal matrix elements
         g = self.geometry_factor * 2/3 # 2/3 is for pressure
         psi_pen_plus  = g * (An_pos - 3/4 * F_p / n_p) - mu1 / n 
         psi_pen_minus = g * (An_neg + 3/4 * F_m / n_m) + mu1 / n
-        psi_pen_zero  = g * (Bn +  3/4 * ( F_m/n_m - F_p/n_p ) ) 
+        psi_pen_zero  = g * (Bn +  3/4 * ( F_m/n_m - F_p/n_p ) ) \
+                          + (5./2) * (E/n)
                                 
         psi_pepi_plus  = g * (Ai_pos + 5/4 * F_p / pi_plus ) 
         psi_pepi_minus = g * (Ai_neg - 5/4 * F_m / pi_minus) 
-        psi_pepi_zero  = g * (Bi - 5/4 * ( F_m/pi_minus - F_p/pi_plus) ) 
+        psi_pepi_zero  = g * (Bi - 5/4 * ( F_m/pi_minus - F_p/pi_plus) )  + E_pi
     
         psi_pepe_plus  = g * Ae_pos
         psi_pepe_minus = g * Ae_neg
-        psi_pepe_zero  = g * Be
+        psi_pepe_zero  = g * Be + E_pe
 
         # save (automatically computes matricies in class function)
         self.psi_pen  = psi_profiles(psi_pen_zero,
@@ -537,7 +580,9 @@ class Trinity_Engine():
 
 
     # use auxiliary sources, add fusion power, subtract Bremstrahlung
-    def calc_sources(self):
+    def calc_sources(self, alpha_heating=True,
+                           brems_radiation=True,
+                    ):
     
         # load axuiliary source terms
         aux_source_n  = self.aux_source_n #[:-1]
@@ -549,25 +594,33 @@ class Trinity_Engine():
         Ti_profile_keV = self.pressure_i.profile / self.density.profile 
         Te_profile_keV = self.pressure_e.profile / self.density.profile 
 
+
         # compute fusion power
-        Ti_profile_eV = Ti_profile_keV * 1e3
-        P_fusion_Wm3 = fus.alpha_heating_DT( n_profile_m3, Ti_profile_eV )
+        if (alpha_heating):
+            Ti_profile_eV = Ti_profile_keV * 1e3
+            P_fusion_Wm3, fusion_rate  \
+                    = fus.alpha_heating_DT( n_profile_m3, Ti_profile_eV )
+        else:
+            P_fusion_Wm3 = 0 * n_profile_m3
+            fusion_rate = 0 * n_profile_m3
 
         # compute bremstrahlung radiation
-        P_brems_Wm3 = fus.radiation_bremstrahlung(n_profile_m3/1e20, Te_profile_keV) 
+        if (brems_radiation):
+            P_brems_Wm3 = fus.radiation_bremstrahlung(n_profile_m3/1e20, Te_profile_keV) 
+        else:
+            P_brems_Wm3 = 0 * n_profile_m3
 
-        # non-dimensionalize
-        t_ref = self.a_minor / self.norms.vT_ref
-        p_ref = self.norms.n_ref * self.norms.T_ref * self.norms.e
-        gyro_scale = self.a_minor / self.norms.rho_ref
-
-        pressure_source_scale = t_ref / p_ref * gyro_scale**2 # converts from SI (W/m3)
+        # non-dimensionalize 
+        pressure_source_scale = self.norms.pressure_source_scale # converts from SI (W/m3)
         P_fusion = P_fusion_Wm3 * pressure_source_scale
         P_brems  = P_brems_Wm3  * pressure_source_scale
 
         # store
         self.P_fusion = P_fusion
         self.P_brems  = P_brems
+        self.P_fusion_Wm3 = P_fusion_Wm3
+        self.P_brems_Wm3  = P_brems_Wm3
+        self.fusion_rate  = fusion_rate
 
         self.source_n  = aux_source_n
         self.source_pi = aux_source_pi + P_fusion
@@ -588,6 +641,8 @@ class Trinity_Engine():
         Fim     = self.Fpi.minus.profile  [:-1]
         Fep     = self.Fpe.plus.profile   [:-1]
         Fem     = self.Fpe.minus.profile  [:-1]
+        Ei      = self.Ei                 [:-1]
+        Ee      = self.Ee                 [:-1]
         area    = self.area.profile       [:-1]
         rax     = self.rho_axis           [:-1]
         drho    = self.drho
@@ -635,11 +690,15 @@ class Trinity_Engine():
                           + psi_pepe[-2,-1] * self.pe_edge 
     
         # should each psi have its own bvec? rename bvec to bvec_n if so
-        bvec_n  =  n_prev  + dtau*(1 - alpha)*force_n  + dtau*source_n  + dtau*alpha*boundary_n   ## BUG! this is the source of peaking n-1 point
-        #bvec_pi =  pi_prev + dtau*(1 - alpha)*force_pi + dtau*source_pi + dtau*alpha*boundary_pi
-        #bvec_pe =  pe_prev + dtau*(1 - alpha)*force_pe + dtau*source_pe + dtau*alpha*boundary_pe
-        bvec_pi =  pi_prev + (2/3) * dtau*(1 - alpha)*force_pi + dtau*source_pi + dtau*alpha*boundary_pi
-        bvec_pe =  pe_prev + (2/3) * dtau*(1 - alpha)*force_pe + dtau*source_pe + dtau*alpha*boundary_pe
+        bvec_n  =  n_prev  \
+                     + dtau*(1 - alpha)*force_n  \
+                     + dtau*source_n  + dtau*alpha*boundary_n   
+        bvec_pi =  pi_prev \
+                     + (2/3) * dtau*(1 - alpha) * (force_pi + Ei) \
+                     + dtau*source_pi + dtau*alpha*boundary_pi
+        bvec_pe =  pe_prev \
+                     + (2/3) * dtau*(1 - alpha) * (force_pe + Ee) \
+                     + dtau*source_pe + dtau*alpha*boundary_pe
 
        
         # there was a major bug here with the pressure parts of RHS state vector
@@ -684,45 +743,6 @@ class Trinity_Engine():
         # step time
         self.time += self.dtau
 
-    # can be retired
-    def plot_sources(self):
-
-        rax = self.rho_axis
-        source_n  = self.aux_source_n 
-        source_pi = self.aux_source_pi
-        source_pe = self.aux_source_pe
-
-        plt.figure(figsize=(4,4))
-        plt.plot(rax, source_n, '.-', label=r'$S_n$')
-        plt.plot(rax, source_pi, '.-', label=r'$S_{p_i}$')
-        plt.plot(rax, source_pe, '.-', label=r'$S_{p_e}$')
-        plt.title('Sources')
-
-        plt.legend()
-        plt.grid()
-
-    # can be retired
-    # first attempt at exporting gradients for GX
-#    def write_GX_command(self,j,Time):
-#        
-#        # load gradient scale length
-#        kn  = - self.density.grad_log.profile     # L_n^inv
-#        kpi = - self.pressure_i.grad_log.profile  # L_pi^inv
-#        kpe = - self.pressure_e.grad_log.profile  # L_pe^inv
-#
-#        rax = self.rho_axis
-#        sax = rax**2
-#        kti = kpi - kn
-#        R   = self.R_major
-#
-#        fout = self.f_cmd
-#        with open(fout, 'a') as f:
-#
-#            idx = np.arange(1, self.N_radial-1) # drop the first and last point
-#            for k in idx: 
-#                print('{:d}, {:d}, {:.2e}, {:.4e}, {:.4e}, {:.6e}, {:.6e}' \
-#                .format(j, k, Time, rax[k], sax[k], R*kti[k], R*kn[k]), file=f)
-        
 
     # a subclass for handling normalizations in Trinity
     class Normalizations():
@@ -730,15 +750,12 @@ class Trinity_Engine():
                            T_ref = 1e3,      # eV
                            B_ref = 1,        # T
                            m_ref = 1.67e-27, # kg, proton mass
+                           a_minor = 1,      # m
                           ):
 
             self.e = 1.602e-19  # Colulomb
             self.c = 2.99e8     # m/s
 
-
-            self.n_ref = n_ref
-            self.T_ref = T_ref
-            self.B_ref = B_ref
 
             # this is a reference length scale
             #   it is the (v_T,ref / Omega_ref) the distance thermal particle travels in cyclotron time
@@ -747,19 +764,30 @@ class Trinity_Engine():
             #   m_ref is the proton mass.
             self.rho_ref = 4.57e-3 # m
 
-            self.vT_ref = np.sqrt(2 * (T_ref*self.e) / m_ref)
+            vT_ref = np.sqrt(2 * (T_ref*self.e) / m_ref)
        
 
             # this block current lives in calc_sources()
             #   it could simplify code to do it here
             #   but how to get a_minor out of the parent class?
-            #t_ref = a_minor / vT_ref
-            #p_ref = n_ref * T_ref * self.e
-            #gyro_scale = a_minor / self.rho_ref
-            #pressure_source_scale = t_ref / p_ref * gyro_scale**2 # converts from SI (W/m3)
+            t_ref = a_minor / vT_ref
+            p_ref = n_ref * T_ref * self.e
+            gyro_scale = a_minor / self.rho_ref
+            
+            # converts from SI (W/m3)
+            pressure_source_scale = t_ref / p_ref * gyro_scale**2 
 
+            ### save
+            self.n_ref = n_ref
+            self.T_ref = T_ref
+            self.B_ref = B_ref
+            self.a_ref = a_minor # unlike the above, this is device specific rather than a code convention
 
-
+            self.vT_ref     = vT_ref
+            self.t_ref      = t_ref
+            self.p_ref      = p_ref
+            self.gyro_scale = gyro_scale
+            self.pressure_source_scale = pressure_source_scale
 
 
 

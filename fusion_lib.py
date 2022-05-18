@@ -99,7 +99,8 @@ def alpha_heating_DT(n_profile, T_profile, f_tritium=0.5):
     E_alpha = E_fusion / 5    # alpha energy
 
     P_alpha = rate * E_alpha  # alpha heating power profile in W / m3
-    return P_alpha
+    
+    return P_alpha, rate
 
 def alpha_heating_D_T(D_profile, T_profile, Ti_profile): 
 

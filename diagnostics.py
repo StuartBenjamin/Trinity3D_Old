@@ -144,6 +144,12 @@ class ProfileSaver:
         log['Qi']    = []
         log['Qe']    = []
 
+        # additional profiles
+        log['fusion_rate']  = []
+        log['P_fusion_Wm3'] = [] 
+        log['P_brems_Wm3']  = [] 
+        log['nu_ei_Hz']     = [] 
+
         self.log = log
 
     def save(self,engine):
@@ -163,6 +169,12 @@ class ProfileSaver:
         self.log['Gamma'].append(G)
         self.log['Qi'].append(Qi)
         self.log['Qe'].append(Qe)
+
+        self.log['fusion_rate'] .append( engine.fusion_rate ) 
+        self.log['P_fusion_Wm3'].append( engine.P_fusion_Wm3 ) 
+        self.log['P_brems_Wm3'] .append( engine.P_brems_Wm3 ) 
+        self.log['nu_ei_Hz'].append( engine.nu_ei )
+
 
     def store_system(self,engine):
     # saves settings for reproducing runs
@@ -202,7 +214,27 @@ class ProfileSaver:
         profile_settings['source_pi']   = engine.source_pi
         profile_settings['source_pe']   = engine.source_pe
         self.log['profiles'] = profile_settings
+
+        #
+        self.store_normalizations(engine)
         
+    def store_normalizations(self,engine):
+
+        norms = {}
+
+        n = engine.norms
+        norms['t_ref'] = n.t_ref
+        norms['p_ref'] = n.p_ref
+        norms['n_ref'] = n.n_ref
+        norms['T_ref'] = n.T_ref
+        norms['B_ref'] = n.B_ref
+        norms['a_ref'] = n.a_ref
+
+        norms['vT_ref']                = n.vT_ref
+        norms['gyro_scale']            = n.gyro_scale
+        norms['pressure_source_scale'] = n.pressure_source_scale
+
+        self.log['norms'] = norms
 
     def export(self, fout='trinity_log.npy'):
         np.save(fout, self.log)

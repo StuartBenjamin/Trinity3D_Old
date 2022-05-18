@@ -61,7 +61,20 @@ class Flux_model():
                # slope of flux(Ln) after onset
                n_flux_slope  = 1.1, 
                pi_flux_slope = 1.1,
-               pe_flux_slope = 1.1 ):
+               pe_flux_slope = 1.1,
+               zero_flux = False,
+               ):
+
+        if zero_flux:
+
+            # setting the critical gradient a=1e6 should temporarily turn off flux 
+            #    default is 0.5
+             n_critical_gradient  = 1e6 
+             pi_critical_gradient = 1e6
+             pe_critical_gradient = 1e6
+
+             # also set neoclassical flux to zero
+             D_neo = 0
 
         # store
         self.neo = D_neo
