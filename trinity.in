@@ -41,5 +41,5 @@
   use_vmec  = False ! (B,R,a) can be overwritten from vmec
 
 [log]
-  N_prints = 5
+  N_prints = 10
   f_save   = log_trinity
