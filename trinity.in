@@ -1,8 +1,8 @@
 [grid]
   N_radial = 10
   rho_edge = 0.85
-  dtau     = 1e-4
-  N_steps  = 500
+  dtau     = 5e-4
+  N_steps  = 150
   alpha    = 1
 
 [path]
@@ -32,6 +32,7 @@
   Sn_center   = 0.3
   Spi_center  = 0.5
   Spe_center  = 0.3
+  ext_source_file  = none !jet-42982-sources.txt
 
 [geometry]
   Ba        = 4
@@ -41,5 +42,5 @@
   use_vmec  = False ! (B,R,a) can be overwritten from vmec
 
 [log]
-  N_prints = 10
+  N_prints = 30
   f_save   = log_trinity

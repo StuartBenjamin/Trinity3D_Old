@@ -15,7 +15,6 @@ try:
 except:
     fin = 'trinity.in'
 
-pdb.set_trace()
 tr3d = t_input.Trinity_Input(fin)
 
 ### read inputs
