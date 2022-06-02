@@ -230,18 +230,28 @@ class ProfileSaver:
         profile_settings['pi_edge']    = engine.pi_edge
         profile_settings['pe_core']    = engine.pe_core
         profile_settings['pe_edge']    = engine.pe_edge
-        profile_settings['Sn_height']  = engine.Sn_height  
-        profile_settings['Spi_height'] = engine.Spi_height 
-        profile_settings['Spe_height'] = engine.Spe_height 
-        profile_settings['Sn_width']   = engine.Sn_width      
-        profile_settings['Spi_width']  = engine.Spi_width   
-        profile_settings['Spe_width']  = engine.Spe_width    
-        profile_settings['Sn_center']  = engine.Sn_center  
-        profile_settings['Spi_center'] = engine.Spi_center 
-        profile_settings['Spe_center'] = engine.Spe_center 
         profile_settings['source_n' ]   = engine.source_n
         profile_settings['source_pi']   = engine.source_pi
         profile_settings['source_pe']   = engine.source_pe
+
+        profile_settings['source_model']   = engine.source_model
+        if (engine.source_model == 'Gaussian'):
+
+            profile_settings['Sn_height']  = engine.Sn_height  
+            profile_settings['Spi_height'] = engine.Spi_height 
+            profile_settings['Spe_height'] = engine.Spe_height 
+            profile_settings['Sn_width']   = engine.Sn_width      
+            profile_settings['Spi_width']  = engine.Spi_width   
+            profile_settings['Spe_width']  = engine.Spe_width    
+            profile_settings['Sn_center']  = engine.Sn_center  
+            profile_settings['Spi_center'] = engine.Spi_center 
+            profile_settings['Spe_center'] = engine.Spe_center 
+
+        elif (engine.source_model == 'external'):
+
+            profile_settings['ext_source_file'] = engine.ext_source_file
+
+
         self.log['profiles'] = profile_settings
 
         #

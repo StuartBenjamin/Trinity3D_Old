@@ -54,8 +54,8 @@ def plot_power_balance(t=0):
     rax = axis[:-1]
 
     fig,axs = plt.subplots(1,3, figsize=(12,4) )
-    axs[0].plot(rax, force_n      [t]     , '.-', label='turbulent heat flux')
-    axs[0].plot(rax, aux_source_n [t][:-1], '.-', label='auxiliary ion heating')
+    axs[0].plot(rax, force_n      [t]     , '.-', label='turbulent particle flux')
+    axs[0].plot(rax, aux_source_n [t][:-1], '.-', label='auxiliary particle source')
 
     axs[1].plot(rax, force_pi     [t]     , '.-', label='turbulent heat flux')
     axs[1].plot(rax, Ei           [t][:-1], '.-', label='collisional heat exchange')
@@ -88,7 +88,7 @@ def plot_power_balance(t=0):
 ## plot
 for t in np.arange(len(force_n)):
     plot_power_balance(t=t)
-    fout = 'tmp/t={}.png'.format(t)
+    fout = 'tmp/t={:03d}.png'.format(t)
     plt.savefig(fout)
     plt.clf()
     print('saved', fout)

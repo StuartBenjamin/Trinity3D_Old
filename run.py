@@ -14,6 +14,8 @@ try:
     fin = sys.argv[1]
 except:
     fin = 'trinity.in'
+
+pdb.set_trace()
 tr3d = t_input.Trinity_Input(fin)
 
 ### read inputs
@@ -44,6 +46,9 @@ Spe_width  = float ( tr3d.inputs['sources']['Spe_width' ] )
 Sn_center  = float ( tr3d.inputs['sources']['Sn_center' ] ) 
 Spi_center = float ( tr3d.inputs['sources']['Spi_center'] ) 
 Spe_center = float ( tr3d.inputs['sources']['Spe_center'] ) 
+
+ext_source_file = tr3d.inputs['sources']['ext_source_file'] 
+
 
 R_major   = float ( tr3d.inputs['geometry']['R_major'] ) 
 a_minor   = float ( tr3d.inputs['geometry']['a_minor'] ) 
@@ -117,6 +122,7 @@ engine = trl.Trinity_Engine(alpha=alpha,
                             Sn_center   = Sn_center,   
                             Spi_center  = Spi_center, 
                             Spe_center  = Spe_center,  
+                            ext_source_file = ext_source_file,
                             ###
                             model      = model,
                             gx_path    = gx_path,
@@ -189,8 +195,6 @@ while (j < N_steps):
 #path = './' # should get path from trinity engine's GX_IO, and if GX is not used?
 
 writer.store_system(engine)
-import pdb
-pdb.set_trace()
 writer.export(f_save)
 
 print('TRINITY Complete. Exiting normally')

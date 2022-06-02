@@ -46,6 +46,7 @@ class Trinity_Engine():
                        Sn_center  = 0.0,   
                        Spi_center = 0.0, 
                        Spe_center = 0.0,  
+                       ext_source_file = '',
                        model      = 'GX',
                        gx_path    = 'gx-files/run-dir/',
                        vmec_path  = './',
@@ -79,15 +80,6 @@ class Trinity_Engine():
         self.N_steps  = N_steps
         self.N_prints = N_prints
 
-        self.Sn_height  = Sn_height  
-        self.Spi_height = Spi_height 
-        self.Spe_height = Spe_height 
-        self.Sn_width   = Sn_width      
-        self.Spi_width  = Spi_width   
-        self.Spe_width  = Spe_width    
-        self.Sn_center  = Sn_center   
-        self.Spi_center = Spi_center 
-        self.Spe_center = Spe_center  
 
         self.time = 0
 
@@ -133,13 +125,6 @@ class Trinity_Engine():
         self.collision_model = svec
 
 
-        ### sources
-        # temp, Gaussian model. Later this should be adjustable
-        Gaussian  = np.vectorize(mf.Gaussian)
-        self.aux_source_n  = Gaussian(rho_axis, A=Sn_height , sigma=Sn_width , x0=Sn_center)
-        self.aux_source_pi = Gaussian(rho_axis, A=Spi_height, sigma=Spi_width, x0=Spi_center)
-        self.aux_source_pe = Gaussian(rho_axis, A=Spe_height, sigma=Spe_width, x0=Spe_center)
-
 
         ### init flux models
         if (model == 'GX'):
@@ -170,6 +155,55 @@ class Trinity_Engine():
             self.model_G  = mf.Flux_model(zero_flux=zero_flux)
             self.model_Qi = mf.Flux_model(zero_flux=zero_flux)
             self.model_Qe = mf.Flux_model(zero_flux=zero_flux)
+
+        # load sources (to do: split this into separate function self.load_source())
+        if (ext_source_file == 'none'):
+
+
+            self.Sn_height  = Sn_height  
+            self.Spi_height = Spi_height 
+            self.Spe_height = Spe_height 
+            self.Sn_width   = Sn_width      
+            self.Spi_width  = Spi_width   
+            self.Spe_width  = Spe_width    
+            self.Sn_center  = Sn_center   
+            self.Spi_center = Spi_center 
+            self.Spe_center = Spe_center  
+
+            ### sources
+            # temp, Gaussian model. Later this should be adjustable
+            Gaussian  = np.vectorize(mf.Gaussian)
+            self.aux_source_n  = Gaussian(rho_axis, A=Sn_height , sigma=Sn_width , x0=Sn_center)
+            self.aux_source_pi = Gaussian(rho_axis, A=Spi_height, sigma=Spi_width, x0=Spi_center)
+            self.aux_source_pe = Gaussian(rho_axis, A=Spe_height, sigma=Spe_width, x0=Spe_center)
+            
+            self.source_model = 'Gaussian'
+
+        else:
+
+            with open(ext_source_file) as f_source:
+                datain = f_source.readlines()
+
+            data = np.array( [line.strip().split(',') for line in datain[1:]], float)
+            rax_source, S_Qi, S_Qe, = data.T
+
+            raxis = self.rho_axis
+            Spi = np.interp( raxis, rax_source, S_Qi)
+            Spe = np.interp( raxis, rax_source, S_Qe)
+            Sn  = 0 * raxis # temp, particle transport turned off
+
+            # (TODO) need to normalize
+            particle_norm = self.norms.particle_source_scale
+            pressure_norm = self.norms.pressure_source_scale
+
+            self.aux_source_n  = Sn  * particle_norm
+            self.aux_source_pi = Spi * pressure_norm
+            self.aux_source_pe = Spe * pressure_norm
+
+            self.source_model = 'external'
+            self.ext_source_file = ext_source_file
+        # end source function
+
 
     def read_VMEC(self, wout, path='gx-geometry/', use_vmec=False):
 
@@ -779,6 +813,7 @@ class Trinity_Engine():
             
             # converts from SI (W/m3)
             pressure_source_scale = t_ref / p_ref * gyro_scale**2 
+            particle_source_scale = t_ref / n_ref * gyro_scale**2 
 
             ### save
             self.n_ref = n_ref
@@ -791,6 +826,7 @@ class Trinity_Engine():
             self.p_ref      = p_ref
             self.gyro_scale = gyro_scale
             self.pressure_source_scale = pressure_source_scale
+            self.particle_source_scale = particle_source_scale
 
 
 
