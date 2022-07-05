@@ -18,6 +18,8 @@ data = []
 fins = []
 for fname in sys.argv[1:]:
 
+    if (fname.find('nonZonal') > 0): continue
+
     try:
         data.append(Dataset(fname, mode='r'))
         fins.append(fname)
@@ -53,7 +55,7 @@ for f in data:
 
 print(flux)
 
-plt.yscale('log')
+#plt.yscale('log')
 plt.ylabel('qflux')
 plt.xlabel('time')
 plt.legend()
