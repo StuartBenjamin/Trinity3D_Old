@@ -218,7 +218,8 @@ class GX_Flux_Model():
         # these should come from Trinity input file
         
         vmec = self.vmec_wout
-        if vmec != "":
+        if vmec: # is not blank
+        #if vmec != "":
 
             # else launch flux tubes from VMEC
             f_geo     = 'gx-geometry-sample.ing'
@@ -226,29 +227,33 @@ class GX_Flux_Model():
             out_path  = self.path
             vmec_path = self.vmec_path
 
-            ing = gx_io.VMEC_GX_geometry_module( f_sample = f_geo,
+            geo_template = gx_io.VMEC_GX_geometry_module( f_sample = f_geo,
                                                  input_path = geo_path,
                                                  output_path = out_path,
                                                  tag = vmec[5:-3]
                                               )
-            ing.set_vmec( vmec, 
+            geo_template.set_vmec( vmec, 
                           vmec_path   = vmec_path, 
                           output_path = out_path )
 
             #rax = [0.435, 0.615, 0.753, 0.869] # hard coded from Bill
             #rax = [1.888888925e-01, 3.777777851e-01, 5.666666627e-01, 7.555555701e-01] # from Noah
             #for rho in rax:
+
             for rho in self.midpoints:
-                ing.init_radius(rho) 
+                geo_template.init_radius(rho) 
 
             # gather output files
             geo_files = glob(out_path + 'gx*geo.nc')
+            # this is temporary. better to let Trinity give a predefined output file name to the  Convert_VMEC executable
+
 
             # kludgy fix, if the inner most flux tube is too small for VMEC resolution
             #     just copy the second inner most flux tube
             #     the gradients will be different (and correct) even though the geometries are faked
             #if len(geo_files) < len(self.midpoints):
             #    geo_files = np.concatenate( [[geo_files[0]], geo_files] )
+            # one solution could be to constrain trinity to rho > 0.3 (psi ~ 0.1)
 
         else:
             # load default files (assumed to be existing)
@@ -293,19 +298,16 @@ class GX_Flux_Model():
         self.flux_tubes.append(ft)
 
 
-    def prep_commands(self, engine,
-                                  t_id,
-                                  time,
-                                  step = 0.1):
+    def prep_commands(self, engine, # pointer to pull profiles from trinity engine
+                            t_id,   # integer time index in trinity
+                            time,   # decimal time value int trinity
+                            step = 0.1, # absolute step size for perturbing gradients
+                     ):
 
         self.t_id = t_id
         self.time = time
 
-        # should pass (R/Lx) to GX
-        #rax = engine.rho_axis
-        # load gradient scale length
-        #R   = engine.R_major
-        # this R should be a profile (?)
+        # preparing dimensionless (tprim = L_ref/LT) for GX
         a = engine.a_minor
         Ln  = - a * engine.density.grad_log   .midpoints  # L_n^inv
         Lpi = - a * engine.pressure_i.grad_log.midpoints  # L_pi^inv
@@ -327,7 +329,7 @@ class GX_Flux_Model():
 
         for j in idx: 
             rho = mid_axis[j]
-            #rho = rax[j]
+            #rho = rax[j]  # no longer used, since GX is called on midpoints
             kn  = Ln [j]
             kpi = Lpi[j]
             kpe = Lpe[j]

@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 
 m_proton_cgs = 1.67e-24 # mass of proton in grams
 
-# The class keep track of mass, charge, and profiles for each species.
+# The class keeps track of mass, charge, and profiles for each species.
 #     It also computes log Lambda and nu for collisional energy exchange.
 class Collision_Model():
 
@@ -19,12 +19,22 @@ class Collision_Model():
         self.isIon = []
         self.species = []
 
-    # imports (n,T) profile from Trinity
+    '''
+    For a given species, imports (n,T) profile from Trinity
+    Assumes n,T are arrays (radial profiles) of equal length.
+
+    Assumes n_profile_20 is in units of 1e20 / m3
+    Assumes p_profile_n20keV is in units of 1e20 / m3 keV
+    Assumes mass_p is measured in proton masses
+    Assumes charge_p is measured in proton charges
+
+    The ion = T/F boolean is used for {ee, ei, ie, ii} logic.
+    '''
     def add_species(self, 
                       n_profile_20,     # density profile   (1e20 / m3)
                       p_profile_n20keV, # pressure profile  (keV)
-                      mass   = 1,       # mass of species   (proton mass)
-                      charge = 1,       # charge of species (proton charge)
+                      mass_p   = 1,       # mass of species   (proton mass)
+                      charge_p = 1,       # charge of species (proton charge)
                       ion    = True,    # bool Ion or Electron
                       name='Hydrogen',  # optional name
                     ):
@@ -33,8 +43,8 @@ class Collision_Model():
         
         self.T_eV.append( T_profile_keV * 1e3 )    # keV     -> eV
         self.n_cc.append( n_profile_20 * 1e14 )    # 1e20/m3 -> cc
-        self.m_mp.append( mass ) 
-        self.Z_e .append( charge )
+        self.m_mp.append( mass_p ) 
+        self.Z_e .append( charge_p )
 
         self.isIon.append( ion )
         self.species.append( name )

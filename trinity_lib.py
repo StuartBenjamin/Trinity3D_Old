@@ -93,11 +93,12 @@ class Trinity_Engine():
 
         # need to implement <|grad rho|>, by reading surface area from VMEC
         grho = 1
-        #grho = -1
-        # BUG: grho should be > 0; while geo_factor = - grho / drho / area should be negative
-        #      see Barnes (7.62) and (7.115)
-        #      but doing so causes fluxes to evolve in opposite direction
-        # adding this "artificial" (-) to grho fixes it
+## TQ 7/10 this block can be deleted
+#        #grho = -1
+#        # BUG: grho should be > 0; while (geo_factor = - grho / drho / area) should be negative
+#        #      see Barnes (7.62) and (7.115)
+#        #      but doing so causes fluxes to evolve in opposite direction
+#        # adding this "artificial" (-) to grho fixes it
         drho       = rho_edge / (N-1)
         area       = profile(np.linspace(0.01,a_minor,N), half=True) # parabolic area, simple torus
         self.grho  = grho
@@ -151,7 +152,7 @@ class Trinity_Engine():
             self.barnes_model = bm
 
         else:
-            zero_flux = False
+            zero_flux = True
             self.model_G  = mf.Flux_model(zero_flux=zero_flux)
             self.model_Qi = mf.Flux_model(zero_flux=zero_flux)
             self.model_Qe = mf.Flux_model(zero_flux=zero_flux)
@@ -727,8 +728,8 @@ class Trinity_Engine():
         boundary_pe[-1]  =  psi_pen [-2,-1] * self.n_edge  \
                           + psi_pepi[-2,-1] * self.pi_edge \
                           + psi_pepe[-2,-1] * self.pe_edge 
-    
-        # should each psi have its own bvec? rename bvec to bvec_n if so
+   
+        ### RHS of Ax = b
         bvec_n  =  n_prev  \
                      + dtau*(1 - alpha)*force_n  \
                      + dtau*source_n  + dtau*alpha*boundary_n   
@@ -790,6 +791,7 @@ class Trinity_Engine():
                            a_minor = 1,      # m
                           ):
 
+            # could get these constants from scipy
             self.e = 1.602e-19  # Colulomb
             self.c = 2.99e8     # m/s
 
