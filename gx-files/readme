@@ -1,0 +1,9 @@
+This subdirectory of the Trinity repo contains GX related files
++ sample GX input
++ sample VMEC->GX-Geometry input
++ sample batch script (for Traverse)
+
+GX outputs are (optionally) saved into subdirectories of this folder.
+Note, running GX assumes the convert-vmec-gx executable has been copied to this folder.
+
+11 July 2022 TMQ
