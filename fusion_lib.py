@@ -6,6 +6,11 @@ from scipy.constants import e, k as kB
 
 path = 'Fusion_cross_sections/'
 
+'''
+This library hosts the Xsec class, which calculates fusion cross-sections based on (n,T) profiles. 
+It also contains calculations for Bremsstrahlung radiation.
+'''
+
 # Reactant masses in atomic mass units (u).
 u = 1.66053906660e-27
 masses = {'D': 2.014, 'T': 3.016, '3He': 3.016, '11B': 11.009305167,
