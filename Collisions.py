@@ -3,8 +3,10 @@ import matplotlib.pyplot as plt
 
 m_proton_cgs = 1.67e-24 # mass of proton in grams
 
-# The class keeps track of mass, charge, and profiles for each species.
-#     It also computes log Lambda and nu for collisional energy exchange.
+'''
+The class keeps track of mass, charge, and profiles for each species.
+It also computes log Lambda and nu for collisional energy exchange.
+'''
 class Collision_Model():
 
     def __init__(self):

@@ -1,11 +1,12 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+'''
+This class is called within the Trinity-Engine library
 
-# this class is only called within the Trinity Engine Library
-
-# a general class for handling profiles (n, p, F, gamma, Q, etc)
-# with options to evaluate half steps and gradients at init
+It handles general profiles (n, p, F, gamma, Q, etc)
+with options to evaluate half-steps and gradients when initializing new Profile objects
+'''
 class Profile():
     # should consider capitalizing Profile(), for good python form
     def __init__(self,arr, grad=False, half=False, full=False):

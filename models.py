@@ -14,7 +14,13 @@ import GX_io as gx_io
 import os
 from glob import glob
 
-### this library contains model functons for flux behavior
+'''
+This library contains model functons for fluxes.
+
++ there is an analytic ReLU model called Flux_model
++ there is an anlaytic model from Barnes' thesis
++ there is the GX flux model
+'''
 
 def ReLU(x,a=0.5,m=1):
     '''
@@ -47,8 +53,10 @@ def Gaussian(x, A=2, sigma=.3, x0=0):
 
 
 
-# this is a toy model of Flux based on ReLU + neoclassical
-#     to be replaced by GX or STELLA import module
+'''
+analytic flux model based on ReLU + neoclassical
+'''
+# rename as ReluFluxModel
 class Flux_model():
 
     def __init__(self,

@@ -15,8 +15,14 @@ import Collisions
 # ignore divide by 0 warnings
 #np.seterr(divide='ignore', invalid='ignore')
 
-# This class contains TRINITY calculations and stores partial results as member objects
-# There is a sub class for fluxes of each (n, pi, pe) evolution
+'''
+This class contains the bulk of TRINITY calculations.
+It stores partial calculations 
++ normalized fluxes
++ C-coefficients
++ the Tridiagnoal matrix 
+as attributes. It also contains a subclass Normalizations that handles all normalizations.
+'''
 
 _use_vmec = True # temp, put this in an input file later
 
