@@ -120,6 +120,13 @@ class Trinity_Engine():
         pi = n * Ti
         pe = n * Te
 
+        # zeroing core derivative
+        n[0]  = n[1]
+        Ti[0] = Ti[1]
+        Te[0] = Te[1]
+        pi[0] = pi[1]
+        pe[0] = pe[1]
+
         # save
         self.density     = init_profile(n)
         self.pressure_i  = init_profile(pi)
@@ -127,14 +134,14 @@ class Trinity_Engine():
 
         # init collision model
         svec = Collisions.Collision_Model()
-        svec.add_species( n, pi, mass=2, charge=1, ion=True, name='Deuterium')
-        svec.add_species( n, pe, mass=1/1800, charge=-1, ion=False, name='electrons')
+        svec.add_species( n, pi, mass_p=2, charge_p=1, ion=True, name='Deuterium')
+        svec.add_species( n, pe, mass_p=1/1800, charge_p=-1, ion=False, name='electrons')
         self.collision_model = svec
 
 
 
         ### init flux models
-        if (model == 'GX'):
+        if (model == "GX"):
             fout = 'gx-files/temp.gx'
             self.path = gx_path
             gx = mf.GX_Flux_Model(fout, 
@@ -153,12 +160,12 @@ class Trinity_Engine():
             self.model_gx = gx
     
 
-        elif (model == 'diffusive'):
+        elif (model == "diffusive"):
             bm = mf.Barnes_Model2()
             self.barnes_model = bm
 
         else:
-            zero_flux = True
+            zero_flux = False
             self.model_G  = mf.Flux_model(zero_flux=zero_flux)
             self.model_Qi = mf.Flux_model(zero_flux=zero_flux)
             self.model_Qe = mf.Flux_model(zero_flux=zero_flux)
@@ -232,15 +239,22 @@ class Trinity_Engine():
     def compute_flux(self):
 
         ### calc gradients
-        grad_n  = self.density.grad.   midpoints 
-        grad_pi = self.pressure_i.grad.midpoints
-        grad_pe = self.pressure_e.grad.midpoints
+        grad_n  = self.density   .grad.profile
+        grad_pi = self.pressure_i.grad.profile
+        grad_pe = self.pressure_e.grad.profile
+        #grad_n  = self.density.grad.   midpoints 
+        #grad_pi = self.pressure_i.grad.midpoints
+        #grad_pe = self.pressure_e.grad.midpoints
+
 
         ### new 3/14
         # use the positions from flux tubes in between radial grid steps
-        kn  = - self.density.grad_log   .midpoints 
-        kpi = - self.pressure_i.grad_log.midpoints
-        kpe = - self.pressure_e.grad_log.midpoints
+        kn  = - self.density.grad_log   .profile 
+        kpi = - self.pressure_i.grad_log.profile
+        kpe = - self.pressure_e.grad_log.profile
+        #kn  = - self.density.grad_log   .midpoints 
+        #kpi = - self.pressure_i.grad_log.midpoints
+        #kpe = - self.pressure_e.grad_log.midpoints
         ###
 
 
@@ -664,12 +678,12 @@ class Trinity_Engine():
         self.fusion_rate  = fusion_rate
 
         self.source_n  = aux_source_n
-        self.source_pi = aux_source_pi + P_fusion
-        self.source_pe = aux_source_pe - P_brems
+        self.source_pi = aux_source_pi
+        self.source_pe = aux_source_pe + P_fusion - P_brems
 
 
 
-    ### Define RHS
+    ### Calculate the A Matrix
     def time_step_RHS(self):
  
         # load
@@ -714,9 +728,14 @@ class Trinity_Engine():
         self.force_pe = force_pe
 
         # load source terms
-        source_n  = self.source_n[:-1]   # later change this to be aux + fusion - brems
+        source_n  = self.source_n[:-1]   # later change this to be aux + fusion - brems (can delete comment?)
         source_pi = self.source_pi[:-1]
         source_pe = self.source_pe[:-1]
+
+        # set core source to 0 (TEMPORARY)
+        #source_n[0]  = 0
+        #source_pi[0] = 0
+        #source_pe[0] = 0
     
         ### init boundary condition
         N_radial_mat = self.N_radial - 1

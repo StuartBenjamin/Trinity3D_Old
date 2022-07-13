@@ -129,6 +129,9 @@ class Flux_model():
 
 
 class Barnes_Model2():
+    """
+    This test model follows Eq (7.163) in Section 7.8.1 of Michael Barnes' thesis
+    """
 
     def __init__(self, D = 1):
 
@@ -136,14 +139,15 @@ class Barnes_Model2():
 
     def compute_Q(self,engine, step=0.1):
 
-        pi = engine.pressure_i.profile
-        pe = engine.pressure_e.profile
+        pi = engine.pressure_i.midpoints
+        pe = engine.pressure_e.midpoints
 
         a = engine.a_minor
+        #Lpi = - a * engine.pressure_i.log_gradient() # use the full step (instead of midpoint) gradient
+        #Lpe = - a * engine.pressure_e.log_gradient()
         Lpi = - a * engine.pressure_i.grad_log.profile  # L_pi^inv
         Lpe = - a * engine.pressure_e.grad_log.profile  # L_pe^inv
 
-        # Qs = 3/2 D (a/Lps) ps / pi**(-5/2)
         D = self.D
         Qi = 1.5 * D * Lpi / pi**(-1.5) # assume p_ref = pi
         Qe = 1.5 * D * Lpe * pe / pi**(-2.5)
@@ -157,6 +161,9 @@ class Barnes_Model2():
 
         dQi_pi = (Qi_pi - Qi) / step
         dQe_pe = (Qe_pe - Qe) / step
+
+        import pdb
+        pdb.set_trace()
 
         # save
         engine.Gamma  = trl.profile(zero, half=True)

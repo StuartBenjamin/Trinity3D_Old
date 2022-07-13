@@ -21,8 +21,10 @@ class Profile():
 
         # pre-calculate gradients, half steps, or full steps
         if (grad):
-            self.grad     =  Profile(self.gradient(), half=half, full=full)
-            self.grad_log =  Profile(self.log_gradient(), half=half, full=full)
+            self.grad     =  Profile(self.midpoint_gradient(), full=full)
+            self.grad_log =  Profile(self.midpoint_log_gradient(), full=full)
+#            self.grad     =  Profile(self.gradient(), half=half, full=full)
+#            self.grad_log =  Profile(self.log_gradient(), half=half, full=full)
 
         if (half): # defines half step
             self.plus  = Profile(self.halfstep_pos())
@@ -63,13 +65,17 @@ class Profile():
         return x1
 
     def gradient(self):
+        '''
+        used less, now that GX is evaluated on the MIDPOINTS
+        '''
+        print("using old gradient")
         # assume equal spacing
         # 3 point - first deriv: u_j+1 - 2u + u_j-1
         xj = self.profile
         xp = np.roll(xj,-1)
         xm = np.roll(xj, 1)
 
-        dx = 1/len(xj) # assumes spacing is from (0,1)
+        dx = 1/len(xj) # assumes spacing is from (0,1) [BUG]
         deriv = (xp - xm) / (2*dx)
         deriv[0]  = 0
         #deriv[0]  = deriv[1]      # should a one-sided stencil be used here too?
@@ -88,10 +94,35 @@ class Profile():
         # need to test this
 
     def log_gradient(self):
+        print("calling (old) log gradient")
         # this is actually the gradient of the log...
 
         with np.errstate(divide='ignore', invalid='ignore'):
             gradlog = np.nan_to_num(self.gradient() / self.profile )
+
+        return gradlog
+
+    def midpoint_gradient(self):
+        '''
+        Take finite difference of N grid points
+        to return gradient on (N-1) half-grid points
+        '''
+        x = self.profile
+        diff = x[1:] - x[:-1]
+
+        ax = self.axis
+        dx = ax[1] - ax[0] # assumes equally spaced dx
+
+        grad = diff/ dx
+        return grad
+
+    def midpoint_log_gradient(self):
+        # this is actually the gradient of the log...
+
+        midpoints = self.profile[1:] - self.profile[:-1]
+
+        with np.errstate(divide='ignore', invalid='ignore'):
+            gradlog = np.nan_to_num(self.midpoint_gradient() / midpoints )
 
         return gradlog
 
@@ -222,6 +253,9 @@ class Flux_coefficients():
 
         with np.errstate(divide='ignore', invalid='ignore'):
             dLogZp = np.nan_to_num( dZp / Zp )
+
+        import pdb
+        pdb.set_trace()
 
         Cp = - norm * (x / xp**2) * Yp * dLogZp
         return Profile(Cp)

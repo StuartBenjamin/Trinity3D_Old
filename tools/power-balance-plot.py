@@ -51,6 +51,8 @@ aux_source_pe = pb['aux_source_pe']
 
 def plot_power_balance(t=0):
 
+    # sanity check: do all of these terms have the same units?
+
     rax = axis[:-1]
 
     fig,axs = plt.subplots(1,3, figsize=(12,4) )

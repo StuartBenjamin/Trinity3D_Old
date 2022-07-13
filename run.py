@@ -26,7 +26,7 @@ alpha    = float ( tr3d.inputs['grid']['alpha'   ] )
 N_steps  = int   ( tr3d.inputs['grid']['N_steps' ] )
 
 
-model    = tr3d.inputs['model']['model']
+model    = tr3d.inputs['model']['model'][1:-1] # remove quotes
 
 
 n_core  = float ( tr3d.inputs['profiles']['n_core' ] )
@@ -140,16 +140,17 @@ Time = 0
 density    = engine.density
 pressure_i = engine.pressure_i
 pressure_e = engine.pressure_e
-#d3_prof.plot( density, pressure_i, pressure_e, Time)
 
 j = 0 
 # Put this into "Trinity Runner" class
 #    "better to have functions than scripts"
 while (j < N_steps):
 
-    if   (engine.model == 'GX'):
+    ### calculates fluxes from GX
+    if   (engine.model == "GX"):
         engine.model_gx.prep_commands(engine, j, Time) # use GX
-    elif (engine.model == 'diffusive'):
+    elif (engine.model == "diffusive"):
+        print('Barnes model')
         engine.barnes_model.compute_Q(engine)
     else:
         engine.compute_flux() # use analytic flux model
