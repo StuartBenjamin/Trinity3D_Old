@@ -254,8 +254,8 @@ class Flux_coefficients():
         with np.errstate(divide='ignore', invalid='ignore'):
             dLogZp = np.nan_to_num( dZp / Zp )
 
-        import pdb
-        pdb.set_trace()
+#        import pdb
+#        pdb.set_trace()
 
         Cp = - norm * (x / xp**2) * Yp * dLogZp
         return Profile(Cp)
