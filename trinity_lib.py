@@ -121,11 +121,11 @@ class Trinity_Engine():
         pe = n * Te
 
         # zeroing core derivative
-        n[0]  = n[1]
-        Ti[0] = Ti[1]
-        Te[0] = Te[1]
-        pi[0] = pi[1]
-        pe[0] = pe[1]
+#        n[0]  = n[1]
+#        Ti[0] = Ti[1]
+#        Te[0] = Te[1]
+#        pi[0] = pi[1]
+#        pe[0] = pe[1]
 
         # save
         self.density     = init_profile(n)
@@ -372,9 +372,10 @@ class Trinity_Engine():
         self.mu2 = 0
         self.mu3 = 0
 
-    def calc_collisions(self):
+    def calc_collisions(self, zero=False):
         # this function computes the E terms (Barnes 7.73)
         # there is one for each species.
+
 
         # update profiles in collision lib
         cmod = self.collision_model
@@ -402,6 +403,9 @@ class Trinity_Engine():
         self.Ei = Ei
         self.Ee = Ee
         
+        if zero: # temp for debugging
+            self.Ei = Ei*0
+            self.Ee = Ei*0
 
     def calc_psi_n(self):
     
@@ -728,7 +732,7 @@ class Trinity_Engine():
         self.force_pe = force_pe
 
         # load source terms
-        source_n  = self.source_n[:-1]   # later change this to be aux + fusion - brems (can delete comment?)
+        source_n  = self.source_n[:-1] 
         source_pi = self.source_pi[:-1]
         source_pe = self.source_pe[:-1]
 
