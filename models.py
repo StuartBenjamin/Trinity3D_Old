@@ -312,12 +312,12 @@ class GX_Flux_Model():
 
     def prep_commands(self, engine, # pointer to pull profiles from trinity engine
                             t_id,   # integer time index in trinity
-                            time,   # decimal time value int trinity
+                            #time,   # decimal time value int trinity ## removed 7/19
                             step = 0.1, # absolute step size for perturbing gradients
                      ):
 
         self.t_id = t_id
-        self.time = time
+        self.time = engine.time
 
         # preparing dimensionless (tprim = L_ref/LT) for GX
         a = engine.a_minor

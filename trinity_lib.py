@@ -11,6 +11,7 @@ psi_profiles      = pf.Psi_profiles
 
 import fusion_lib as fus
 import Collisions 
+from Trinity_io import Trinity_Input
 
 # ignore divide by 0 warnings
 #np.seterr(divide='ignore', invalid='ignore')
@@ -28,7 +29,8 @@ _use_vmec = True # temp, put this in an input file later
 
 class Trinity_Engine():
 
-    def __init__(self, N = 10, # number of radial points
+    def __init__(self, trinity_input,
+                       N = 10, # number of radial points
                        n_core = 4,
                        n_edge = 0.5,
                        Ti_core = 8,
@@ -59,6 +61,60 @@ class Trinity_Engine():
                        vmec_path  = './',
                        vmec_wout  = '',
                        ):
+
+        ### Loading Trinity Inputs
+        '''
+        need to sort out the order
+        loads defaults first,
+        then overwrite with input file as needed.
+        '''
+
+        tr3d = Trinity_Input(trinity_input)
+        self.trinity_input = trinity_input
+        #tr3d = t_input.Trinity_Input(fin)
+        
+        ### read inputs
+        N_radial = int   ( tr3d.inputs['grid']['N_radial'] )
+        rho_edge = float ( tr3d.inputs['grid']['rho_edge'] )
+        dtau     = float ( tr3d.inputs['grid']['dtau'    ] )
+        alpha    = float ( tr3d.inputs['grid']['alpha'   ] )
+        N_steps  = int   ( tr3d.inputs['grid']['N_steps' ] )
+        
+        
+        model    = tr3d.inputs['model']['model'][1:-1] # remove quotes
+        D_neo    = float ( tr3d.inputs['model']['D_neo'] )
+        
+        
+        n_core  = float ( tr3d.inputs['profiles']['n_core' ] )
+        n_edge  = float ( tr3d.inputs['profiles']['n_edge' ] )
+        Ti_core = float ( tr3d.inputs['profiles']['Ti_core'] )
+        Ti_edge = float ( tr3d.inputs['profiles']['Ti_edge'] )
+        Te_core = float ( tr3d.inputs['profiles']['Te_core'] )
+        Te_edge = float ( tr3d.inputs['profiles']['Te_edge'] )
+        
+        Sn_height  = float ( tr3d.inputs['sources']['Sn_height' ] ) 
+        Spi_height = float ( tr3d.inputs['sources']['Spi_height'] ) 
+        Spe_height = float ( tr3d.inputs['sources']['Spe_height'] ) 
+        Sn_width   = float ( tr3d.inputs['sources']['Sn_width'  ] ) 
+        Spi_width  = float ( tr3d.inputs['sources']['Spi_width' ] ) 
+        Spe_width  = float ( tr3d.inputs['sources']['Spe_width' ] ) 
+        Sn_center  = float ( tr3d.inputs['sources']['Sn_center' ] ) 
+        Spi_center = float ( tr3d.inputs['sources']['Spi_center'] ) 
+        Spe_center = float ( tr3d.inputs['sources']['Spe_center'] ) 
+        
+        ext_source_file = tr3d.inputs['sources']['ext_source_file'] 
+        
+        
+        R_major   = float ( tr3d.inputs['geometry']['R_major'] ) 
+        a_minor   = float ( tr3d.inputs['geometry']['a_minor'] ) 
+        Ba        = float ( tr3d.inputs['geometry']['Ba'     ] ) 
+        
+        
+        N_prints = int ( tr3d.inputs['log']['N_prints'] )
+        f_save   = tr3d.inputs['log']['f_save']
+
+
+        ### Finished Loading Trinity Inputs
 
         self.N_radial = N           # if this is total points, including core and edge, then GX simulates (N-2) points
         self.n_core   = n_core
@@ -92,6 +148,7 @@ class Trinity_Engine():
         self.rho_inner = rho_inner
 
         self.time = 0
+        self.f_save = f_save
 
         ### will be from VMEC
         self.Ba      = Ba # average field on LCFS
