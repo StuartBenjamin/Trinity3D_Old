@@ -10,10 +10,12 @@ import models      as mf
 import pdb
 import os, sys
 
+print("Welcome to Trinity3D")
 try:
     fin = sys.argv[1]
 except:
     fin = 'trinity.in'
+print(f"  Loading input file {fin}")
 
 tr3d = t_input.Trinity_Input(fin)
 
@@ -27,6 +29,7 @@ N_steps  = int   ( tr3d.inputs['grid']['N_steps' ] )
 
 
 model    = tr3d.inputs['model']['model'][1:-1] # remove quotes
+D_neo    = float ( tr3d.inputs['model']['D_neo'] )
 
 
 n_core  = float ( tr3d.inputs['profiles']['n_core' ] )
@@ -124,6 +127,7 @@ engine = trl.Trinity_Engine(alpha=alpha,
                             ext_source_file = ext_source_file,
                             ###
                             model      = model,
+                            D_neo      = D_neo,
                             gx_path    = gx_path,
                             vmec_path  = vmec_path,
                             vmec_wout  = vmec_wout
@@ -160,14 +164,15 @@ while (j < N_steps):
     engine.calc_flux_coefficients()
 
     # I think collisions and turb. heat exchange should be added here
-    engine.calc_collisions()
+#    engine.calc_collisions()
+    engine.calc_collisions(zero=True)
 
     engine.calc_psi_n()
     engine.calc_psi_pi() 
     engine.calc_psi_pe() 
 
-    engine.calc_sources( )
-    #engine.calc_sources( alpha_heating=False, brems_radiation=False)
+    #engine.calc_sources( )
+    engine.calc_sources( alpha_heating=False, brems_radiation=False)
     engine.calc_y_next()
 
     engine.update()

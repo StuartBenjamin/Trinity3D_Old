@@ -1,8 +1,8 @@
 [grid]
   N_radial = 10
   rho_edge = 0.85
-  dtau     = 5e-4
-  N_steps  = 150
+  dtau     = 2e-2
+  N_steps  = 10
   alpha    = 1
 
 [path]
@@ -10,28 +10,31 @@
   vmec_path = gx-geometry/
 
 [model]
-  model = 'ReLU'         ! default
+  #model = 'ReLU-particle-only' ! Qian test 1
+  model = 'ReLU'         ! Qian test 2
+  #model = 'zero-flux'   ! zero
   #model = 'diffusive'   ! Barnes test 2
-  #model = 'GX'          ! use slurm to call GX
+  #model = 'GX'          ! use slurm to call 
+  D_neo  = 0.01
 
-[profiles]
-  n_core  = 3
+[profiles] ! rename this to say initial conditions
+  n_core  = 5
   n_edge  = 3
   Ti_core = 5
   Ti_edge = 3
-  Te_core = 2
-  Te_edge = 2
+  Te_core = 4
+  Te_edge = 3
 
 [sources]
   Sn_height   = 0
-  Spi_height  = 200
-  Spe_height  = 0.5
+  Spi_height  = 0
+  Spe_height  = 0
   Sn_width    = 0.2
-  Spi_width   = 0.2
-  Spe_width   = 0.2
+  Spi_width   = 20
+  Spe_width   = 20
   Sn_center   = 0.3
   Spi_center  = 0.5
-  Spe_center  = 0.3
+  Spe_center  = 0.5
   ext_source_file  = none !jet-42982-sources.txt
 
 [geometry]
@@ -42,5 +45,5 @@
   use_vmec  = False ! (B,R,a) can be overwritten from vmec
 
 [log]
-  N_prints = 30
+  N_prints = 10
   f_save   = log_trinity
