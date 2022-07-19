@@ -113,22 +113,21 @@ while (j < engine.N_steps):
         print('Barnes model')
         engine.barnes_model.compute_Q(engine)
     else:
-        engine.compute_flux() # use analytic flux model
+        engine.compute_relu_flux() 
 
 
     engine.normalize_fluxes()
     engine.calc_flux_coefficients()
 
     # I think collisions and turb. heat exchange should be added here
-#    engine.calc_collisions()
-    engine.calc_collisions(zero=True)
+    engine.calc_collisions()
 
     engine.calc_psi_n()
     engine.calc_psi_pi() 
     engine.calc_psi_pe() 
 
     #engine.calc_sources( )
-    engine.calc_sources( alpha_heating=False, brems_radiation=False)
+    engine.calc_sources()
     engine.calc_y_next()
 
     engine.update()

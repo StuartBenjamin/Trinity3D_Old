@@ -26,12 +26,12 @@
   Te_edge = 3
 
 [sources]
-  Sn_height   = 0
-  Spi_height  = 0
-  Spe_height  = 0
+  Sn_height   = 20
+  Spi_height  = 100
+  Spe_height  = 50
   Sn_width    = 0.2
-  Spi_width   = 20
-  Spe_width   = 20
+  Spi_width   = 0.2
+  Spe_width   = 0.2
   Sn_center   = 0.3
   Spi_center  = 0.5
   Spe_center  = 0.5
@@ -43,6 +43,11 @@
   a_minor   = 0.95
   vmec_wout = wout_w7x.nc
   use_vmec  = False ! (B,R,a) can be overwritten from vmec
+
+[debug]
+  no_collisions = False
+  alpha_heating = True
+  bremstrahlung = True
 
 [log]
   N_prints = 10

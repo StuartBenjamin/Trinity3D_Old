@@ -81,6 +81,7 @@ import matplotlib.pylab as pl
 warm_map = pl.cm.autumn(np.linspace(1,0,N))
 cool_map = pl.cm.Blues(np.linspace(0,1,N))
 green_map = pl.cm.YlGn(np.linspace(0,1,N))
+purple_map = pl.cm.Purples(np.linspace(0,1,N))
 
 # time evolution
 for t in np.arange(N):
@@ -102,14 +103,16 @@ for t in np.arange(N):
 
     axs[0,3].plot(axis, source_pe, 'C0.-')
     axs[0,3].plot(axis, source_pi, 'C1.-')
+    axs[0,3].plot(axis, source_n , 'C2.-')
     #axs[1,4].plot(axis, source_pi * data['norms']['pressure_source_scale'], 'C1.-')
     axs[1,4].plot( -(dlogpi[t] - dlogn[t]), Qi[t] ,'.-', color=warm_map[t])
+    axs[1,4].plot( -(dlogpe[t] - dlogn[t]), Qe[t] ,'.-', color=cool_map[t])
     axs[1,5].plot( -dlogn[t],Gamma[t] ,'.-', color=green_map[t])
 
-    axs[1,0].plot(axis, fusion_rate[t], '.-')
-    axs[1,1].plot(axis, P_fusion_Wm3[t] /1e6, '.-')
-    axs[1,2].plot(axis, P_brems_Wm3[t], '.-')
-    axs[1,3].plot(axis, nu_ei_Hz[t], '.-', color=cool_map[t])
+ #   axs[1,0].plot(axis, fusion_rate[t], '.-', color=purple_map[t])
+    axs[1,0].plot(axis, P_fusion_Wm3[t]/1e6, '.-', color=purple_map[t])
+    axs[1,1].plot(axis, P_brems_Wm3[t]/1e6, '.-', color=purple_map[t])
+    axs[1,2].plot(axis, nu_ei_Hz[t], '.-', color=cool_map[t])
 
 #axs[0,0].set_ylim( bottom=0 )
 #axs[1,0].set_ylim( bottom=0 )
@@ -125,10 +128,10 @@ axs[1,4].set_title(r'$Q_i(L_{T_i})$')
 axs[1,5].set_title(r'$\Gamma(L_n)$')
 #axs[1,4].set_title(r'sources [MW/m$^{-3}$]')
 
-axs[1,0].set_title('fusion rate')
-axs[1,1].set_title(r'fusion power density [MW/m$^{-3}$]')
-axs[1,2].set_title('bremstralung radiation density')
-axs[1,3].set_title('collisional heat exchange [Hz]')
+#axs[1,0].set_title('fusion rate')
+axs[1,0].set_title(r'fusion power density [MW/m$^{-3}$]')
+axs[1,1].set_title(r'bremstralung radiation [MW/m$^{-3}$]')
+axs[1,2].set_title('collisional heat exchange [Hz]')
 
 plt.tight_layout()
 

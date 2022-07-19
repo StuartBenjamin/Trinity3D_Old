@@ -57,6 +57,9 @@ class Trinity_Engine():
                        ext_source_file = '',
                        model      = 'GX',
                        D_neo      = 0.5,
+                       no_collisions = False,
+                       alpha_heating = False,
+                       bremstrahlung = False,
                        gx_path    = 'gx-files/run-dir/',
                        vmec_path  = './',
                        vmec_wout  = '',
@@ -71,7 +74,6 @@ class Trinity_Engine():
 
         tr3d = Trinity_Input(trinity_input)
         self.trinity_input = trinity_input
-        #tr3d = t_input.Trinity_Input(fin)
         
         ### read inputs
         N_radial = int   ( tr3d.inputs['grid']['N_radial'] )
@@ -103,6 +105,10 @@ class Trinity_Engine():
         Spe_center = float ( tr3d.inputs['sources']['Spe_center'] ) 
         
         ext_source_file = tr3d.inputs['sources']['ext_source_file'] 
+        # boolean as string
+        no_collisions = tr3d.inputs['debug']['no_collisions'] 
+        alpha_heating = tr3d.inputs['debug']['alpha_heating']
+        bremstrahlung = tr3d.inputs['debug']['bremstrahlung']
         
         
         R_major   = float ( tr3d.inputs['geometry']['R_major'] ) 
@@ -113,8 +119,8 @@ class Trinity_Engine():
         N_prints = int ( tr3d.inputs['log']['N_prints'] )
         f_save   = tr3d.inputs['log']['f_save']
 
-
         ### Finished Loading Trinity Inputs
+
 
         self.N_radial = N           # if this is total points, including core and edge, then GX simulates (N-2) points
         self.n_core   = n_core
@@ -131,9 +137,12 @@ class Trinity_Engine():
 
         self.model    = model
 
+        self.no_collisions = no_collisions
+        self.alpha_heating = alpha_heating
+        self.bremstrahlung = bremstrahlung
+
         rho_inner = rho_edge / (2*N-1)
         rho_axis = np.linspace(rho_inner, rho_edge,N)         # radial axis, N points
-        #rho_axis = np.linspace(0,rho_edge,N)         # radial axis, N points
         mid_axis = (rho_axis[1:] + rho_axis[:-1])/2  # centers, (N-1) points
         self.rho_axis = rho_axis
         self.mid_axis = mid_axis
@@ -161,7 +170,6 @@ class Trinity_Engine():
         # need to implement <|grad rho|>, by reading surface area from VMEC
         grho = 1
         drho       = (rho_edge - rho_inner) / (N-1)
-        #drho       = rho_edge / (N-1)
         area       = profile(np.linspace(0.01,a_minor,N), half=True) # parabolic area, simple torus
         # (bug) this looks problematic. The area model should follow the rho_axis, or it should come from VMEC
         self.grho  = grho
@@ -187,7 +195,6 @@ class Trinity_Engine():
         svec.add_species( n, pi, mass_p=2, charge_p=1, ion=True, name='Deuterium')
         svec.add_species( n, pe, mass_p=1/1800, charge_p=-1, ion=False, name='electrons')
         self.collision_model = svec
-
 
 
         ### init flux models
@@ -301,7 +308,7 @@ class Trinity_Engine():
 
     # this is a toy model of Flux based on ReLU + neoclassical
     #     to be replaced by GX or STELLA import module
-    def compute_flux(self):
+    def compute_relu_flux(self):
 
         ### calc gradients
         grad_n  = self.density   .grad.profile
@@ -346,7 +353,7 @@ class Trinity_Engine():
         G_n, G_pi, G_pe    = vec(s.model_G.flux_gradients )(kn,0*kpi, 0*kpe) 
         Qi_n, Qi_pi, Qi_pe = vec(s.model_Qi.flux_gradients)(0*kn, kpi-kn, 0*kpe)
         Qe_n, Qe_pi, Qe_pe = vec(s.model_Qi.flux_gradients)(0*kn, 0*kpi, kpe-kn)
-        ### this should depend on kTi instead of kPi
+        ### this should depend on kTi instead of kPi (?)
 
 
         # save
@@ -434,7 +441,7 @@ class Trinity_Engine():
         self.mu2 = 0
         self.mu3 = 0
 
-    def calc_collisions(self, zero=False):
+    def calc_collisions(self):
         # this function computes the E terms (Barnes 7.73)
         # there is one for each species.
 
@@ -465,7 +472,8 @@ class Trinity_Engine():
         self.Ei = Ei
         self.Ee = Ee
         
-        if zero: # temp for debugging
+        if self.no_collisions == "True":  
+            # could write this to skil the function and return instead
             self.Ei = Ei*0
             self.Ee = Ei*0
 
@@ -699,9 +707,7 @@ class Trinity_Engine():
 
 
     # use auxiliary sources, add fusion power, subtract Bremstrahlung
-    def calc_sources(self, alpha_heating=True,
-                           brems_radiation=True,
-                    ):
+    def calc_sources(self):
     
         # load axuiliary source terms
         aux_source_n  = self.aux_source_n #[:-1]
@@ -715,7 +721,7 @@ class Trinity_Engine():
 
 
         # compute fusion power
-        if (alpha_heating):
+        if (self.alpha_heating == "True"):
             Ti_profile_eV = Ti_profile_keV * 1e3
             P_fusion_Wm3, fusion_rate  \
                     = fus.alpha_heating_DT( n_profile_m3, Ti_profile_eV )
@@ -724,7 +730,7 @@ class Trinity_Engine():
             fusion_rate = 0 * n_profile_m3
 
         # compute bremstrahlung radiation
-        if (brems_radiation):
+        if (self.bremstrahlung == "True"):
             P_brems_Wm3 = fus.radiation_bremstrahlung(n_profile_m3/1e20, Te_profile_keV) 
         else:
             P_brems_Wm3 = 0 * n_profile_m3
