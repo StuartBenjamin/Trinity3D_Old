@@ -22,7 +22,7 @@ This library contains model functons for fluxes.
 + there is the GX flux model
 '''
 
-def ReLU(x,a=0.5,m=1):
+def ReLU(x,a=1,m=1):
     '''
        piecewise-linear function
        can model Gamma( critical temperature gradient scale length ), for example
@@ -52,7 +52,6 @@ def Gaussian(x, A=2, sigma=.3, x0=0):
     return A * np.e ** exp
 
 
-
 '''
 analytic flux model based on ReLU + neoclassical
 '''
@@ -61,11 +60,11 @@ class Flux_model():
 
     def __init__(self,
                # neoclassical diffusion coefficient
-               D_neo  = 0.5, 
+               D_neo  = 0.1,
                # critical gradient
-               n_critical_gradient  = .5, 
-               pi_critical_gradient = .5,
-               pe_critical_gradient = .5,
+               n_critical_gradient  = 1, 
+               pi_critical_gradient = 1,
+               pe_critical_gradient = 1,
                # slope of flux(Ln) after onset
                n_flux_slope  = 1.1, 
                pi_flux_slope = 1.1,
@@ -86,7 +85,6 @@ class Flux_model():
 
         # store
         self.neo = D_neo
-        #self.neo = 0 # turn off neo for debugging
         self.n_critical_gradient  = n_critical_gradient   
         self.pi_critical_gradient = pi_critical_gradient 
         self.pe_critical_gradient = pe_critical_gradient 
@@ -98,14 +96,13 @@ class Flux_model():
     #        kn = 1/L_n = grad n / n = grad ln n
     def flux(self, kn, kpi, kpe):
 
-
         ### modelling turbulence from three types of gradients
-        D_n  = ReLU(kn , a=self.n_critical_gradient , m=self.n_flux_slope ) #* 0  # turn off Gamma for debugging
-        D_pi = ReLU(kpi, a=self.pi_critical_gradient, m=self.pi_flux_slope) #*0
-        D_pe = ReLU(kpe, a=self.pe_critical_gradient, m=self.pe_flux_slope) #*0
+        D_n  = ReLU(kn , a=self.n_critical_gradient , m=self.n_flux_slope ) 
+        D_pi = ReLU(kpi, a=self.pi_critical_gradient, m=self.pi_flux_slope) 
+        D_pe = ReLU(kpe, a=self.pe_critical_gradient, m=self.pe_flux_slope) 
 
+        # mix the contributions from all profiles
         D_turb = D_n + D_pi + D_pe # does not include neoclassical part
-        #D_turb = 0 # turn turbulence off for debugging
         return D_turb
 
     # compute the derivative with respect to gradient scale length
@@ -113,7 +110,7 @@ class Flux_model():
     def flux_gradients(self, kn, kpi, kpe, step = 0.1):
         
         # turbulent flux calls
-        d0 = self.flux(kn, kpi, kpe)
+        d0  = self.flux(kn, kpi, kpe)
         dn  = self.flux(kn + step, kpi, kpe)
         dpi = self.flux(kn, kpi + step, kpe)
         dpe = self.flux(kn, kpi, kpe + step)

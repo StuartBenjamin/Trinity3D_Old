@@ -54,9 +54,10 @@ class Trinity_Engine():
                        Spe_center = 0.0,  
                        ext_source_file = '',
                        model      = 'GX',
+                       D_neo      = 0.5,
                        gx_path    = 'gx-files/run-dir/',
                        vmec_path  = './',
-                       vmec_wout  = ''
+                       vmec_wout  = '',
                        ):
 
         self.N_radial = N           # if this is total points, including core and edge, then GX simulates (N-2) points
@@ -74,8 +75,9 @@ class Trinity_Engine():
 
         self.model    = model
 
-        self.rho_edge = rho_edge
-        rho_axis = np.linspace(0,rho_edge,N)         # radial axis, N points
+        rho_inner = rho_edge / (2*N-1)
+        rho_axis = np.linspace(rho_inner, rho_edge,N)         # radial axis, N points
+        #rho_axis = np.linspace(0,rho_edge,N)         # radial axis, N points
         mid_axis = (rho_axis[1:] + rho_axis[:-1])/2  # centers, (N-1) points
         self.rho_axis = rho_axis
         self.mid_axis = mid_axis
@@ -86,6 +88,8 @@ class Trinity_Engine():
         self.N_steps  = N_steps
         self.N_prints = N_prints
 
+        self.rho_edge = rho_edge
+        self.rho_inner = rho_inner
 
         self.time = 0
 
@@ -99,14 +103,10 @@ class Trinity_Engine():
 
         # need to implement <|grad rho|>, by reading surface area from VMEC
         grho = 1
-## TQ 7/10 this block can be deleted
-#        #grho = -1
-#        # BUG: grho should be > 0; while (geo_factor = - grho / drho / area) should be negative
-#        #      see Barnes (7.62) and (7.115)
-#        #      but doing so causes fluxes to evolve in opposite direction
-#        # adding this "artificial" (-) to grho fixes it
-        drho       = rho_edge / (N-1)
+        drho       = (rho_edge - rho_inner) / (N-1)
+        #drho       = rho_edge / (N-1)
         area       = profile(np.linspace(0.01,a_minor,N), half=True) # parabolic area, simple torus
+        # (bug) this looks problematic. The area model should follow the rho_axis, or it should come from VMEC
         self.grho  = grho
         self.drho  = drho
         self.area  = area
@@ -114,18 +114,11 @@ class Trinity_Engine():
 
         ### init profiles
         #     temporary profiles, later init from VMEC
-        n  = (n_core  - n_edge) *(1 - (rho_axis/rho_edge)**2) + n_edge
+        n  = (n_core  - n_edge )*(1 - (rho_axis/rho_edge)**2) + n_edge
         Ti = (Ti_core - Ti_edge)*(1 - (rho_axis/rho_edge)**2) + Ti_edge
         Te = (Te_core - Te_edge)*(1 - (rho_axis/rho_edge)**2) + Te_edge
         pi = n * Ti
         pe = n * Te
-
-        # zeroing core derivative
-#        n[0]  = n[1]
-#        Ti[0] = Ti[1]
-#        Te[0] = Te[1]
-#        pi[0] = pi[1]
-#        pe[0] = pe[1]
 
         # save
         self.density     = init_profile(n)
@@ -164,15 +157,29 @@ class Trinity_Engine():
             bm = mf.Barnes_Model2()
             self.barnes_model = bm
 
-        else:
-            zero_flux = False
-            self.model_G  = mf.Flux_model(zero_flux=zero_flux)
-            self.model_Qi = mf.Flux_model(zero_flux=zero_flux)
-            self.model_Qe = mf.Flux_model(zero_flux=zero_flux)
+        elif (model == "ReLU-particle-only"):
+            self.model_G  = mf.Flux_model(D_neo=D_neo, zero_flux=False)
+            self.model_Qi = mf.Flux_model(D_neo=D_neo, zero_flux=True)
+            self.model_Qe = mf.Flux_model(D_neo=D_neo, zero_flux=True)
+
+        elif (model == "zero-flux"):
+            self.model_G  = mf.Flux_model(D_neo=D_neo, zero_flux=True)
+            self.model_Qi = mf.Flux_model(D_neo=D_neo, zero_flux=True)
+            self.model_Qe = mf.Flux_model(D_neo=D_neo, zero_flux=True)
+
+        else: # "ReLU"
+            self.model_G  = mf.Flux_model(D_neo=D_neo)
+            self.model_Qi = mf.Flux_model(D_neo=D_neo)
+            self.model_Qe = mf.Flux_model(D_neo=D_neo)
+
+            # this decouples the 3 channels
+            ## not needed. The 3 channels are also decoupled by 0ing off-diagonal elements downstream
+            #self.model_G  = mf.Flux_model(pi_critical_gradient=1e6,pe_critical_gradient=1e6)
+            #self.model_Qi = mf.Flux_model(n_critical_gradient=1e6,pe_critical_gradient=1e6)
+            #self.model_Qe = mf.Flux_model(n_critical_gradient=1e6,pi_critical_gradient=1e6)
 
         # load sources (to do: split this into separate function self.load_source())
         if (ext_source_file == 'none'):
-
 
             self.Sn_height  = Sn_height  
             self.Spi_height = Spi_height 
@@ -195,6 +202,7 @@ class Trinity_Engine():
 
         else:
 
+            # this option reads an external source file
             with open(ext_source_file) as f_source:
                 datain = f_source.readlines()
 
@@ -246,7 +254,6 @@ class Trinity_Engine():
         #grad_pi = self.pressure_i.grad.midpoints
         #grad_pe = self.pressure_e.grad.midpoints
 
-
         ### new 3/14
         # use the positions from flux tubes in between radial grid steps
         kn  = - self.density.grad_log   .profile 
@@ -257,14 +264,11 @@ class Trinity_Engine():
         #kpe = - self.pressure_e.grad_log.midpoints
         ###
 
-
         # run model (opportunity for parallelization)
         #Lx = np.array( [Ln_inv, Lpi_inv, Lpe_inv] )
-
         G_neo  = - self.model_G.neo  * grad_n
         Qi_neo = - self.model_Qi.neo * grad_pi
         Qe_neo = - self.model_Qe.neo * grad_pe
-       
 
         ### Change these function calls to evaluations at the half grid
         s   = self
@@ -272,18 +276,20 @@ class Trinity_Engine():
         #G  = vec(s.model_G .flux)(*Lx) + G_neo 
         #Qi = vec(s.model_Qi.flux)(*Lx) + Qi_neo
         #Qe = vec(s.model_Qe.flux)(*Lx) + Qe_neo
-        G  = vec(s.model_G .flux)(kn,0*kpi, 0*kpe) + G_neo 
-        Qi = vec(s.model_Qi.flux)(0*kn, kpi, 0*kpe) + Qi_neo
-        Qe = vec(s.model_Qe.flux)(0*kn, 0*kpi, kpe) + Qe_neo
-
+        G  = vec(s.model_G .flux)(kn, 0*kpi, 0*kpe) + G_neo 
+        Qi = vec(s.model_Qi.flux)(0*kn, kpi-kn, 0*kpe) + Qi_neo
+        Qe = vec(s.model_Qe.flux)(0*kn, 0*kpi, kpe-kn) + Qe_neo
 
         # derivatives
         #G_n, G_pi, G_pe    = vec(s.model_G.flux_gradients)(*Lx)
         #Qi_n, Qi_pi, Qi_pe = vec(s.model_Qi.flux_gradients)(*Lx)
         #Qe_n, Qe_pi, Qe_pe = vec(s.model_Qi.flux_gradients)(*Lx)
-        G_n, G_pi, G_pe    = vec(s.model_G.flux_gradients) (kn,0*kpi, 0*kpe) 
-        Qi_n, Qi_pi, Qi_pe = vec(s.model_Qi.flux_gradients)(0*kn, kpi, 0*kpe)
-        Qe_n, Qe_pi, Qe_pe = vec(s.model_Qi.flux_gradients)(0*kn, 0*kpi, kpe)
+
+        ### off diagonal is turned off
+        G_n, G_pi, G_pe    = vec(s.model_G.flux_gradients )(kn,0*kpi, 0*kpe) 
+        Qi_n, Qi_pi, Qi_pe = vec(s.model_Qi.flux_gradients)(0*kn, kpi-kn, 0*kpe)
+        Qe_n, Qe_pi, Qe_pe = vec(s.model_Qi.flux_gradients)(0*kn, 0*kpi, kpe-kn)
+        ### this should depend on kTi instead of kPi
 
 
         # save
@@ -316,7 +322,6 @@ class Trinity_Engine():
         # properly, this should be defined for the flux tubes
         area  = self.area.midpoints
         Ba    = self.Ba
-
 
         # calc
         A = area / Ba**2
@@ -509,7 +514,7 @@ class Trinity_Engine():
         E_pe =   E * ( Ze / (Ze*pe - Zi*pi) - (3./2) * mi*Ze / (mi*Ze*pe + me*Zi*pi) )
 
         # tri diagonal matrix elements
-        g = self.geometry_factor * 2/3 # 2/3 is for pressure
+        g = self.geometry_factor #* 2/3 # 2/3 is for pressure
         psi_pin_plus  = g * (An_pos - 3/4 * F_p / n_p) - mu1 / n 
         psi_pin_minus = g * (An_neg + 3/4 * F_m / n_m) + mu1 / n 
         psi_pin_zero  = g * (Bn +  3/4 * ( F_m/n_m - F_p/n_p ) ) \
@@ -574,7 +579,7 @@ class Trinity_Engine():
         E_pe = - E * ( Zi / (Zi*pi - Ze*pe) + (3./2) * mi*Ze / (me*Zi*pi + mi*Ze*pe) )
     
         # tri diagonal matrix elements
-        g = self.geometry_factor * 2/3 # 2/3 is for pressure
+        g = self.geometry_factor #* 2/3 # 2/3 is for pressure
         psi_pen_plus  = g * (An_pos - 3/4 * F_p / n_p) - mu1 / n 
         psi_pen_minus = g * (An_neg + 3/4 * F_m / n_m) + mu1 / n
         psi_pen_zero  = g * (Bn +  3/4 * ( F_m/n_m - F_p/n_p ) ) \
@@ -608,16 +613,14 @@ class Trinity_Engine():
         M_npi  = self.psi_npi.matrix[:-1, :-1]   
         M_npe  = self.psi_npe.matrix[:-1, :-1]  
 
-        # BUG: according to Barnes (7.115) there should be a factor of 2/3 here
-        #         but adding it creates strange behavior (the profiles kink in the 3rd to last point)
-        #         while removing it is more regular
-        M_pin  = self.psi_pin .matrix[:-1, :-1] # * (2./3) 
-        M_pipi = self.psi_pipi.matrix[:-1, :-1] # * (2./3) 
-        M_pipe = self.psi_pipe.matrix[:-1, :-1] # * (2./3)      
+        # factor 2/3 for pressure (Barnes 7.115)
+        M_pin  = self.psi_pin .matrix[:-1, :-1] * (2./3) 
+        M_pipi = self.psi_pipi.matrix[:-1, :-1] * (2./3) 
+        M_pipe = self.psi_pipe.matrix[:-1, :-1] * (2./3)      
  
-        M_pen  = self.psi_pen .matrix[:-1, :-1] # * (2./3)       
-        M_pepi = self.psi_pepi.matrix[:-1, :-1] # * (2./3)       
-        M_pepe = self.psi_pepe.matrix[:-1, :-1] # * (2./3)       
+        M_pen  = self.psi_pen .matrix[:-1, :-1] * (2./3)       
+        M_pepi = self.psi_pepi.matrix[:-1, :-1] * (2./3)       
+        M_pepe = self.psi_pepe.matrix[:-1, :-1] * (2./3)       
 
         N_block = self.N_radial - 1
         I = np.identity(N_block)
@@ -761,15 +764,18 @@ class Trinity_Engine():
         ### RHS of Ax = b
         bvec_n  =  n_prev  \
                      + dtau*(1 - alpha)*force_n  \
-                     + dtau*source_n  + dtau*alpha*boundary_n   
+                     + dtau*alpha*boundary_n  \
+                     + dtau*source_n  
         bvec_pi =  pi_prev \
                      + (2/3) * dtau*(1 - alpha) * (force_pi + Ei) \
-                     + dtau*source_pi + dtau*alpha*boundary_pi
+                     + (2/3) * dtau*alpha*boundary_pi \
+                     + dtau*source_pi 
         bvec_pe =  pe_prev \
                      + (2/3) * dtau*(1 - alpha) * (force_pe + Ee) \
-                     + dtau*source_pe + dtau*alpha*boundary_pe
+                     + (2/3) * dtau*alpha*boundary_pe \
+                     + dtau*source_pe 
+        # 7/18, these boundary terms were added based on Kittel, but they are not in MAB's thesis. They are important for getting the dynamics at the second to edge point correct.
 
-       
         bvec3 = np.concatenate( [bvec_n, bvec_pi, bvec_pe] )
         return bvec3
 
@@ -799,9 +805,12 @@ class Trinity_Engine():
         n_next, pi_next, pe_next = np.reshape( y_next,(3,N_mat) )
 
         # check if legit, the forcefully sets the core derivative to 0
-        n  = np.concatenate([ [n_next[1]] , n_next[1:] , [n_edge]  ]) 
-        pi = np.concatenate([ [pi_next[1]], pi_next[1:], [pi_edge] ]) 
-        pe = np.concatenate([ [pe_next[1]], pe_next[1:], [pe_edge] ])
+        #n  = np.concatenate([ [n_next[1]] , n_next[1:] , [n_edge]  ]) 
+        #pi = np.concatenate([ [pi_next[1]], pi_next[1:], [pi_edge] ]) 
+        #pe = np.concatenate([ [pe_next[1]], pe_next[1:], [pe_edge] ])
+        n  = np.concatenate([ n_next , [n_edge]  ]) 
+        pi = np.concatenate([ pi_next, [pi_edge] ]) 
+        pe = np.concatenate([ pe_next, [pe_edge] ])
 
         self.density    = profile(n,  grad=True, half=True, full=True)
         self.pressure_i = profile(pi, grad=True, half=True, full=True)
@@ -866,7 +875,7 @@ class Trinity_Engine():
 #     with default gradients, half steps, and full steps
 def init_profile(x,debug=False):
 
-    x[0] = x[1]
+    #x[0] = x[1] ## removed 7/18 since core boundary condition is relaxed
     X = profile(x, grad=True, half=True, full=True)
     return X
 

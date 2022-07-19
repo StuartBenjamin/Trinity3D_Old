@@ -19,6 +19,18 @@ class Profile():
         self.axis    = rho_axis
         # assumes fixed radial griding, which (if irregular) could also be a profile, defined as a function of index
 
+        if (half): # defines half step
+            self.plus  = Profile(self.halfstep_pos())
+            self.minus = Profile(self.halfstep_neg())
+
+            # returns the (N-1) linear averages between N grid points
+            self.midpoints = self.plus.profile [:-1]
+            # this can be improved with multiple stencils
+
+        if (full): # defines full stup
+            self.plus1  = Profile(self.fullstep_pos())
+            self.minus1 = Profile(self.fullstep_neg())
+
         # pre-calculate gradients, half steps, or full steps
         if (grad):
             self.grad     =  Profile(self.midpoint_gradient(), full=full)
@@ -26,24 +38,15 @@ class Profile():
 #            self.grad     =  Profile(self.gradient(), half=half, full=full)
 #            self.grad_log =  Profile(self.log_gradient(), half=half, full=full)
 
-        if (half): # defines half step
-            self.plus  = Profile(self.halfstep_pos())
-            self.minus = Profile(self.halfstep_neg())
-
-            # returns the (N-1) linear averages between N grid points
-            self.midpoints = self.plus.profile [:-1]
-
-        if (full): # defines full stup
-            self.plus1  = Profile(self.fullstep_pos())
-            self.minus1 = Profile(self.fullstep_neg())
-
     # pos/neg are forward and backwards
     def halfstep_neg(self):
         # x_j\pm 1/2 = (x_j + x_j \pm 1) / 2
         xj = self.profile
         x1 = np.roll(xj,1)
+#        x1[0] = 0 # new update
         x1[0] = xj[0]
         return (xj + x1) / 2
+        # return (xj[1:] + xj[:-1])/2 ## new proposal
 
     def halfstep_pos(self):
         # x_j\pm 1/2 = (x_j + x_j \pm 1) / 2
@@ -51,6 +54,10 @@ class Profile():
         x1 = np.roll(xj,-1)
         x1[-1] = xj[-1]
         return (xj + x1) / 2
+
+    def halfstep_second_order(self):
+        # -1 9 9 -1
+        pass
 
     def fullstep_pos(self):
         x0 = self.profile
@@ -122,7 +129,8 @@ class Profile():
         midpoints = self.profile[1:] - self.profile[:-1]
 
         with np.errstate(divide='ignore', invalid='ignore'):
-            gradlog = np.nan_to_num(self.midpoint_gradient() / midpoints )
+            gradlog = np.nan_to_num(self.midpoint_gradient() / self.midpoints )
+            #gradlog = np.nan_to_num(self.midpoint_gradient() / midpoints )
 
         return gradlog
 
@@ -186,11 +194,10 @@ class Flux_profile():
 
     def __init__(self, arr):
 
-        ### this was the source of the g<0 bug
-        plus  = np.concatenate( [ arr, [arr[-1]] ] )
-        minus = np.concatenate( [ [arr[0]], arr  ] )
-        #plus  = np.concatenate( [ [arr[0]], arr  ] )
-        #minus = np.concatenate( [ arr, [arr[-1]] ] )
+        plus  = np.concatenate( [ arr, [0] ] )  # testing if this edge point is used at all
+        #plus  = np.concatenate( [ arr, [arr[-1]] ] )  # F+ is set to edge point, but after volume correction
+        minus = np.concatenate( [ [0], arr  ] )       # F- always set to zero
+        #minus = np.concatenate( [ [arr[0]], arr  ] )  ### explicit bug was here
 
         self.plus = Profile(plus)
         self.minus = Profile(minus)
@@ -199,7 +206,7 @@ class Flux_profile():
         self.profile = arr
 
         #global rho_axis
-        self.axis    = (rho_axis[1:] + rho_axis[:-1])/2
+#        self.axis    = (rho_axis[1:] + rho_axis[:-1])/2 # 7/18 is this being used?
 
 
     def plot(self,show=False,new_fig=False,label=''):
