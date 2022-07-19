@@ -19,6 +19,9 @@ class ProfileSaver:
         log['n']     = []
         log['pi']    = []
         log['pe']    = []
+        log['dlogn']     = []
+        log['dlogpi']    = []
+        log['dlogpe']    = []
         log['Gamma'] = []
         log['Qi']    = []
         log['Qe']    = []
@@ -55,6 +58,10 @@ class ProfileSaver:
         Qe = engine.Qe.profile
         t  = engine.time
 
+        dlogn  = engine.density   .grad_log.profile
+        dlogpi = engine.pressure_i.grad_log.profile
+        dlogpe = engine.pressure_e.grad_log.profile
+
         self.log['time'].append(t)
         self.log['n'].append(n)
         self.log['pi'].append(pi)
@@ -62,6 +69,10 @@ class ProfileSaver:
         self.log['Gamma'].append(G)
         self.log['Qi'].append(Qi)
         self.log['Qe'].append(Qe)
+
+        self.log['dlogn'] .append(dlogn)
+        self.log['dlogpi'].append(dlogpi)
+        self.log['dlogpe'].append(dlogpe)
 
         self.log['fusion_rate'] .append( engine.fusion_rate ) 
         self.log['P_fusion_Wm3'].append( engine.P_fusion_Wm3 ) 
@@ -100,6 +111,8 @@ class ProfileSaver:
         profile_settings = {}
         profile_settings['N_radial']   = engine.N_radial
         profile_settings['rho_edge']   = engine.rho_edge
+        profile_settings['rho_inner']  = engine.rho_inner
+        profile_settings['rho_axis']   = engine.rho_axis
         profile_settings['grho']       = engine.grho
         profile_settings['drho']       = engine.drho
         profile_settings['area']       = engine.area.profile
