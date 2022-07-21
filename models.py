@@ -187,17 +187,36 @@ class GX_Flux_Model():
                        midpoints=[]
                 ):
 
+        gx_root = "gx-files/"  # this is part of repo, don't change
+        f_input = 'gx-sample.in'  
+        f_geo   = 'gx-geometry-sample.ing' # sample input file, to be part of repo
+
+        ### Check file path
+        print("  Looking for GX files")
+        print("    Hard-coded GX input path", gx_root)
+        print("      expecting GX template:", gx_root + f_input)
+        print("      expecting GX executable:", gx_root + "gx")
+        print("      expecting GX-VMEC template:", gx_root + f_geo)
+        print("      expecting GX-VMEC executable:", gx_root + "convert_VMEC_to_GX")
+        print("    VMEC path:", vmec_path)
+        print("      expecting VMEC wout:", vmec_path + vmec_wout)
+        print("    GX-Trinity output path:", path)
+
+        # check using something like
+        # os.listdir(vmec_path).find(vmec_wout)
+
 
         ###  load an input template
         #    later, this should come from Trinity input file
-        f_input = 'gx-files/gx-sample.in' 
-        self.input_template = GX_Runner(f_input)
-        self.path = path
+        self.input_template = GX_Runner(gx_root + f_input)
+        self.path = path # this is the GX output path (todo: rename)
         # check that path exists, if it does not, mkdir and copy gx executable
         
         self.midpoints = midpoints
         self.vmec_path = vmec_path
         self.vmec_wout = vmec_wout
+        self.gx_root = gx_root
+        self.f_geo   = f_geo # template convert geometry input
 
         ### This keeps a record of GX comands, it might be retired
         # init file for writing GX commands
@@ -231,11 +250,11 @@ class GX_Flux_Model():
         
         vmec = self.vmec_wout
         if vmec: # is not blank
-        #if vmec != "":
 
             # else launch flux tubes from VMEC
-            f_geo     = 'gx-geometry-sample.ing'
-            geo_path  = 'gx-files/'    # this says where the convert executable lives, and where to find the sample .ing file
+            f_geo     = self.f_geo
+            #f_geo     = 'gx-geometry-sample.ing' # sample input file, to be part of repo
+            geo_path  = self.gx_root  # this says where the convert executable lives, and where to find the sample .ing file
             out_path  = self.path
             vmec_path = self.vmec_path
 
@@ -321,9 +340,12 @@ class GX_Flux_Model():
 
         # preparing dimensionless (tprim = L_ref/LT) for GX
         a = engine.a_minor
-        Ln  = - a * engine.density.grad_log   .midpoints  # L_n^inv
-        Lpi = - a * engine.pressure_i.grad_log.midpoints  # L_pi^inv
-        Lpe = - a * engine.pressure_e.grad_log.midpoints  # L_pe^inv
+        Ln  = - a * engine.density.grad_log   .profile  # L_n^inv
+        Lpi = - a * engine.pressure_i.grad_log.profile  # L_pi^inv
+        Lpe = - a * engine.pressure_e.grad_log.profile  # L_pe^inv
+#        Ln  = - a * engine.density.grad_log   .midpoints  # L_n^inv
+#        Lpi = - a * engine.pressure_i.grad_log.midpoints  # L_pi^inv
+#        Lpe = - a * engine.pressure_e.grad_log.midpoints  # L_pe^inv
 
         # turbulent flux calls, for each radial flux tube
         mid_axis = engine.mid_axis
@@ -346,22 +368,19 @@ class GX_Flux_Model():
             kpi = Lpi[j]
             kpe = Lpe[j]
 
-            # stores a log of the GX calls (this step is not actually necessary)
-            #  I should add time stamps somehow
-#            self.write_command(j, rho, kn       , kpi       , kpe       )
-#            self.write_command(j, rho, kn + step, kpi       , kpe       )
-#            self.write_command(j, rho, kn       , kpi + step, kpe       )
-#            self.write_command(j, rho, kn       , kpi       , kpe + step)
+            kti = kpi - kn
+            kte = kpe - kn
 
-
-            # writes the GX input file and calls the slurm job
-            f0 [j] = self.gx_command(j, rho, kn      , kpi        , kpe        , '0' )
-            fpi[j] = self.gx_command(j, rho, kn      , kpi + step , kpe        , '2' )
-            #fn [j] = self.gx_command(j, rho, kn+step , kpi        , kpe        , '1' )
-            #fpe[j] = self.gx_command(j, rho, kn      , kpi        , kpe + step , '3' )
+            # writes the GX input file and calls the slurm 
+            scale = 1 + step
+            f0 [j] = self.gx_command(j, rho, kn      , kti        , kte        , '0' )
+            fpi[j] = self.gx_command(j, rho, kn      , kti*scale , kte        , '2' )
+            #fn [j] = self.gx_command(j, rho, kn*scale , kpi        , kpe        , '1' )
+            #fpe[j] = self.gx_command(j, rho, kn      , kpi        , kpe*scale , '3' )
 
             # turn off density, since particle flux is set to 0
             # turn off pe, since Qe = Qi
+            ### there is choice, relative step * or absolute step +?
 
         ### collect parallel runs
         self.wait()
@@ -371,15 +390,18 @@ class GX_Flux_Model():
 
         print('starting to read')
         for j in idx: 
+            # loop over flux tubes
             Q0 [j] = read_gx(f0 [j])
             Qpi[j] = read_gx(fpi[j])
             #Qn [j] = read_gx(fn [j])
             #Qpe[j] = read_gx(fpe[j])
 
+        # record the heat flux
         Qflux  =  Q0
-        Qi_pi  =  (Qpi - Q0) / step 
-        #Qi_n   =  (Qn  - Q0) / step 
-        #Qi_pe  =  (Qpe - Q0) / step 
+        # recort dQ / dLx
+        Qi_pi  =  (Qpi - Q0) / (Lpi * step)
+        #Qi_n   =  (Qn  - Q0) / (Ln * step) 
+        #Qi_pe  =  (Qpe - Q0) / (Lpe * step) 
         Qi_n = 0*Q0 # this is already the init state
         Qi_pe = Qi_pi
 
@@ -405,13 +427,14 @@ class GX_Flux_Model():
         # set electron flux = to ions for now
 
     #  sets up GX input, executes GX, returns input file name
-    def gx_command(self, r_id, rho, kn, kpi, kpe, job_id):
+    def gx_command(self, r_id, rho, kn, kti, kte, job_id):
         # this version perturbs for the gradient
         # (temp, should be merged as option, instead of duplicating code)
         
+        ## this code used to get (kn,kp) as an input, now we take kT directly
         #s = rho**2
-        kti = kpi - kn
-        kte = kpe - kn
+        #kti = kpi - kn
+        #kte = kpe - kn
 
         t_id = self.t_id # time integer
 
