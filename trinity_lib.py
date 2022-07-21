@@ -180,7 +180,7 @@ class Trinity_Engine():
         # init normalizations
         self.norms = self.Normalizations(a_minor=a_minor)
 
-        # need to implement <|grad rho|>, by reading surface area from VMEC
+        # TODO: need to implement <|grad rho|>, by reading surface area from VMEC
         grho = 1
         drho       = (rho_edge - rho_inner) / (N_radial - 1)
         area       = profile(np.linspace(0.01,a_minor,N_radial), half=True) # parabolic area, simple torus
@@ -222,9 +222,6 @@ class Trinity_Engine():
                                   )
             self.f_cmd = fout
             self.vmec_wout = vmec_wout
-
-            import pdb
-            pdb.set_trace()
 
             # read VMEC
             self.read_VMEC( vmec_wout, path=vmec_path, use_vmec=_use_vmec )

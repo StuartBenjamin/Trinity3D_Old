@@ -159,9 +159,6 @@ class Barnes_Model2():
         dQi_pi = (Qi_pi - Qi) / step
         dQe_pe = (Qe_pe - Qe) / step
 
-        import pdb
-        pdb.set_trace()
-
         # save
         engine.Gamma  = trl.profile(zero, half=True)
         engine.Qi     = trl.profile(Qi, half=True) 
@@ -193,7 +190,7 @@ class GX_Flux_Model():
 
         ### Check file path
         print("  Looking for GX files")
-        print("    Hard-coded GX input path", gx_root)
+        print("    Hard-coded GX input path:", gx_root)
         print("      expecting GX template:", gx_root + f_input)
         print("      expecting GX executable:", gx_root + "gx")
         print("      expecting GX-VMEC template:", gx_root + f_geo)
@@ -253,7 +250,7 @@ class GX_Flux_Model():
 
             # else launch flux tubes from VMEC
             f_geo     = self.f_geo
-            #f_geo     = 'gx-geometry-sample.ing' # sample input file, to be part of repo
+            #f_geo     = 'gx-geometry-sample.ing' # sample input file, to be part of repo ## 7/21 can delete
             geo_path  = self.gx_root  # this says where the convert executable lives, and where to find the sample .ing file
             out_path  = self.path
             vmec_path = self.vmec_path
@@ -266,10 +263,6 @@ class GX_Flux_Model():
             geo_template.set_vmec( vmec, 
                           vmec_path   = vmec_path, 
                           output_path = out_path )
-
-            #rax = [0.435, 0.615, 0.753, 0.869] # hard coded from Bill
-            #rax = [1.888888925e-01, 3.777777851e-01, 5.666666627e-01, 7.555555701e-01] # from Noah
-            #for rho in rax:
 
             for rho in self.midpoints:
                 geo_template.init_radius(rho) 
@@ -343,6 +336,8 @@ class GX_Flux_Model():
         Ln  = - a * engine.density.grad_log   .profile  # L_n^inv
         Lpi = - a * engine.pressure_i.grad_log.profile  # L_pi^inv
         Lpe = - a * engine.pressure_e.grad_log.profile  # L_pe^inv
+
+        ## these are from imperfectly swapping to midpoints, can delete 7/21
 #        Ln  = - a * engine.density.grad_log   .midpoints  # L_n^inv
 #        Lpi = - a * engine.pressure_i.grad_log.midpoints  # L_pi^inv
 #        Lpe = - a * engine.pressure_e.grad_log.midpoints  # L_pe^inv
