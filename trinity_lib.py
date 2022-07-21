@@ -117,9 +117,9 @@ class Trinity_Engine():
         
         ext_source_file = tr3d.inputs['sources']['ext_source_file'] 
         # boolean as string
-        no_collisions = tr3d.inputs['debug']['no_collisions'] 
-        alpha_heating = tr3d.inputs['debug']['alpha_heating']
-        bremstrahlung = tr3d.inputs['debug']['bremstrahlung']
+        no_collisions = self.load( no_collisions, "tr3d.inputs['debug']['no_collisions']" )
+        alpha_heating = self.load( alpha_heating, "tr3d.inputs['debug']['alpha_heating']" )
+        bremstrahlung = self.load( bremstrahlung, "tr3d.inputs['debug']['bremstrahlung']" )
        
         gx_path   = tr3d.inputs['path']['gx_path']
         vmec_path = tr3d.inputs['path']['vmec_path']
@@ -209,9 +209,9 @@ class Trinity_Engine():
         svec.add_species( n, pe, mass_p=1/1800, charge_p=-1, ion=False, name='electrons')
         self.collision_model = svec
 
-
         ### init flux models
         if (model == "GX"):
+            print("  flux model: GX")
             fout = 'gx-files/temp.gx'
             self.path = gx_path
             gx = mf.GX_Flux_Model(fout, 
@@ -235,16 +235,19 @@ class Trinity_Engine():
             self.barnes_model = bm
 
         elif (model == "ReLU-particle-only"):
+            print("  flux model: ReLU-particle-only")
             self.model_G  = mf.Flux_model(D_neo=D_neo, zero_flux=False)
             self.model_Qi = mf.Flux_model(D_neo=D_neo, zero_flux=True)
             self.model_Qe = mf.Flux_model(D_neo=D_neo, zero_flux=True)
 
         elif (model == "zero-flux"):
+            print("  flux model: zero-flux")
             self.model_G  = mf.Flux_model(D_neo=D_neo, zero_flux=True)
             self.model_Qi = mf.Flux_model(D_neo=D_neo, zero_flux=True)
             self.model_Qe = mf.Flux_model(D_neo=D_neo, zero_flux=True)
 
         else: # "ReLU"
+            print("  flux model: ReLU (default)")
             self.model_G  = mf.Flux_model(D_neo=D_neo)
             self.model_Qi = mf.Flux_model(D_neo=D_neo)
             self.model_Qe = mf.Flux_model(D_neo=D_neo)

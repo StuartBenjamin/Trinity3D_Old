@@ -1,0 +1,52 @@
+[grid]
+  N_radial = 10
+  rho_edge = 0.85
+  dtau     = 5e-3
+  N_steps  = 80
+  alpha    = 1
+
+[path]
+  gx_path   = gx-files/run-dir/
+  vmec_path = gx-geometry/
+
+[model]
+  #model = ReLU         ! default
+  model = ReLU-particle-only ! Qian test 1
+  #model = zero-flux   ! zero
+  #model = diffusive   ! Barnes test 2
+  #model = GX          ! use slurm to call 
+  D_neo  = 0.1
+
+[profiles]
+  n_core  = 5
+  n_edge  = 2
+  Ti_core = 5
+  Ti_edge = 5
+  Te_core = 5
+  Te_edge = 5
+
+[sources]
+  Sn_height   = 0
+  Spi_height  = 0
+  Spe_height  = 0
+  Sn_width    = 0.2
+  Spi_width   = 20
+  Spe_width   = 20
+  Sn_center   = 0.3
+  Spi_center  = 0.5
+  Spe_center  = 0.5
+  ext_source_file  = none !jet-42982-sources.txt
+
+[geometry]
+  Ba        = 4
+  R_major   = 2.95
+  a_minor   = 0.95
+  vmec_wout = wout_w7x.nc
+  use_vmec  = False ! (B,R,a) can be overwritten from vmec
+
+[debug]
+  no_collisions = True
+
+[log]
+  N_prints = 8
+  f_save   = log_trinity
