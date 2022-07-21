@@ -29,8 +29,20 @@ _use_vmec = True # temp, put this in an input file later
 
 class Trinity_Engine():
 
+    ### read inputs
+    def load(self,x,string):
+        # this is my toml find or
+        tr3d = self.inputs
+        try:
+            #B = eval(string)
+            #print("B:", B)
+            #return B 
+            return eval(string)
+        except:
+            return x
+
     def __init__(self, trinity_input,
-                       N = 10, # number of radial points
+                       N_radial = 10, # number of radial points
                        n_core = 4,
                        n_edge = 0.5,
                        Ti_core = 8,
@@ -73,19 +85,18 @@ class Trinity_Engine():
         '''
 
         tr3d = Trinity_Input(trinity_input)
-        self.trinity_input = trinity_input
+        self.trinity_input_file = trinity_input
+        self.inputs = tr3d
         
-        ### read inputs
-        N_radial = int   ( tr3d.inputs['grid']['N_radial'] )
+
+        N_radial = self.load( N_radial, "int(tr3d.inputs['grid']['N_radial'])" )
         rho_edge = float ( tr3d.inputs['grid']['rho_edge'] )
         dtau     = float ( tr3d.inputs['grid']['dtau'    ] )
         alpha    = float ( tr3d.inputs['grid']['alpha'   ] )
         N_steps  = int   ( tr3d.inputs['grid']['N_steps' ] )
         
-        
-        model    = tr3d.inputs['model']['model'][1:-1] # remove quotes
+        model    = tr3d.inputs['model']['model']
         D_neo    = float ( tr3d.inputs['model']['D_neo'] )
-        
         
         n_core  = float ( tr3d.inputs['profiles']['n_core' ] )
         n_edge  = float ( tr3d.inputs['profiles']['n_edge' ] )
@@ -109,20 +120,22 @@ class Trinity_Engine():
         no_collisions = tr3d.inputs['debug']['no_collisions'] 
         alpha_heating = tr3d.inputs['debug']['alpha_heating']
         bremstrahlung = tr3d.inputs['debug']['bremstrahlung']
-        
-        
+       
+        gx_path   = tr3d.inputs['path']['gx_path']
+        vmec_path = tr3d.inputs['path']['vmec_path']
+        vmec_wout = self.load( vmec_wout, "tr3d.inputs['geometry']['vmec_wout']")
+
         R_major   = float ( tr3d.inputs['geometry']['R_major'] ) 
         a_minor   = float ( tr3d.inputs['geometry']['a_minor'] ) 
         Ba        = float ( tr3d.inputs['geometry']['Ba'     ] ) 
-        
-        
+
         N_prints = int ( tr3d.inputs['log']['N_prints'] )
         f_save   = tr3d.inputs['log']['f_save']
 
         ### Finished Loading Trinity Inputs
 
 
-        self.N_radial = N           # if this is total points, including core and edge, then GX simulates (N-2) points
+        self.N_radial = N_radial         # if this is total points, including core and edge, then GX simulates (N-2) points
         self.n_core   = n_core
         self.n_edge   = n_edge
         self.Ti_core   = Ti_core
@@ -141,8 +154,8 @@ class Trinity_Engine():
         self.alpha_heating = alpha_heating
         self.bremstrahlung = bremstrahlung
 
-        rho_inner = rho_edge / (2*N-1)
-        rho_axis = np.linspace(rho_inner, rho_edge,N)         # radial axis, N points
+        rho_inner = rho_edge / (2*N_radial - 1)
+        rho_axis = np.linspace(rho_inner, rho_edge, N_radial) # radial axis, N points
         mid_axis = (rho_axis[1:] + rho_axis[:-1])/2  # centers, (N-1) points
         self.rho_axis = rho_axis
         self.mid_axis = mid_axis
@@ -169,8 +182,8 @@ class Trinity_Engine():
 
         # need to implement <|grad rho|>, by reading surface area from VMEC
         grho = 1
-        drho       = (rho_edge - rho_inner) / (N-1)
-        area       = profile(np.linspace(0.01,a_minor,N), half=True) # parabolic area, simple torus
+        drho       = (rho_edge - rho_inner) / (N_radial - 1)
+        area       = profile(np.linspace(0.01,a_minor,N_radial), half=True) # parabolic area, simple torus
         # (bug) this looks problematic. The area model should follow the rho_axis, or it should come from VMEC
         self.grho  = grho
         self.drho  = drho
@@ -209,6 +222,9 @@ class Trinity_Engine():
                                   )
             self.f_cmd = fout
             self.vmec_wout = vmec_wout
+
+            import pdb
+            pdb.set_trace()
 
             # read VMEC
             self.read_VMEC( vmec_wout, path=vmec_path, use_vmec=_use_vmec )

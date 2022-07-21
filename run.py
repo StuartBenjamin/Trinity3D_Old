@@ -15,7 +15,7 @@ try:
     fin = sys.argv[1]
 except:
     fin = 'trinity.in'
-print(f"  Loading input file {fin}")
+print("  Loading input file:", fin)
 
 
 '''
