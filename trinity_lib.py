@@ -25,8 +25,6 @@ It stores partial calculations
 as attributes. It also contains a subclass Normalizations that handles all normalizations.
 '''
 
-_use_vmec = True # temp, put this in an input file later
-
 class Trinity_Engine():
 
     ### read inputs
@@ -224,7 +222,7 @@ class Trinity_Engine():
             self.vmec_wout = vmec_wout
 
             # read VMEC
-            self.read_VMEC( vmec_wout, path=vmec_path, use_vmec=_use_vmec )
+            self.read_VMEC( vmec_wout, path=vmec_path )
 
             gx.init_geometry()
             self.model_gx = gx
@@ -285,6 +283,7 @@ class Trinity_Engine():
             # this option reads an external source file
             with open(ext_source_file) as f_source:
                 datain = f_source.readlines()
+            print("      reading external source file:", ext_source_file)
 
             data = np.array( [line.strip().split(',') for line in datain[1:]], float)
             rax_source, S_Qi, S_Qe, = data.T
@@ -307,7 +306,16 @@ class Trinity_Engine():
         # end source function
 
 
-    def read_VMEC(self, wout, path='gx-geometry/', use_vmec=False):
+        # Print Global Geometry information
+        print("  Global Geometry Information")
+        print(f"    R_major: {self.R_major:.2f} m")
+        print(f"    a_minor: {self.a_minor:.2f} m")
+        print(f"    Ba     : {self.Ba:.2f} T averge on LCFS")
+
+        ### End of __init__ function
+
+
+    def read_VMEC(self, wout, path='gx-geometry/'):
 
         self.vmec_wout = wout
 
@@ -315,12 +323,13 @@ class Trinity_Engine():
             print('  Trinity Lib: no vmec file given, using default flux tubes for GX')
             return
 
+        # load global geometry from VMEC
         vmec = Dataset( path+wout, mode='r')
+        self.R_major = vmec.variables['Rmajor_p'][:]
+        self.a_minor = vmec.variables['Aminor_p'][:]
+        self.Ba      = vmec.variables['volavgB'][:]
 
-        if use_vmec:
-            self.R_major = vmec.variables['Rmajor_p'][:]
-            self.a_minor = vmec.variables['Aminor_p'][:]
-            self.Ba      = vmec.variables['volavgB'][:]
+        self.vmec_data = vmec # data heavy?
 
     # this is a toy model of Flux based on ReLU + neoclassical
     #     to be replaced by GX or STELLA import module
