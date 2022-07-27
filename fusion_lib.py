@@ -5,6 +5,8 @@ from scipy.integrate import simps
 from scipy.constants import e, k as kB
 
 path = 'Fusion_cross_sections/'
+# todo: make this path less hard-coded
+# possible to access absolute path to Trinity root directory?
 
 '''
 This library hosts the Xsec class, which calculates fusion cross-sections based on (n,T) profiles. 
@@ -107,6 +109,8 @@ def alpha_heating_DT(n_profile, T_profile, f_tritium=0.5):
     
     return P_alpha, rate
 
+
+### I think this function is replaced by the one above and can be deleted
 def alpha_heating_D_T(D_profile, T_profile, Ti_profile): 
 
     Ti_profile_keV = Ti_profile / 1e3
@@ -156,6 +160,7 @@ def radiation_cyclotron(n_profile, T_profile, Zeff=1,
 
 
 ### Load cross sections (used in computing heating)
+# Is this part used by Trinity? (7/27)
 xs = {}
 for xs_id, xs_name in xs_names.items():
     xs[xs_id] = Xsec.read_xsec(xs_name,path=path)

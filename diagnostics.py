@@ -170,6 +170,11 @@ class ProfileSaver:
     def export(self, fout='trinity_log.npy'):
         np.save(fout, self.log)
 
+
+'''
+diagnostics 1-4 are no longer used
+can be deleted.
+'''
 # plot the density and flux profile
 class diagnostic_1:
     
