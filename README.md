@@ -2,4 +2,4 @@
 
 To install
 
-# export PYTHONPATH=/path/to/Trinity3D
+# export PYTHONPATH=$PYTHONPATH:/path/to/Trinity3D
