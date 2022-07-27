@@ -6,8 +6,8 @@ desired_normalized_toroidal_flux = 0.1
 #Any of these can be varied to alter the geometry specifications without needing to recompile
 alpha          = 0.0
 nzgrid         = 128
-npol           = 4       # to match Spanish paper, choose 1
-flux_tube_cut  = "gbdrift0"
+npol           = 1       # to match Spanish paper, choose 1
+#flux_tube_cut  = "gbdrift0"
 #flux_tube_cut  = "gds21"
 custom_length  = 6.0
 which_crossing = 2      # error message indicated which_crossing must be <= 0
