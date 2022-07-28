@@ -283,7 +283,7 @@ class Trinity_Engine():
             # this option reads an external source file
             with open(ext_source_file) as f_source:
                 datain = f_source.readlines()
-            print("      reading external source file:", ext_source_file)
+            print("\n  Reading external source file:", ext_source_file, "\n")
 
             data = np.array( [line.strip().split(',') for line in datain[1:]], float)
             rax_source, S_Qi, S_Qe, = data.T
@@ -310,7 +310,7 @@ class Trinity_Engine():
         print("  Global Geometry Information")
         print(f"    R_major: {self.R_major:.2f} m")
         print(f"    a_minor: {self.a_minor:.2f} m")
-        print(f"    Ba     : {self.Ba:.2f} T averge on LCFS")
+        print(f"    Ba     : {self.Ba:.2f} T averge on LCFS \n")
 
         ### End of __init__ function
 

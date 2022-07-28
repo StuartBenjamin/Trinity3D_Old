@@ -197,7 +197,7 @@ class GX_Flux_Model():
         print("      expecting GX-VMEC executable:", gx_root + "convert_VMEC_to_GX")
         print("    VMEC path:", vmec_path)
         print("      expecting VMEC wout:", vmec_path + vmec_wout)
-        print("    GX-Trinity output path:", path)
+        print("    GX-Trinity output path:", path, "\n")
 
         # check using something like
         # os.listdir(vmec_path).find(vmec_wout)

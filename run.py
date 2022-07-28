@@ -10,12 +10,12 @@ import models      as mf
 import pdb
 import os, sys
 
-print("Welcome to Trinity3D")
+print("\nWelcome to Trinity3D")
 try:
     fin = sys.argv[1]
 except:
     fin = 'trinity.in'
-print("  Loading input file:", fin)
+print("\n  Loading input file:", fin, "\n")
 
 
 '''
