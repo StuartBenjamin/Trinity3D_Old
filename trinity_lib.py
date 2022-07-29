@@ -8,6 +8,9 @@ import profiles as pf
 profile           = pf.Profile
 flux_coefficients = pf.Flux_coefficients
 psi_profiles      = pf.Psi_profiles
+init_profile      = pf.init_profile
+# can replace with from profiles import Profile, Flux_coefficients, Psi_profiles, init_profile
+
 
 import fusion_lib as fus
 import Collisions 
@@ -905,12 +908,4 @@ class Trinity_Engine():
             self.pressure_source_scale = pressure_source_scale
             self.particle_source_scale = particle_source_scale
 
-
-# Initialize Trinity profiles
-#     with default gradients, half steps, and full steps
-def init_profile(x,debug=False):
-
-    #x[0] = x[1] ## removed 7/18 since core boundary condition is relaxed
-    X = profile(x, grad=True, half=True, full=True)
-    return X
 

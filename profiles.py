@@ -343,3 +343,12 @@ def tri_diagonal(a,b,c):
         M[j,j+1] = b[j]   # upper, drop last point
         M[j+1,j] = c[j+1] # lower, drop first 
     return M
+
+# Initialize Trinity profiles
+#     with default gradients, half steps, and full steps
+def init_profile(x,debug=False):
+
+    #x[0] = x[1] ## removed 7/18 since core boundary condition is relaxed
+    X = Profile(x, grad=True, half=True, full=True)
+    return X
+
