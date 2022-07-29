@@ -78,19 +78,19 @@ for t in np.arange(N):
     pressure_e  = init_profile(pe[t])
 
     # plot log gradient
-    axs[0,2].plot(axis,-density.grad_log.profile    ,'.-')
-    axs[1,2].plot(axis,-pressure_i.grad_log.profile ,'.-')
-    axs[2,2].plot(axis,-pressure_e.grad_log.profile ,'.-')
+    axs[0,2].plot(mid_axis,-density.grad_log.profile    ,'x-')
+    axs[1,2].plot(mid_axis,-pressure_i.grad_log.profile ,'x-')
+    axs[2,2].plot(mid_axis,-pressure_e.grad_log.profile ,'x-')
            
     # plot gradient
-    axs[0,3].plot(axis,-density   .grad.profile ,'.-')
-    axs[1,3].plot(axis,-pressure_i.grad.profile ,'.-')
-    axs[2,3].plot(axis,-pressure_e.grad.profile ,'.-')
+    axs[0,3].plot(mid_axis,-density   .grad.profile ,'x-')
+    axs[1,3].plot(mid_axis,-pressure_i.grad.profile ,'x-')
+    axs[2,3].plot(mid_axis,-pressure_e.grad.profile ,'x-')
            
     # plot diffusivity
-    axs[0,4].plot(mid_axis,Gamma[t] / -density.grad.midpoints ,'x-')
-    axs[1,4].plot(mid_axis,Qi[t] / -pressure_i.grad.midpoints ,'x-')
-    axs[2,4].plot(mid_axis,Qe[t] / -pressure_e.grad.midpoints ,'x-')
+    axs[0,4].plot(mid_axis,Gamma[t] / -density.grad.profile ,'x-')
+    axs[1,4].plot(mid_axis,Qi[t] / -pressure_i.grad.profile ,'x-')
+    axs[2,4].plot(mid_axis,Qe[t] / -pressure_e.grad.profile ,'x-')
 
 axs[0,0].set_ylabel('n' , rotation='horizontal', labelpad=15)
 axs[1,0].set_ylabel('pi', rotation='horizontal', labelpad=15)
