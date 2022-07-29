@@ -129,6 +129,7 @@ class Barnes_Model2():
     """
     This test model follows Eq (7.163) in Section 7.8.1 of Michael Barnes' thesis
     """
+    # should this test automatically turn off sources?
 
     def __init__(self, D = 1):
 
@@ -140,8 +141,6 @@ class Barnes_Model2():
         pe = engine.pressure_e.midpoints
 
         a = engine.a_minor
-        #Lpi = - a * engine.pressure_i.log_gradient() # use the full step (instead of midpoint) gradient
-        #Lpe = - a * engine.pressure_e.log_gradient()
         Lpi = - a * engine.pressure_i.grad_log.profile  # L_pi^inv
         Lpe = - a * engine.pressure_e.grad_log.profile  # L_pe^inv
 
@@ -160,18 +159,18 @@ class Barnes_Model2():
         dQe_pe = (Qe_pe - Qe) / step
 
         # save
-        engine.Gamma  = trl.profile(zero, half=True)
-        engine.Qi     = trl.profile(Qi, half=True) 
-        engine.Qe     = trl.profile(Qe, half=True) 
-        engine.G_n    = trl.profile(zero , half=True)
-        engine.G_pi   = trl.profile(zero, half=True)
-        engine.G_pe   = trl.profile(zero, half=True)
-        engine.Qi_n   = trl.profile(zero , half=True)
-        engine.Qi_pi  = trl.profile(dQi_pi, half=True)
-        engine.Qi_pe  = trl.profile(zero, half=True)
-        engine.Qe_n   = trl.profile(zero , half=True)
-        engine.Qe_pi  = trl.profile(zero, half=True)
-        engine.Qe_pe  = trl.profile(dQe_pe, half=True)
+        engine.Gamma  = pf.Flux_profile(zero  )
+        engine.Qi     = pf.Flux_profile(Qi    ) 
+        engine.Qe     = pf.Flux_profile(Qe    ) 
+        engine.G_n    = pf.Flux_profile(zero  )
+        engine.G_pi   = pf.Flux_profile(zero  )
+        engine.G_pe   = pf.Flux_profile(zero  )
+        engine.Qi_n   = pf.Flux_profile(zero  )
+        engine.Qi_pi  = pf.Flux_profile(dQi_pi)
+        engine.Qi_pe  = pf.Flux_profile(zero  )
+        engine.Qe_n   = pf.Flux_profile(zero  )
+        engine.Qe_pi  = pf.Flux_profile(zero  )
+        engine.Qe_pe  = pf.Flux_profile(dQe_pe)
 
 
 WAIT_TIME = 1  # this should come from the Trinity Engine
