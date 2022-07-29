@@ -10,11 +10,11 @@
   vmec_path = gx-geometry/
 
 [model]
-  #model = 'ReLU-particle-only' ! Qian test 1
-  model = 'ReLU'         ! Qian test 2
-  #model = 'zero-flux'   ! zero
-  #model = 'diffusive'   ! Barnes test 2
-  #model = 'GX'          ! use slurm to call 
+  #model = ReLU-particle-only ! Qian test 1
+  model = ReLU         ! Qian test 2
+  #model = zero-flux   ! zero
+  #model = diffusive   ! Barnes test 2
+  #model = GX          ! use slurm to call 
   D_neo  = 0.01
 
 [profiles] ! rename this to say initial conditions
