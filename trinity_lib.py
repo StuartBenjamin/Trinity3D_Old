@@ -13,8 +13,6 @@ import fusion_lib as fus
 import Collisions 
 from Trinity_io import Trinity_Input
 
-# ignore divide by 0 warnings
-#np.seterr(divide='ignore', invalid='ignore')
 
 '''
 This class contains the bulk of TRINITY calculations.
@@ -32,9 +30,6 @@ class Trinity_Engine():
         # this is my toml find or
         tr3d = self.inputs
         try:
-            #B = eval(string)
-            #print("B:", B)
-            #return B 
             return eval(string)
         except:
             return x
@@ -250,12 +245,6 @@ class Trinity_Engine():
             self.model_Qi = mf.Flux_model(D_neo=D_neo)
             self.model_Qe = mf.Flux_model(D_neo=D_neo)
 
-            # this decouples the 3 channels
-            ## not needed. The 3 channels are also decoupled by 0ing off-diagonal elements downstream
-            #self.model_G  = mf.Flux_model(pi_critical_gradient=1e6,pe_critical_gradient=1e6)
-            #self.model_Qi = mf.Flux_model(n_critical_gradient=1e6,pe_critical_gradient=1e6)
-            #self.model_Qe = mf.Flux_model(n_critical_gradient=1e6,pi_critical_gradient=1e6)
-
         # load sources (to do: split this into separate function self.load_source())
         if (ext_source_file == 'none'):
 
@@ -339,22 +328,13 @@ class Trinity_Engine():
         grad_n  = self.density   .grad.profile
         grad_pi = self.pressure_i.grad.profile
         grad_pe = self.pressure_e.grad.profile
-        #grad_n  = self.density.grad.   midpoints 
-        #grad_pi = self.pressure_i.grad.midpoints
-        #grad_pe = self.pressure_e.grad.midpoints
 
-        ### new 3/14
         # use the positions from flux tubes in between radial grid steps
         kn  = - self.density.grad_log   .profile 
         kpi = - self.pressure_i.grad_log.profile
         kpe = - self.pressure_e.grad_log.profile
-        #kn  = - self.density.grad_log   .midpoints 
-        #kpi = - self.pressure_i.grad_log.midpoints
-        #kpe = - self.pressure_e.grad_log.midpoints
-        ###
 
         # run model (opportunity for parallelization)
-        #Lx = np.array( [Ln_inv, Lpi_inv, Lpe_inv] )
         G_neo  = - self.model_G.neo  * grad_n
         Qi_neo = - self.model_Qi.neo * grad_pi
         Qe_neo = - self.model_Qe.neo * grad_pe
@@ -362,23 +342,15 @@ class Trinity_Engine():
         ### Change these function calls to evaluations at the half grid
         s   = self
         vec = np.vectorize
-        #G  = vec(s.model_G .flux)(*Lx) + G_neo 
-        #Qi = vec(s.model_Qi.flux)(*Lx) + Qi_neo
-        #Qe = vec(s.model_Qe.flux)(*Lx) + Qe_neo
         G  = vec(s.model_G .flux)(kn, 0*kpi, 0*kpe) + G_neo 
         Qi = vec(s.model_Qi.flux)(0*kn, kpi-kn, 0*kpe) + Qi_neo
         Qe = vec(s.model_Qe.flux)(0*kn, 0*kpi, kpe-kn) + Qe_neo
 
-        # derivatives
-        #G_n, G_pi, G_pe    = vec(s.model_G.flux_gradients)(*Lx)
-        #Qi_n, Qi_pi, Qi_pe = vec(s.model_Qi.flux_gradients)(*Lx)
-        #Qe_n, Qe_pi, Qe_pe = vec(s.model_Qi.flux_gradients)(*Lx)
 
         ### off diagonal is turned off
         G_n, G_pi, G_pe    = vec(s.model_G.flux_gradients )(kn,0*kpi, 0*kpe) 
         Qi_n, Qi_pi, Qi_pe = vec(s.model_Qi.flux_gradients)(0*kn, kpi-kn, 0*kpe)
         Qe_n, Qe_pi, Qe_pe = vec(s.model_Qi.flux_gradients)(0*kn, 0*kpi, kpe-kn)
-        ### this should depend on kTi instead of kPi (?)
 
 
         # save
@@ -539,20 +511,10 @@ class Trinity_Engine():
         psi_npe_minus = g * Ae_neg
         psi_npe_zero  = g * Be
 
-        ### add neoclassical term psi_s = -s * D / 2 / drho
-
-        # get D
-#        D = self.model_G.neo
-#        psi_neo = - D / (2 * drho)
-#        psi_nn_plus += psi_neo
-#        psi_nn_minus += psi_neo
-        # new code (this is actually not the right equation, or the right place, I will delete later)
-
-        # save (automatically computes matricies in class function)
+        # save, computes matricies in class function
         self.psi_nn  = psi_profiles(psi_nn_zero,
                                     psi_nn_plus,
-                                    psi_nn_minus, neumann=False)
-                        # I don't know if this 'neumann' flag should be here. It doesn't make a big difference.
+                                    psi_nn_minus)
 
         self.psi_npi = psi_profiles(psi_npi_zero,
                                     psi_npi_plus,
@@ -561,10 +523,6 @@ class Trinity_Engine():
         self.psi_npe = psi_profiles(psi_npe_zero,
                                     psi_npe_plus,
                                     psi_npe_minus)
-        # I'm not sure if these need to be here, since they don't multiply n
-        #    (!!!) LOOK HERE, if hunting for bugs
-        #    M_npi[0,1] -= (psi_npi_minus.profile[0])  
-        #    M_npe[0,1] -= (psi_npe_minus.profile[0]) 
    
     def calc_psi_pi(self):
     
@@ -826,11 +784,6 @@ class Trinity_Engine():
         source_n  = self.source_n[:-1] 
         source_pi = self.source_pi[:-1]
         source_pe = self.source_pe[:-1]
-
-        # set core source to 0 (TEMPORARY)
-        #source_n[0]  = 0
-        #source_pi[0] = 0
-        #source_pe[0] = 0
     
         ### init boundary condition
         N_radial_mat = self.N_radial - 1
@@ -892,10 +845,6 @@ class Trinity_Engine():
         N_mat = self.N_radial - 1
         n_next, pi_next, pe_next = np.reshape( y_next,(3,N_mat) )
 
-        # check if legit, the forcefully sets the core derivative to 0
-        #n  = np.concatenate([ [n_next[1]] , n_next[1:] , [n_edge]  ]) 
-        #pi = np.concatenate([ [pi_next[1]], pi_next[1:], [pi_edge] ]) 
-        #pe = np.concatenate([ [pe_next[1]], pe_next[1:], [pe_edge] ])
         n  = np.concatenate([ n_next , [n_edge]  ]) 
         pi = np.concatenate([ pi_next, [pi_edge] ]) 
         pe = np.concatenate([ pe_next, [pe_edge] ])
@@ -957,8 +906,6 @@ class Trinity_Engine():
             self.particle_source_scale = particle_source_scale
 
 
-
-
 # Initialize Trinity profiles
 #     with default gradients, half steps, and full steps
 def init_profile(x,debug=False):
@@ -966,25 +913,4 @@ def init_profile(x,debug=False):
     #x[0] = x[1] ## removed 7/18 since core boundary condition is relaxed
     X = profile(x, grad=True, half=True, full=True)
     return X
-
-
-
-# stub for new A,B coefficients that dont use F explicitly
-#An_pos = profile( - (R_major/a_minor / drho) \
-#                     * T**(3/2) / Ba**2 \   # need to make T.profile
-#                     * Gamma.plus.grad.profile )
-
-
-
-##### Evolve Trinity Equations
-
-### Define LHS
-
-
-# 1) should I treat the main equation as the middle of an array
-# 2) or append the boundaries as ancillary to the main array?
-# the first is more intuitive, but the second may be more efficient
-#arg_middle = np.s_[:-1] # the purpose of this expression is to remove "magic numbers" where we drop the last point due to Dirchlet boundary condition
-
-
 

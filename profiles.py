@@ -328,6 +328,7 @@ class Psi_profiles():
 
         if (neumann):
             # make modification for boundary condition
+            # this is no longer used.
             M[0,1] -= psi_minus[0]  
 
         # save matrix
