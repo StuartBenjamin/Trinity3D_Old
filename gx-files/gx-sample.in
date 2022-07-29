@@ -15,6 +15,9 @@
  p_hyper_m = 6
  nu_hyper_l = 0.0
  p_hyper_l = 4
+  hyper            =  true
+  D_hyper          =  0.1
+  nu_hyper         =  2
  
 [Restart]
  restart = false
@@ -41,6 +44,7 @@
  dt = 0.05
  nstep  = 10000
  nwrite = 50
+ nsave  = 10000000
 
 [Geometry]
  beta = 0.0
@@ -65,9 +69,9 @@
 
 fluxes = true
 omega  = false
-free_energy = true
-all_zonal_scalars = true
-all_zonal = true
+free_energy = false
+all_zonal_scalars = false
+all_zonal = false
 
 [Wspectra]
 species          = false
@@ -98,7 +102,7 @@ kperp            = false
  tprim = [ 3.0,       0.0     ]
  fprim = [ 1.0,       0.0     ]
  uprim = [ 0.0,       0.0     ]
- vnewk = [ 0.0,       0.0     ]
+ vnewk = [ 0.02,      0.0     ]
  type  = [ "ion",  "electron" ]
 
 
