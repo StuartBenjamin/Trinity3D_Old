@@ -166,6 +166,7 @@ class Trinity_Engine():
         self.rho_inner = rho_inner
 
         self.time = 0
+        self.t_idx = 0
         self.f_save = f_save
 
         ### will be from VMEC
@@ -304,7 +305,7 @@ class Trinity_Engine():
         print(f"    a_minor: {self.a_minor:.2f} m")
         print(f"    Ba     : {self.Ba:.2f} T averge on LCFS \n")
 
-        ### End of __init__ function
+    ##### End of __init__ function
 
 
     def read_VMEC(self, wout, path='gx-geometry/'):
@@ -323,9 +324,29 @@ class Trinity_Engine():
 
         self.vmec_data = vmec # data heavy?
 
-    # this is a toy model of Flux based on ReLU + neoclassical
-    #     to be replaced by GX or STELLA import module
+
+    def get_flux(self):
+
+        model = self.model
+
+        if   (model == "GX"):
+            # calculates fluxes from GX
+            self.model_gx.prep_commands(self, self.t_idx) 
+
+        elif (model == "diffusive"):
+            # test from MAB thesis (documented in models.py)
+            self.barnes_model.compute_Q(self)
+
+        else:
+            # default, run a ReLU model
+            self.compute_relu_flux() 
+
     def compute_relu_flux(self):
+        #     move this to models.py?
+        '''
+        This is a toy model of Flux based on ReLU + neoclassical.
+        It is interchangeable with gyrokinetic GX or STELLA models.
+        '''
 
         ### calc gradients
         grad_n  = self.density   .grad.profile
@@ -373,6 +394,9 @@ class Trinity_Engine():
         self.Qe_pe  = pf.Flux_profile(Qe_pe)
 
     def normalize_fluxes(self):
+        '''
+        Change from (Gamma, Q) to (F) from Eq 7.45, 7.74 in Michael's thesis.
+        '''
 
         # load
         n     = self.density   .midpoints 
@@ -489,7 +513,7 @@ class Trinity_Engine():
         pi_minus = self.pressure_i.minus.profile
         pe_plus  = self.pressure_e.plus.profile
         pe_minus = self.pressure_e.minus.profile
-        #
+        
         An_pos = self.Cn_n.plus.profile
         An_neg = self.Cn_n.minus.profile
         Bn     = self.Cn_n.zero.profile
@@ -543,7 +567,7 @@ class Trinity_Engine():
         pe       = self.pressure_e.profile
         pe_plus  = self.pressure_e.plus.profile
         pe_minus = self.pressure_e.minus.profile
-        #
+        
         An_pos = self.Cpi_n.plus.profile
         An_neg = self.Cpi_n.minus.profile
         Bn     = self.Cpi_n.zero.profile
@@ -553,7 +577,7 @@ class Trinity_Engine():
         Ae_pos = self.Cpi_pe.plus.profile
         Ae_neg = self.Cpi_pe.minus.profile 
         Be     = self.Cpi_pe.zero.profile 
-        #
+        
         mu1 = self.mu1 # should be profiles when implemented
         mu2 = self.mu2 #   now these are all 0
         mu3 = self.mu3
@@ -608,7 +632,7 @@ class Trinity_Engine():
         pe       = self.pressure_e.profile
         pe_plus  = self.pressure_e.plus.profile
         pe_minus = self.pressure_e.minus.profile
-        #
+        
         An_pos = self.Cpe_n.plus.profile
         An_neg = self.Cpe_n.minus.profile
         Bn     = self.Cpe_n.zero.profile
@@ -618,7 +642,7 @@ class Trinity_Engine():
         Ae_pos = self.Cpe_pe.plus.profile
         Ae_neg = self.Cpe_pe.minus.profile 
         Be     = self.Cpe_pe.zero.profile 
-        #
+        
         mu1 = self.mu1 # should be profiles when implemented
         mu2 = self.mu2 #   now these are all 0
         mu3 = self.mu3
@@ -736,7 +760,6 @@ class Trinity_Engine():
         self.source_n  = aux_source_n
         self.source_pi = aux_source_pi
         self.source_pe = aux_source_pe + P_fusion - P_brems
-
 
 
     ### Calculate the A Matrix
@@ -858,6 +881,7 @@ class Trinity_Engine():
 
         # step time
         self.time += self.dtau
+        self.t_idx += 1 # this is an integer index of all time steps
 
 
     # a subclass for handling normalizations in Trinity
