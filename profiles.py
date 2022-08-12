@@ -1,6 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+from scipy.interpolate import interp1d
+
 '''
 This class is called within the Trinity-Engine library
 
@@ -16,7 +18,7 @@ class Profile():
         self.length  = len(arr)
 
         #global rho_axis
-        self.axis    = rho_axis
+        self.axis    = rho_axis # is this necessary, it is used for plotting, do I still use Profile.plot() anywhere?
         # assumes fixed radial griding, which (if irregular) could also be a profile, defined as a function of index
 
         if (half): # defines half step
@@ -182,45 +184,65 @@ class Profile():
 
 class Flux_profile():
 
-    # for N trinity grid points (including both boundaries)
-    # N-2 points need time evolution, based on fluxes evaluated at
-    # N-1 flux tubes in between the radial grid points
+    '''
+    for N trinity grid points (including both boundaries)
+    N-2 points need time evolution, based on fluxes evaluated at
+    N-1 flux tubes in between the radial grid points
 
-    # This class takes outputs from the N-1 flux tubes
-    # and prepares (2) profiles of length N on the grid
-    # the (+) profile has dummy info on the -1 idx
-    # the (-) profile has dummy info on the 0 idx
-    # let dummy info be a repeated value (though technically, it could be omitted all together. We include it, to simplify array indexing
+    This class takes outputs from the N-1 flux tubes
+    and prepares (2) profiles of length N on the grid
+    the (+) profile has dummy info on the -1 idx
+    the (-) profile has dummy info on the 0 idx
+    let dummy info be a repeated value (though technically, it could be omitted all together. We include it, to simplify array indexing
+    '''
 
     def __init__(self, arr):
 
         plus  = np.concatenate( [ arr, [0] ] )  # testing if this edge point is used at all
-        #plus  = np.concatenate( [ arr, [arr[-1]] ] )  # F+ is set to edge point, but after volume correction
         minus = np.concatenate( [ [0], arr  ] )       # F- always set to zero
-        #minus = np.concatenate( [ [arr[0]], arr  ] )  ### explicit bug was here
 
-        self.plus = Profile(plus)
+        f_interp = interp1d(mid_axis, arr, kind='cubic', fill_value='extrapolate')
+        full = f_interp(rho_axis)
+
+        self.plus  = Profile(plus)
         self.minus = Profile(minus)
+        self.full  = Profile(full)
 
         # save raw data
         self.profile = arr
 
-        #global rho_axis
-#        self.axis    = (rho_axis[1:] + rho_axis[:-1])/2 # 7/18 is this being used?
 
+    def plot(self,show=True,new_fig=True,title=''):
 
-    def plot(self,show=False,new_fig=False,label=''):
-
-        if (new_fig):
+        if new_fig:
             plt.figure(figsize=(4,4))
 
-        if (label):
-            plt.plot(self.axis, self.profile,'.-',label=label)
-        else:
-            plt.plot(self.axis, self.profile,'.-')
+        plt.plot(mid_axis, self.profile, 'x-', label='Q from GX')
+        plt.plot(rho_axis, self.plus.profile,'.-', label=r'$Q_+$')
+        plt.plot(rho_axis, self.minus.profile,'.-', label=r'$Q_-$')
+        plt.plot(rho_axis, self.full.profile,'o-', label='Q (cubic) interp')
+        plt.legend()
+        plt.grid()
 
-        if (show):
+        if title:
+            plt.title(title)
+
+        if show:
             plt.show()
+
+##  deleted 8/12
+#    def plot(self,show=False,new_fig=False,label=''):
+#
+#        if (new_fig):
+#            plt.figure(figsize=(4,4))
+#
+#        if (label):
+#            plt.plot(self.axis, self.profile,'.-',label=label)
+#        else:
+#            plt.plot(self.axis, self.profile,'.-')
+#
+#        if (show):
+#            plt.show()
 
 # maybe this class would be better suited extending Profile()?
 # or as an alternate init invocation within Profile?

@@ -37,6 +37,7 @@ N_step_print = engine.N_steps // engine.N_prints   # how often to print
 # Put this into "Trinity Runner" class
 #    "better to have functions than scripts"
 while (engine.t_idx < engine.N_steps):
+#while (engine.gx_idx < engine.N_steps):
 
     engine.get_flux()
     engine.normalize_fluxes()
@@ -67,7 +68,7 @@ while (engine.t_idx < engine.N_steps):
         Q_i        = engine.Qi
         Q_e        = engine.Qe
 
-        print(f"  Plot: t = {engine.t_idx}")
+        print(f"  Plot: t = {engine.t_idx}, t_gx = {engine.gx_idx}")
         writer.save(engine)
 
 

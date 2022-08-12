@@ -4,12 +4,8 @@ import matplotlib.pyplot as plt
 import models as mf 
 from netCDF4 import Dataset
 
-import profiles as pf
-profile           = pf.Profile
-flux_coefficients = pf.Flux_coefficients
-psi_profiles      = pf.Psi_profiles
-init_profile      = pf.init_profile
-# can replace with from profiles import Profile, Flux_coefficients, Psi_profiles, init_profile
+import profiles as pf # needed for setting pf.rho_axis
+from profiles import Profile, Flux_profile, Flux_coefficients, Psi_profiles, init_profile
 
 
 import fusion_lib as fus
@@ -155,7 +151,10 @@ class Trinity_Engine():
         mid_axis = (rho_axis[1:] + rho_axis[:-1])/2  # centers, (N-1) points
         self.rho_axis = rho_axis
         self.mid_axis = mid_axis
+
+        # set axis for Profiles library
         pf.rho_axis   = rho_axis
+        pf.mid_axis   = mid_axis
 
         self.dtau     = dtau
         self.alpha    = alpha
@@ -165,8 +164,6 @@ class Trinity_Engine():
         self.rho_edge = rho_edge
         self.rho_inner = rho_inner
 
-        self.time = 0
-        self.t_idx = 0
         self.f_save = f_save
 
         ### will be from VMEC
@@ -174,13 +171,20 @@ class Trinity_Engine():
         self.R_major = R_major # meter
         self.a_minor = a_minor # meter
 
+        # local variables
+        self.time = 0
+        self.t_idx = 0
+        self.gx_idx = 0
+        self.needs_new_flux = True
+
+
         # init normalizations
         self.norms = self.Normalizations(a_minor=a_minor)
 
         # TODO: need to implement <|grad rho|>, by reading surface area from VMEC
         grho = 1
-        drho       = (rho_edge - rho_inner) / (N_radial - 1)
-        area       = profile(np.linspace(0.01,a_minor,N_radial), half=True) # parabolic area, simple torus
+        drho       = (rho_edge - rho_inner) / (N_radial - 1) # always const?
+        area       = Profile(np.linspace(0.01,a_minor,N_radial), half=True) # parabolic area, simple torus
         # (bug) this looks problematic. The area model should follow the rho_axis, or it should come from VMEC
         self.grho  = grho
         self.drho  = drho
@@ -330,8 +334,13 @@ class Trinity_Engine():
         model = self.model
 
         if   (model == "GX"):
-            # calculates fluxes from GX
-            self.model_gx.prep_commands(self, self.t_idx) 
+
+            if self.needs_new_flux:
+                # calculates fluxes from GX
+                self.model_gx.prep_commands(self, self.gx_idx) 
+                self.gx_idx += 1
+#            else:
+#                print(" ENGAGE TRINITY SUBCYCLE ", f"t = {self.t_idx}")
 
         elif (model == "diffusive"):
             # test from MAB thesis (documented in models.py)
@@ -379,23 +388,23 @@ class Trinity_Engine():
 
         # save
         ### Instead of evaluating half here, set the half per force.
-        self.Gamma  = pf.Flux_profile(G)
-        self.Qi     = pf.Flux_profile(Qi) 
-        self.Qe     = pf.Flux_profile(Qe) 
+        self.Gamma  = Flux_profile(G)
+        self.Qi     = Flux_profile(Qi) 
+        self.Qe     = Flux_profile(Qe) 
         
-        self.G_n    = pf.Flux_profile(G_n   )
-        self.G_pi   = pf.Flux_profile(G_pi  )
-        self.G_pe   = pf.Flux_profile(G_pe  )
-        self.Qi_n   = pf.Flux_profile(Qi_n )
-        self.Qi_pi  = pf.Flux_profile(Qi_pi)
-        self.Qi_pe  = pf.Flux_profile(Qi_pe)
-        self.Qe_n   = pf.Flux_profile(Qe_n )
-        self.Qe_pi  = pf.Flux_profile(Qe_pi)
-        self.Qe_pe  = pf.Flux_profile(Qe_pe)
+        self.G_n    = Flux_profile(G_n   )
+        self.G_pi   = Flux_profile(G_pi  )
+        self.G_pe   = Flux_profile(G_pe  )
+        self.Qi_n   = Flux_profile(Qi_n )
+        self.Qi_pi  = Flux_profile(Qi_pi)
+        self.Qi_pe  = Flux_profile(Qi_pe)
+        self.Qe_n   = Flux_profile(Qe_n )
+        self.Qe_pi  = Flux_profile(Qe_pi)
+        self.Qe_pe  = Flux_profile(Qe_pe)
 
     def normalize_fluxes(self):
         '''
-        Change from (Gamma, Q) to (F) from Eq 7.45, 7.74 in Michael's thesis.
+        Using (Gamma, Q) compute (F,G,H) from Eq 7.45, 7.74-76 in Michael's thesis.
         '''
 
         # load
@@ -407,9 +416,15 @@ class Trinity_Engine():
         Qi    = self.Qi.profile
         Qe    = self.Qe.profile
 
-        # properly, this should be defined for the flux tubes
-        area  = self.area.midpoints
+
+        area  = self.area.midpoints # this should be defined properly for fluxtubes
         Ba    = self.Ba
+        grho  = self.grho
+        a     = self.a_minor
+
+        aLn  = - a * self.density.grad_log   .profile  # L_n^inv
+        aLpi = - a * self.pressure_i.grad_log.profile  # L_pi^inv
+        aLpe = - a * self.pressure_e.grad_log.profile  # L_pe^inv
 
         # calc
         A = area / Ba**2
@@ -417,27 +432,71 @@ class Trinity_Engine():
         Fpi = A * Qi * pi**(2.5) / n**(1.5)
         Fpe = A * Qe * pi**(2.5) / n**(1.5)
 
-        Fn  = pf.Flux_profile(Fn )
-        Fpi = pf.Flux_profile(Fpi)
-        Fpe = pf.Flux_profile(Fpe)
+        # new 8/11
+        B_factor = grho / Ba**2 
+        Impurity_ratio = 1 # Zs/Zi
+        # kappa1 is (7.78) kappa2 is (7.79)
+        kappa1_i = 1.5 * aLpi - 2.5 * aLn
+        kappa1_e = 1.5 * aLpe - 2.5 * aLn
+        kappa2_i = aLn - aLpi
+        kappa2_e = aLn - aLpe
+
+        Gi = B_factor * Impurity_ratio * pi**1.5 * pi / n**1.5 * kappa1_i * Gamma
+        Ge = B_factor * Impurity_ratio * pi**1.5 * pe / n**1.5 * kappa1_e * Gamma
+        Hi = B_factor * pi**2.5 / n**1.5 * kappa2_i * Qi
+        He = B_factor * pi**2.5 / n**1.5 * kappa2_e * Qe
 
         # save
-        self.Fn  = Fn
-        self.Fpi = Fpi
-        self.Fpe = Fpe
+        self.Fn   = Flux_profile( Fn )
+        self.Fpi  = Flux_profile( Fpi )
+        self.Fpe  = Flux_profile( Fpe )
 
+        self.kappa1_i = Flux_profile( kappa1_i )
+        self.kappa1_e = Flux_profile( kappa1_e )
+        self.kappa2_i = Flux_profile( kappa2_i )
+        self.kappa2_e = Flux_profile( kappa2_e )
 
-    # Compute A and B profiles for density and pressure
-    #    this involves finite difference gradients
+        self.Gi  = Flux_profile( Gi )
+        self.Ge  = Flux_profile( Ge )
+        self.Hi  = Flux_profile( Hi )
+        self.He  = Flux_profile( He )
+
+# for debugging
+#        self.Gamma.plot(title='Gamma',show=False)
+#        self.Qi.plot(title='Qi',show=False)
+#        self.Qe.plot(title='Qe',show=False)
+##        self.Gi.plot(title='Gi',show=False)
+##        self.Ge.plot(title='Ge',show=False)
+##        self.Hi.plot(title='Hi',show=False)
+##        self.He.plot(title='He',show=False)
+##        self.kappa1_i.plot(title='kappa1_i',show=False)
+##        self.kappa2_i.plot(title='kappa2_i',show=False)
+##        self.kappa1_e.plot(title='kappa1_e',show=False)
+##        self.kappa2_e.plot(title='kappa2_e',show=False)
+#        plt.show()
+
     def calc_flux_coefficients(self):
+        '''
+        Computes A and B profiles for density and pressure.
+        This involves finite difference gradients.
+        '''
         
         # load
-        n         = self.density
-        pi        = self.pressure_i
-        pe        = self.pressure_e
-        Fn        = self.Fn
-        Fpi       = self.Fpi
-        Fpe       = self.Fpe
+        n   = self.density
+        pi  = self.pressure_i
+        pe  = self.pressure_e
+        Fn  = self.Fn
+        Fpi = self.Fpi
+        Fpe = self.Fpe
+
+        Gamma = self.Gamma
+        Qi    = self.Qi
+        Qe    = self.Qe
+
+        Gi  = self.Gi.profile
+        Ge  = self.Ge.profile
+        Hi  = self.Hi.profile
+        He  = self.He.profile
 
         # normalization
         norm = 1 / self.a_minor / self.drho  # temp set R=1
@@ -446,24 +505,57 @@ class Trinity_Engine():
 
         # calculate and save
         s = self
-        self.Cn_n  = flux_coefficients(n,  Fn, s.Gamma, s.G_n, norm)
-        self.Cn_pi = flux_coefficients(pi, Fn, s.Gamma, s.G_pi, norm) 
-        self.Cn_pe = flux_coefficients(pe, Fn, s.Gamma, s.G_pe, norm)
+        self.Cn_n  = Flux_coefficients(n,  Fn, Gamma, s.G_n, norm)
+        self.Cn_pi = Flux_coefficients(pi, Fn, Gamma, s.G_pi, norm) 
+        self.Cn_pe = Flux_coefficients(pe, Fn, Gamma, s.G_pe, norm)
 
-        self.Cpi_n  = flux_coefficients(n,  Fpi, s.Qi, s.Qi_n, norm)
-        self.Cpi_pi = flux_coefficients(pi, Fpi, s.Qi, s.Qi_pi, norm) 
-        self.Cpi_pe = flux_coefficients(pe, Fpi, s.Qi, s.Qi_pe, norm)
-        self.Cpe_n  = flux_coefficients(n,  Fpe, s.Qe, s.Qe_n, norm)
-        self.Cpe_pi = flux_coefficients(pi, Fpe, s.Qe, s.Qe_pi, norm) 
-        self.Cpe_pe = flux_coefficients(pe, Fpe, s.Qe, s.Qe_pe, norm)
+        self.Cpi_n  = Flux_coefficients(n,  Fpi, Qi, s.Qi_n, norm)
+        self.Cpi_pi = Flux_coefficients(pi, Fpi, Qi, s.Qi_pi, norm) 
+        self.Cpi_pe = Flux_coefficients(pe, Fpi, Qi, s.Qi_pe, norm)
+        self.Cpe_n  = Flux_coefficients(n,  Fpe, Qe, s.Qe_n, norm)
+        self.Cpe_pi = Flux_coefficients(pi, Fpe, Qe, s.Qe_pi, norm) 
+        self.Cpe_pe = Flux_coefficients(pe, Fpe, Qe, s.Qe_pe, norm)
         # maybe these class definitions can be condensed
 
-        # mu coefficients
-        # needs kappas, should implement into profile
-        # also 0 when G=H=K=0
+        # mu coefficients (to be deleted)
         self.mu1 = 0
         self.mu2 = 0
         self.mu3 = 0
+
+        G_n = s.G_n.profile
+        G_i = s.G_pi.profile
+        G_e = s.G_pe.profile
+        Qi_n = s.Qi_n.profile
+        Qe_n = s.Qe_n.profile
+        Qi_i = s.Qi_pi.profile
+        Qe_i = s.Qe_pi.profile
+        Qi_e = s.Qi_pe.profile
+        Qe_e = s.Qe_pe.profile
+
+        k1_i = s.kappa1_i.profile
+        k1_e = s.kappa1_e.profile
+        k2_i = s.kappa2_i.profile
+        k2_e = s.kappa2_e.profile
+
+        ### mu coefficients (Eq 7.109-7.111)
+        # these mu's are missing 3rd K-term ~ H (EM potential)
+        mu_1i = Gi * (G_n - 2.5/k1_i) + Hi * (Qi_n + 1/k2_i) 
+        mu_1e = Ge * (G_n - 2.5/k1_e) + He * (Qe_n + 1/k2_e)  
+        # what about when Gamma_e != Gamma_i (only for multiple species)
+        mu_2i = Gi * (G_i + 1.5/k1_i) + Hi * (Qi_i - 1/k2_i) 
+        mu_2e = Ge *  G_i             + He *  Qe_i   
+        mu_3i = Gi *  G_e             + Hi *  Qi_e
+        mu_3e = Ge * (G_e + 1.5/k1_e) + He * (Qe_e - 1/k2_e) 
+
+        # save
+        factor = 1. / (2 * self.drho)
+        self.mu1_i = Flux_profile( factor * mu_1i )
+        self.mu1_e = Flux_profile( factor * mu_1e )
+        self.mu2_i = Flux_profile( factor * mu_2i )
+        self.mu2_e = Flux_profile( factor * mu_2e )
+        self.mu3_i = Flux_profile( factor * mu_3i )
+        self.mu3_e = Flux_profile( factor * mu_3e )
+
 
     def calc_collisions(self):
         # this function computes the E terms (Barnes 7.73)
@@ -539,15 +631,15 @@ class Trinity_Engine():
         psi_npe_zero  = g * Be
 
         # save, computes matricies in class function
-        self.psi_nn  = psi_profiles(psi_nn_zero,
+        self.psi_nn  = Psi_profiles(psi_nn_zero,
                                     psi_nn_plus,
                                     psi_nn_minus)
 
-        self.psi_npi = psi_profiles(psi_npi_zero,
+        self.psi_npi = Psi_profiles(psi_npi_zero,
                                     psi_npi_plus,
                                     psi_npi_minus)
         
-        self.psi_npe = psi_profiles(psi_npe_zero,
+        self.psi_npe = Psi_profiles(psi_npe_zero,
                                     psi_npe_plus,
                                     psi_npe_minus)
    
@@ -558,61 +650,77 @@ class Trinity_Engine():
         F_m = self.Fpi.minus#.profile
         E  = self.Ei
 
-        n        = self.density.profile
-        n_p      = self.density.plus.profile
-        n_m      = self.density.minus.profile
-        pi       = self.pressure_i.profile
-        pi_plus  = self.pressure_i.plus.profile
-        pi_minus = self.pressure_i.minus.profile
-        pe       = self.pressure_e.profile
-        pe_plus  = self.pressure_e.plus.profile
-        pe_minus = self.pressure_e.minus.profile
-        
-        An_pos = self.Cpi_n.plus.profile
-        An_neg = self.Cpi_n.minus.profile
-        Bn     = self.Cpi_n.zero.profile
-        Ai_pos = self.Cpi_pi.plus.profile
-        Ai_neg = self.Cpi_pi.minus.profile
-        Bi     = self.Cpi_pi.zero.profile
-        Ae_pos = self.Cpi_pe.plus.profile
-        Ae_neg = self.Cpi_pe.minus.profile 
-        Be     = self.Cpi_pe.zero.profile 
-        
-        mu1 = self.mu1 # should be profiles when implemented
-        mu2 = self.mu2 #   now these are all 0
-        mu3 = self.mu3
+        n        = self.density       .profile
+        n_p      = self.density.plus  .profile
+        n_m      = self.density.minus .profile
+        n_pp     = self.density.plus1 .profile
+        n_mm     = self.density.minus1.profile
 
+        pi       = self.pressure_i       .profile
+        pi_plus  = self.pressure_i.plus  .profile
+        pi_minus = self.pressure_i.minus .profile
+        pi_pp    = self.pressure_i.plus1 .profile
+        pi_mm    = self.pressure_i.minus1.profile
+
+        pe       = self.pressure_e       .profile
+        pe_plus  = self.pressure_e.plus  .profile
+        pe_minus = self.pressure_e.minus .profile
+        pe_pp    = self.pressure_e.plus1 .profile
+        pe_mm    = self.pressure_e.minus1.profile
+        
+        An_pos = self.Cpi_n.plus  .profile
+        An_neg = self.Cpi_n.minus .profile
+        Bn     = self.Cpi_n.zero  .profile
+        Ai_pos = self.Cpi_pi.plus .profile
+        Ai_neg = self.Cpi_pi.minus.profile
+        Bi     = self.Cpi_pi.zero .profile
+        Ae_pos = self.Cpi_pe.plus .profile
+        Ae_neg = self.Cpi_pe.minus.profile 
+        Be     = self.Cpi_pe.zero .profile 
+        
         Zi, mi = self.collision_model.export_species(0) # hard coded index
         Ze, me = self.collision_model.export_species(1) 
 
-        E_pi = - E * ( Zi / (Ze*pe - Zi*pi) + (3./2) * me*Zi / (mi*Ze*pe + me*Zi*pi) )
-        E_pe =   E * ( Ze / (Ze*pe - Zi*pi) - (3./2) * mi*Ze / (mi*Ze*pe + me*Zi*pi) )
+        E_pi = - E * ( Zi / (Ze*pe - Zi*pi) + 3./2 * me*Zi / (mi*Ze*pe + me*Zi*pi) )
+        E_pe =   E * ( Ze / (Ze*pe - Zi*pi) - 3./2 * mi*Ze / (mi*Ze*pe + me*Zi*pi) )
+
+        # new
+        mu1 = self.mu1_i.full.profile
+        mu2 = self.mu2_i.full.profile
+        mu3 = self.mu3_i.full.profile
+
+        G = self.Gi.full.profile
+        H = self.Hi.full.profile
 
         # tri diagonal matrix elements
-        g = self.geometry_factor #* 2/3 # 2/3 is for pressure
-        psi_pin_plus  = g * (An_pos - 3/4 * F_p / n_p) - mu1 / n 
-        psi_pin_minus = g * (An_neg + 3/4 * F_m / n_m) + mu1 / n 
+        g = self.geometry_factor 
+        psi_pin_plus  = g * (An_pos - 3/4 * F_p / n_p) - mu1/n 
+        psi_pin_minus = g * (An_neg + 3/4 * F_m / n_m) + mu1/n 
         psi_pin_zero  = g * (Bn +  3/4 * ( F_m/n_m - F_p/n_p ) ) \
-                          + (5./2) * (E/n)
+                          + 5/2 * E/n - 3/2 * (G + H)/n \
+                          + mu1/n * (n_pp - n_mm)/n
                                 
-        psi_pipi_plus  = g * (Ai_pos + 5/4 * F_p / pi_plus ) 
-        psi_pipi_minus = g * (Ai_neg - 5/4 * F_m / pi_minus) 
-        psi_pipi_zero  = g * (Bi - 5/4 * ( F_m/pi_minus - F_p/pi_plus) ) + E_pi
+        psi_pipi_plus  = g * (Ai_pos + 5/4 * F_p / pi_plus ) - mu2/pi
+        psi_pipi_minus = g * (Ai_neg - 5/4 * F_m / pi_minus) + mu2/pi
+        psi_pipi_zero  = g * (Bi - 5/4 * ( F_m/pi_minus - F_p/pi_plus) ) \
+                           + E_pi + 5/2 * (G + H)/pi \
+                           + mu2/pi * (pi_pp - pi_mm)/pi
     
-        psi_pipe_plus  = g * Ae_pos
-        psi_pipe_minus = g * Ae_neg
-        psi_pipe_zero  = g * Be + E_pe
+        psi_pipe_plus  = g * Ae_pos - mu3/pe
+        psi_pipe_minus = g * Ae_neg + mu3/pe
+        psi_pipe_zero  = g * Be + E_pe + mu3/pe * (pe_pp - pe_mm) / pe
+                           
 
         # save (automatically computes matricies in class function)
-        self.psi_pin  = psi_profiles(psi_pin_zero,
+        self.psi_pin  = Psi_profiles(psi_pin_zero,
                                      psi_pin_plus,
                                      psi_pin_minus)
 
-        self.psi_pipi = psi_profiles(psi_pipi_zero,
+        self.psi_pipi = Psi_profiles(psi_pipi_zero,
                                      psi_pipi_plus,
                                      psi_pipi_minus, neumann=False)
         
-        self.psi_pipe = psi_profiles(psi_pipe_zero,
+        self.psi_pipe = Psi_profiles(psi_pipe_zero,
                                      psi_pipe_plus,
                                      psi_pipe_minus)
 
@@ -623,61 +731,77 @@ class Trinity_Engine():
         F_m = self.Fpe.minus.profile
         E   = self.Ee
 
-        n        = self.density.profile
-        n_p      = self.density.plus.profile
-        n_m      = self.density.minus.profile
-        pi       = self.pressure_i.profile
-        pi_plus  = self.pressure_i.plus.profile
-        pi_minus = self.pressure_i.minus.profile
-        pe       = self.pressure_e.profile
-        pe_plus  = self.pressure_e.plus.profile
-        pe_minus = self.pressure_e.minus.profile
-        
-        An_pos = self.Cpe_n.plus.profile
-        An_neg = self.Cpe_n.minus.profile
-        Bn     = self.Cpe_n.zero.profile
-        Ai_pos = self.Cpe_pi.plus.profile
+        n        = self.density       .profile
+        n_p      = self.density.plus  .profile
+        n_m      = self.density.minus .profile
+        n_pp     = self.density.plus1 .profile
+        n_mm     = self.density.minus1.profile
+
+        pi       = self.pressure_i       .profile
+        pi_plus  = self.pressure_i.plus  .profile
+        pi_minus = self.pressure_i.minus .profile
+        pi_pp    = self.pressure_i.plus1 .profile
+        pi_mm    = self.pressure_i.minus1.profile
+
+        pe       = self.pressure_e       .profile
+        pe_plus  = self.pressure_e.plus  .profile
+        pe_minus = self.pressure_e.minus .profile
+        pe_pp    = self.pressure_e.plus1 .profile
+        pe_mm    = self.pressure_e.minus1.profile
+
+        An_pos = self.Cpe_n.plus  .profile
+        An_neg = self.Cpe_n.minus .profile
+        Bn     = self.Cpe_n.zero  .profile
+        Ai_pos = self.Cpe_pi.plus .profile
         Ai_neg = self.Cpe_pi.minus.profile
-        Bi     = self.Cpe_pi.zero.profile
-        Ae_pos = self.Cpe_pe.plus.profile
+        Bi     = self.Cpe_pi.zero .profile
+        Ae_pos = self.Cpe_pe.plus .profile
         Ae_neg = self.Cpe_pe.minus.profile 
-        Be     = self.Cpe_pe.zero.profile 
-        
-        mu1 = self.mu1 # should be profiles when implemented
-        mu2 = self.mu2 #   now these are all 0
-        mu3 = self.mu3
+        Be     = self.Cpe_pe.zero .profile 
+
+        # new
+        mu1 = self.mu1_e.full.profile
+        mu2 = self.mu2_e.full.profile
+        mu3 = self.mu3_e.full.profile
+
+        G = self.Ge.full.profile
+        H = self.He.full.profile
 
         Zi, mi = self.collision_model.export_species(0) # hard coded index
         Ze, me = self.collision_model.export_species(1) 
 
-        E_pi =   E * ( Zi / (Zi*pi - Ze*pe) - (3./2) * me*Zi / (me*Zi*pi + mi*Ze*pe) )
-        E_pe = - E * ( Zi / (Zi*pi - Ze*pe) + (3./2) * mi*Ze / (me*Zi*pi + mi*Ze*pe) )
+        E_pi =   E * ( Zi / (Zi*pi - Ze*pe) - 3/2 * me*Zi / (me*Zi*pi + mi*Ze*pe) )
+        E_pe = - E * ( Zi / (Zi*pi - Ze*pe) + 3/2 * mi*Ze / (me*Zi*pi + mi*Ze*pe) )
     
         # tri diagonal matrix elements
-        g = self.geometry_factor #* 2/3 # 2/3 is for pressure
-        psi_pen_plus  = g * (An_pos - 3/4 * F_p / n_p) - mu1 / n 
-        psi_pen_minus = g * (An_neg + 3/4 * F_m / n_m) + mu1 / n
+        g = self.geometry_factor 
+        psi_pen_plus  = g * (An_pos - 3/4 * F_p / n_p) - mu1/n 
+        psi_pen_minus = g * (An_neg + 3/4 * F_m / n_m) + mu1/n
         psi_pen_zero  = g * (Bn +  3/4 * ( F_m/n_m - F_p/n_p ) ) \
-                          + (5./2) * (E/n)
+                          + 5/2 * E/n - 3/2 * (G + H)/n \
+                          + mu1/n * (n_pp - n_mm)/n
                                 
-        psi_pepi_plus  = g * (Ai_pos + 5/4 * F_p / pi_plus ) 
-        psi_pepi_minus = g * (Ai_neg - 5/4 * F_m / pi_minus) 
-        psi_pepi_zero  = g * (Bi - 5/4 * ( F_m/pi_minus - F_p/pi_plus) )  + E_pi
+        psi_pepi_plus  = g * (Ai_pos + 5/4 * F_p / pi_plus ) - mu2/pi
+        psi_pepi_minus = g * (Ai_neg - 5/4 * F_m / pi_minus) + mu2/pi
+        psi_pepi_zero  = g * (Bi - 5/4 * ( F_m/pi_minus - F_p/pi_plus) )  \
+                           + E_pi - 3/2 * G/pi + 5/2 * H/pi \
+                           + mu2/pi * (pi_pp - pi_mm)/pi
     
-        psi_pepe_plus  = g * Ae_pos
-        psi_pepe_minus = g * Ae_neg
-        psi_pepe_zero  = g * Be + E_pe
+        psi_pepe_plus  = g * Ae_pos - mu3/pe
+        psi_pepe_minus = g * Ae_neg + mu3/pe
+        psi_pepe_zero  = g * Be + E_pe + G/pe + mu3/pe * (pe_pp - pe_mm)/pe
+
 
         # save (automatically computes matricies in class function)
-        self.psi_pen  = psi_profiles(psi_pen_zero,
+        self.psi_pen  = Psi_profiles(psi_pen_zero,
                                      psi_pen_plus,
                                      psi_pen_minus)
 
-        self.psi_pepi = psi_profiles(psi_pepi_zero,
+        self.psi_pepi = Psi_profiles(psi_pepi_zero,
                                      psi_pepi_plus,
                                      psi_pepi_minus, neumann=False)
         
-        self.psi_pepe = psi_profiles(psi_pepe_zero,
+        self.psi_pepe = Psi_profiles(psi_pepe_zero,
                                      psi_pepe_plus,
                                      psi_pepe_minus)
 
@@ -783,6 +907,11 @@ class Trinity_Engine():
         alpha   = self.alpha
         dtau    = self.dtau
 
+        Gi      = self.Gi.full.profile    [:-1]
+        Ge      = self.Ge.full.profile    [:-1]
+        Hi      = self.Hi.full.profile    [:-1]
+        He      = self.He.full.profile    [:-1]
+
         # load matrix
         psi_nn  = self.psi_nn.matrix
         psi_npi = self.psi_npi.matrix
@@ -834,11 +963,11 @@ class Trinity_Engine():
                      + dtau*alpha*boundary_n  \
                      + dtau*source_n  
         bvec_pi =  pi_prev \
-                     + (2/3) * dtau*(1 - alpha) * (force_pi + Ei) \
+                     + (2/3) * dtau*(1 - alpha) * (force_pi + Ei + Gi + Hi) \
                      + (2/3) * dtau*alpha*boundary_pi \
                      + dtau*source_pi 
         bvec_pe =  pe_prev \
-                     + (2/3) * dtau*(1 - alpha) * (force_pe + Ee) \
+                     + (2/3) * dtau*(1 - alpha) * (force_pe + Ee + Ge + He) \
                      + (2/3) * dtau*alpha*boundary_pe \
                      + dtau*source_pe 
         # 7/18, these boundary terms were added based on Kittel, but they are not in MAB's thesis. They are important for getting the dynamics at the second to edge point correct.
@@ -861,10 +990,20 @@ class Trinity_Engine():
     
 
     def update(self):
+        '''
+        Load the results from y = Ab, update profiles
+        '''
 
-        # load
-        y_next  = self.y_next
-        n_edge  = self.n_edge
+        # new data for next time step
+        y_next  = self.y_next   
+
+        # old data from previous time step
+        n_prev = self.density.profile
+        pi_prev = self.pressure_i.profile
+        pe_prev = self.pressure_e.profile
+
+        # fixed boundary conditions
+        n_edge  = self.n_edge   
         pi_edge = self.pi_edge
         pe_edge = self.pe_edge
 
@@ -875,13 +1014,28 @@ class Trinity_Engine():
         pi = np.concatenate([ pi_next, [pi_edge] ]) 
         pe = np.concatenate([ pe_next, [pe_edge] ])
 
-        self.density    = profile(n,  grad=True, half=True, full=True)
-        self.pressure_i = profile(pi, grad=True, half=True, full=True)
-        self.pressure_e = profile(pe, grad=True, half=True, full=True)
+        self.density    = Profile(n,  grad=True, half=True, full=True)
+        self.pressure_i = Profile(pi, grad=True, half=True, full=True)
+        self.pressure_e = Profile(pe, grad=True, half=True, full=True)
 
         # step time
         self.time += self.dtau
         self.t_idx += 1 # this is an integer index of all time steps
+
+        ## record change
+        delta_pi = np.std(pi - pi_prev)
+        delta_pe = np.std(pe - pe_prev)
+        delta_n  = np.std(n  - n_prev)
+        print("*****")
+        print(f"(dpi, dpe, dn) = {delta_pi}, {delta_pe}, {delta_n}")
+        print("*****")
+
+### How to choose the threshold?
+##   Maybe track convergence instead of magnitude?
+#        if (delta_pi > 0.018):
+#            self.needs_new_flux = False
+#        else:
+#            self.needs_new_flux = True
 
 
     # a subclass for handling normalizations in Trinity
