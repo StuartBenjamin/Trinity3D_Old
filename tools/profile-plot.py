@@ -98,23 +98,23 @@ for t in np.arange(N):
     # plot fluxes
     if t == 0:
         axs[0,1].plot(axis,Te[t] ,'.-', color=cool_map[t], label = '$T_e$, {:.2f}'.format(time[t]))
-        axs[0,1].plot(axis,Ti[t] ,':', color=warm_map[t], label = '$T_i$, {:.2f}'.format(time[t]))
+        axs[0,1].plot(axis,Ti[t] ,'.:', color=warm_map[t], label = '$T_i$, {:.2f}'.format(time[t]))
     elif t == N-1:
         axs[0,1].plot(axis,Te[t] ,'.-', color=cool_map[t], label = '$T_e$, {:.2f}'.format(time[t]))
-        axs[0,1].plot(axis,Ti[t] ,':', color=warm_map[t], label = '$T_i$, {:.2f}'.format(time[t]))
+        axs[0,1].plot(axis,Ti[t] ,'.:', color=warm_map[t], label = '$T_i$, {:.2f}'.format(time[t]))
     else:
         axs[0,1].plot(axis,Te[t] ,'.-', color=cool_map[t])
-        axs[0,1].plot(axis,Ti[t] ,':', color=warm_map[t])
+        axs[0,1].plot(axis,Ti[t] ,'.:', color=warm_map[t])
 
     axs[0,2].plot(axis,pe[t] ,'.-', color=cool_map[t])
-    axs[0,2].plot(axis,pi[t] ,':', color=warm_map[t])
+    axs[0,2].plot(axis,pi[t] ,'.:', color=warm_map[t])
 
     # plot diffusivity
     axs[0,4].plot(mid_axis,Qe[t] ,'x-', color=cool_map[t])
     axs[0,4].plot(mid_axis,Qi[t] ,'x:', color=warm_map[t])
     axs[0,5].plot(mid_axis,Gamma[t] ,'x-', color=green_map[t])
 
-    axs[1,4].plot( aLpi[t] - aLn[t], Qi[t] ,':', color=warm_map[t])
+    axs[1,4].plot( aLpi[t] - aLn[t], Qi[t] ,'.:', color=warm_map[t])
     axs[1,4].plot( aLpe[t] - aLn[t], Qe[t] ,'.-', color=cool_map[t])
     axs[1,5].plot( aLn[t],Gamma[t] ,'.-', color=green_map[t])
 
@@ -160,21 +160,28 @@ axs[1,0].set_title('fusion power density \n [MW/m$^{-3}$]')
 axs[1,1].set_title('bremstralung radiation \n [MW/m$^{-3}$]')
 axs[1,2].set_title('collisional heat \n exchange [Hz]')
 
-plt.subplots_adjust(wspace = 0.5, hspace = 0.5)
+plt.subplots_adjust(left=0.1,
+                    bottom=0.1, 
+                    right=0.9, 
+                    top=0.9, 
+                    wspace=0.4, 
+                    hspace=0.4)
+
+#plt.subplots_adjust(wspace = 0.4, hspace = 0.5)
 
 #Legends
 leg = axs[0,0].legend(loc='best', title = '$t v_{ti}/a$', fancybox=False, shadow=False,ncol=1)
 plt.setp(leg.get_title())
 leg.get_frame().set_edgecolor('k')
 leg.get_frame().set_linewidth(0.65)
-leg2 = axs[0,1].legend(loc='best', title = '$t v_{ti}/a$', fancybox=False, shadow=False,ncol=2)
+leg2 = axs[0,1].legend(loc='best', title = '$t v_{ti}/a$', fancybox=False, shadow=False,ncol=1)
 plt.setp(leg2.get_title())
 leg2.get_frame().set_edgecolor('k')
 leg2.get_frame().set_linewidth(0.65)
 leg4 = axs[0,3].legend(loc='best', fancybox=False, shadow=False,ncol=1)
 leg4.get_frame().set_edgecolor('k')
 leg4.get_frame().set_linewidth(0.65)
-plt.tight_layout()
+#plt.tight_layout()
 
 plt.show()
 
