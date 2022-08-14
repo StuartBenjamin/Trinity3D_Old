@@ -41,13 +41,17 @@ pb = data['power balance']
 force_n       =  pb['force_n']  
 force_pi      =  pb['force_pi'] 
 force_pe      =  pb['force_pe'] 
-Ei            = pb['Ei']       
-Ee            = pb['Ee']       
-P_fusion      = pb['P_fusion'] 
-P_brems       = pb['P_brems']  
-aux_source_n  = pb['aux_source_n']  
-aux_source_pi = pb['aux_source_pi']
-aux_source_pe = pb['aux_source_pe']
+Ei            =  pb['Ei']       
+Ee            =  pb['Ee']       
+Gi            =  pb['Gi']       
+Ge            =  pb['Ge']       
+Hi            =  pb['Hi']       
+He            =  pb['He']       
+P_fusion      =  pb['P_fusion'] 
+P_brems       =  pb['P_brems']  
+aux_source_n  =  pb['aux_source_n']  
+aux_source_pi =  pb['aux_source_pi']
+aux_source_pe =  pb['aux_source_pe']
 
 def plot_power_balance(t=0):
 
@@ -61,11 +65,15 @@ def plot_power_balance(t=0):
 
     axs[1].plot(rax, force_pi     [t]     , '.-', label='turbulent heat flux')
     axs[1].plot(rax, Ei           [t][:-1], '.-', label='collisional heat exchange')
+    axs[1].plot(rax, Gi           [t][:-1], '.-', label='G term')
+    axs[1].plot(rax, Hi           [t][:-1], '.-', label='H term')
     axs[1].plot(rax, P_fusion     [t][:-1], '.-', label='alpha heating')
     axs[1].plot(rax, aux_source_pi[t][:-1], '.-', label='auxiliary ion heating')
 
     axs[2].plot(rax, force_pe     [t]     , '.-', label='turbulent heat flux')
     axs[2].plot(rax, Ee           [t][:-1], '.-', label='collisional heat exchange')
+    axs[2].plot(rax, Ge           [t][:-1], '.-', label='G term')
+    axs[2].plot(rax, He           [t][:-1], '.-', label='H term')
     axs[2].plot(rax, P_brems      [t][:-1], '.-', label='bremstrahlung radiation') 
     axs[2].plot(rax, aux_source_pe[t][:-1], '.-', label='auxiliary electron heating')
 

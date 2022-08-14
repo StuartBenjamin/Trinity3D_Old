@@ -40,6 +40,10 @@ class ProfileSaver:
         pb['force_pe'] = []
         pb['Ei'] = []
         pb['Ee'] = []
+        pb['Gi']    = []
+        pb['Ge']    = []
+        pb['Hi']    = []
+        pb['He']    = []
         pb['P_fusion'] = []
         pb['P_brems'] = []
         pb['aux_source_n'] = []
@@ -56,6 +60,10 @@ class ProfileSaver:
         G  = engine.Gamma.profile
         Qi = engine.Qi.profile
         Qe = engine.Qe.profile
+        Gi = engine.Gi.full.profile
+        Ge = engine.Ge.full.profile
+        Hi = engine.Hi.full.profile
+        He = engine.He.full.profile
         t  = engine.time
 
         a = engine.a_minor
@@ -88,6 +96,10 @@ class ProfileSaver:
         pb['force_pe'] .append( en.force_pe )
         pb['Ei']       .append( en.Ei )
         pb['Ee']       .append( en.Ee )
+        pb['Gi']       .append(Gi)
+        pb['Ge']       .append(Ge)
+        pb['Hi']       .append(Hi)
+        pb['He']       .append(He)
         pb['P_fusion'] .append( en.P_fusion )
         pb['P_brems']  .append( en.P_brems )
         pb['aux_source_n'] .append( en.aux_source_n )
