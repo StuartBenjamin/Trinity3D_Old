@@ -323,7 +323,6 @@ class GX_Flux_Model():
 
     def prep_commands(self, engine, # pointer to pull profiles from trinity engine
                             t_id,   # integer time index in trinity
-                            #time,   # decimal time value int trinity ## removed 7/19
                             step = 0.1, # absolute step size for perturbing gradients
                      ):
 
@@ -336,10 +335,6 @@ class GX_Flux_Model():
         Lpi = - a * engine.pressure_i.grad_log.profile  # L_pi^inv
         Lpe = - a * engine.pressure_e.grad_log.profile  # L_pe^inv
 
-        ## these are from imperfectly swapping to midpoints, can delete 7/21
-#        Ln  = - a * engine.density.grad_log   .midpoints  # L_n^inv
-#        Lpi = - a * engine.pressure_i.grad_log.midpoints  # L_pi^inv
-#        Lpe = - a * engine.pressure_e.grad_log.midpoints  # L_pe^inv
 
         # turbulent flux calls, for each radial flux tube
         mid_axis = engine.mid_axis

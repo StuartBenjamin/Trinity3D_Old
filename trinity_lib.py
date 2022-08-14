@@ -176,6 +176,7 @@ class Trinity_Engine():
         self.t_idx = 0
         self.gx_idx = 0
         self.needs_new_flux = True
+        self.needs_new_vmec = False
 
 
         # init normalizations
@@ -198,6 +199,9 @@ class Trinity_Engine():
         Te = (Te_core - Te_edge)*(1 - (rho_axis/rho_edge)**2) + Te_edge
         pi = n * Ti
         pe = n * Te
+
+
+        self.vmec_pressure_old = (pi + pe) * 1e20 * (1e3 * 1.6e-19) # for comparison later
 
         # save
         self.density     = init_profile(n)
@@ -1023,9 +1027,9 @@ class Trinity_Engine():
         self.t_idx += 1 # this is an integer index of all time steps
 
         ## record change
-        delta_pi = np.std(pi - pi_prev)
-        delta_pe = np.std(pe - pe_prev)
-        delta_n  = np.std(n  - n_prev)
+        delta_pi = profile_diff(pi, pi_prev) #np.std(pi - pi_prev)
+        delta_pe = profile_diff(pe, pe_prev) #np.std(pe - pe_prev)
+        delta_n  = profile_diff(n , n_prev) #np.std(n  - n_prev)
         print("*****")
         print(f"(dpi, dpe, dn) = {delta_pi}, {delta_pe}, {delta_n}")
         print("*****")
@@ -1036,6 +1040,28 @@ class Trinity_Engine():
 #            self.needs_new_flux = False
 #        else:
 #            self.needs_new_flux = True
+
+        p_SI = (pi + pe) * 1e20 * (1e3 * 1.6e-19)
+        self.vmec_pressure = p_SI
+
+        if profile_diff(p_SI, self.vmec_pressure_old) > 0.1:
+            print("***** needs new VMEC ****** threshold exceeds 10%")
+            self.needs_new_vmec = True
+            self.vmec_pressure_old = p_SI # maybe move this elsewhere
+
+    def reset_fluxtubes(self):
+
+        if self.needs_new_vmec == False:
+            return
+
+        ### needs new vmec
+
+        # run VMEC (wait)
+
+        # update the wout
+
+        # gx.init_geometry() # make new flux tubes from wout
+        # maybe rename this to make_fluxtubes()
 
 
     # a subclass for handling normalizations in Trinity
@@ -1087,3 +1113,6 @@ class Trinity_Engine():
             self.particle_source_scale = particle_source_scale
 
 
+def profile_diff(arr, old):
+    # this is an L_infinity norm
+    return np.max( np.abs( (arr - old)/old ) )

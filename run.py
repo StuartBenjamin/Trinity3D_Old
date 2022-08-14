@@ -39,6 +39,7 @@ N_step_print = engine.N_steps // engine.N_prints   # how often to print
 while (engine.t_idx < engine.N_steps):
 #while (engine.gx_idx < engine.N_steps):
 
+
     engine.get_flux()
     engine.normalize_fluxes()
     engine.calc_flux_coefficients()
@@ -71,6 +72,7 @@ while (engine.t_idx < engine.N_steps):
         print(f"  Plot: t = {engine.t_idx}, t_gx = {engine.gx_idx}")
         writer.save(engine)
 
+    engine.reset_fluxtubes()
 
 writer.store_system(engine)
 writer.export(engine.f_save)
