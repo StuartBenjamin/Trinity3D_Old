@@ -176,12 +176,15 @@ class Barnes_Model2():
 WAIT_TIME = 1  # this should come from the Trinity Engine
 class GX_Flux_Model():
 
-    def __init__(self, fname, # is this used?
+    def __init__(self, engine, 
+                       #fname, # is this used? nope, 8/14
                        path='run-dir/', 
                        vmec_path='./',
                        vmec_wout="",
                        midpoints=[]
                 ):
+
+        self.engine = engine
 
         gx_root = "gx-files/"  # this is part of repo, don't change
         f_input = 'gx-sample.in'  
@@ -196,7 +199,21 @@ class GX_Flux_Model():
         print("      expecting GX-VMEC executable:", gx_root + "convert_VMEC_to_GX")
         print("    VMEC path:", vmec_path)
         print("      expecting VMEC wout:", vmec_path + vmec_wout)
-        print("    GX-Trinity output path:", path, "\n")
+        print("    GX-Trinity output path:", path)
+
+        found_path = os.path.exists(path)
+        if (found_path == False):
+            print(f"      creating new output dir {path}")
+            os.mkdir(path)
+
+        found_gx = os.path.exists(path+"gx")
+        if (found_gx == False):
+            print(f"      copying gx executable from root into {path}")
+            cmd = f"cp {gx_root}gx {path}gx"
+            os.system(cmd)
+
+        print("")
+
 
         # check using something like
         # os.listdir(vmec_path).find(vmec_wout)
@@ -214,16 +231,17 @@ class GX_Flux_Model():
         self.gx_root = gx_root
         self.f_geo   = f_geo # template convert geometry input
 
-        ### This keeps a record of GX comands, it might be retired
-        # init file for writing GX commands
-
-        with  open(fname,'w') as f:
-            print('t_idx, r_idx, time, r, s, tprim, fprim', file=f)
-
-        # store file name (includes path)
-        self.fname = fname
-        self.f_handle = open(fname, 'a')
-        ###
+### retired 8/14
+#        ### This keeps a record of GX comands, it might be retired
+#        # init file for writing GX commands
+#
+#        with  open(fname,'w') as f:
+#            print('t_idx, r_idx, time, r, s, tprim, fprim', file=f)
+#
+#        # store file name (includes path)
+#        self.fname = fname
+#        self.f_handle = open(fname, 'a')
+#        ###
 
         self.processes = []
 
@@ -254,7 +272,8 @@ class GX_Flux_Model():
             out_path  = self.path
             vmec_path = self.vmec_path
 
-            geo_template = gx_io.VMEC_GX_geometry_module( f_sample = f_geo,
+            geo_template = gx_io.VMEC_GX_geometry_module( self.engine,
+                                                 f_sample = f_geo,
                                                  input_path = geo_path,
                                                  output_path = out_path,
                                                  tag = vmec[5:-3]
@@ -263,13 +282,12 @@ class GX_Flux_Model():
                           vmec_path   = vmec_path, 
                           output_path = out_path )
 
-            for rho in self.midpoints:
-                geo_template.init_radius(rho) 
-
-            # gather output files
-            geo_files = glob(out_path + 'gx*geo.nc')
-            # this is temporary. better to let Trinity give a predefined output file name to the  Convert_VMEC executable
-
+            geo_files = []
+            N_fluxtubes = len(self.midpoints)
+            for j in np.arange(N_fluxtubes):
+                rho = self.midpoints[j]
+                f_geometry = geo_template.init_radius(rho,j) 
+                geo_files.append(out_path + f_geometry)
 
             # kludgy fix, if the inner most flux tube is too small for VMEC resolution
             #     just copy the second inner most flux tube
@@ -287,7 +305,8 @@ class GX_Flux_Model():
                           'gx-files/gx_wout_gonzalez-2021_psiN_0.704_gds21_nt_42_geo.nc',
                           'gx-files/gx_wout_gonzalez-2021_psiN_0.897_gds21_nt_42_geo.nc']
 
-        print(' Found these flux tubes', geo_files)
+        #print(' Found these flux tubes', geo_files) # removed 8/14
+        print("")
 
         ### store flux tubes in a list
         self.flux_tubes = []
@@ -352,7 +371,6 @@ class GX_Flux_Model():
 
         for j in idx: 
             rho = mid_axis[j]
-            #rho = rax[j]  # no longer used, since GX is called on midpoints
             kn  = Ln [j]
             kpi = Lpi[j]
             kpe = Lpe[j]

@@ -32,11 +32,12 @@ class FluxTube():
         self.shat   = float(gf['shat'][:])
         self.Rmag   = float(gf['Rmaj'][:])
 
-        # read VMEC flux surface radius from file string
-        #    assumes: gx_wout_gonzalez-2021_psiN_0.102_gds21_nt_36_geo.nc
-        self.psiN   = float(f_geo.split('/')   [-1]
-                                 .split('psiN')[-1]
-                                 .split('_')   [1])
+# unused 8/14
+#        # read VMEC flux surface radius from file string
+#        #    assumes: gx_wout_gonzalez-2021_psiN_0.102_gds21_nt_36_geo.nc
+#        self.psiN   = float(f_geo.split('/')   [-1]
+#                                 .split('psiN')[-1]
+#                                 .split('_')   [1])
         # store arrays
         self.bmag   = gf['bmag'][:]
         self.grho   = gf['grho'][:] 

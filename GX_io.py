@@ -144,12 +144,14 @@ class VMEC_GX_geometry_module():
 
     # this class handles VMEC-GX Geometry .ing input files
 
-    def __init__(self, f_sample    = 'gx-geometry-sample.ing',
+    def __init__(self, engine,
+                       f_sample    = 'gx-geometry-sample.ing',
                        tag         = 'default',
                        input_path  = 'gx-files/',
                        output_path = './'
                        ):
 
+        self.engine = engine
         self.data = self.read(input_path + f_sample)
 
         self.output_path = output_path
@@ -215,13 +217,15 @@ class VMEC_GX_geometry_module():
         self.data['out_path'] = '"{:}"'.format(output_path)
         self.data['vmec_path'] = '"{:}"'.format(vmec_path) 
 
-
-
-    def init_radius(self,rho):
+    def init_radius(self,rho,r_idx):
 
         # set radius
         s = rho**2
         self.data['desired_normalized_toroidal_flux'] = s
+
+        t_idx = self.engine.t_idx
+        file_tag = f"vmec-t{t_idx}-r{r_idx}"
+        self.data['file_tag'] = f"\"{file_tag}\""
 
         # write input
         in_path  = self.input_path
@@ -236,4 +240,7 @@ class VMEC_GX_geometry_module():
         f_log = out_path + fname + '.log'
         with open(f_log, 'w') as fp:
             subprocess.call(cmd,stdout=fp)
+
+        f_geometry = f"gx_geo_{file_tag}.nc"
+        return f_geometry
 

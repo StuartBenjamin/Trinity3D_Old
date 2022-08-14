@@ -219,7 +219,7 @@ class Trinity_Engine():
             print("  flux model: GX")
             fout = 'gx-files/temp.gx'
             self.path = gx_path
-            gx = mf.GX_Flux_Model(fout, 
+            gx = mf.GX_Flux_Model(self,
                                   path = gx_path, 
                                   vmec_path = vmec_path,
                                   vmec_wout = vmec_wout,
