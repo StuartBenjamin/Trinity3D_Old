@@ -4,8 +4,9 @@
 from netCDF4 import Dataset
 import copy
 
-import pdb
-
+import subprocess
+import f90nml
+import os
 
 class FluxTube():
     ###
@@ -71,3 +72,40 @@ class FluxTube():
         fprim = '[ {:.2f},       {:.2f}     ]'.format(kn, kn)
         gx.inputs['species']['fprim'] = fprim
 
+
+class VmecRunner():
+
+    def __init__(self, input_file, engine):
+
+        self.data = f90nml.read(input_file)
+        self.input_file = input_file
+
+        self.engine = engine
+
+    # unused
+    def write(self, f_output):
+        self.data.write(f_output)
+
+    def run(self, f_input, ncpu=2):
+
+        self.data.write(f_input, force=True)
+
+        #cmd = f"srun -t 2:00:00 -n {ncpu} xvmec2000 {f_input}"
+        #os.system(cmd)
+        cmd = ["srun", "-t", "2:00:00", "-n", f"{ncpu}", "xvmec2000", f"{f_input}"]
+
+        path = self.engine.path
+        tag = "".join( f_input.split('.')[1:] )
+        f_log = path + 'log.' + tag
+
+        with open(f_log, 'w') as fp:
+
+            print('   running:', tag)
+            p = subprocess.Popen(cmd, stdout=fp)
+            self.processes.append(p)
+   
+        ## wait for code to finish
+        exitcodes = [ p.wait() for p in self.processes ]
+        #print(exitcodes)
+        self.processes = [] # reset
+        print('slurm vmec completed')
