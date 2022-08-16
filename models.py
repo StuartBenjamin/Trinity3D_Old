@@ -257,7 +257,8 @@ class GX_Flux_Model():
         # could add some sort of timer here
 
 
-    def init_geometry(self):
+    def make_fluxtubes(self):
+    #def init_geometry(self): # rename 8/15
 
         ### load flux tube geometry
         # these should come from Trinity input file

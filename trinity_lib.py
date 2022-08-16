@@ -239,7 +239,7 @@ class Trinity_Engine():
             # read VMEC
             self.read_VMEC( vmec_wout, path=vmec_path )
 
-            gx.init_geometry()
+            gx.make_fluxtubes()
             self.model_gx = gx
     
 
@@ -1053,8 +1053,8 @@ class Trinity_Engine():
         p_SI = (pi + pe) * 1e20 * (1e3 * 1.6e-19)
         self.vmec_pressure = p_SI
 
-        if profile_diff(p_SI, self.vmec_pressure_old) > 0.1:
-            print("***** needs new VMEC ****** threshold exceeds 10%")
+        if profile_diff(p_SI, self.vmec_pressure_old) > 0.02:
+            print("***** needs new VMEC ****** threshold exceeds 2%")
             self.needs_new_vmec = True
             self.vmec_pressure_old = p_SI # maybe move this elsewhere
 
@@ -1085,13 +1085,17 @@ class Trinity_Engine():
 
 
         # run VMEC (wait)
-        input_name = f"input.vmec-t{self.t_idx:02d}"
-        vmec.run(input_name)
-
+        tag = f"vmec-t{self.t_idx:02d}" 
+        vmec_input = f"input.{tag}"
+        vmec.run(self.path + vmec_input)
 
         # update the wout
-
+        gx = self.model_gx
+        vmec_wout = f"wout_{tag}.nc"
+        gx.vmec_wout = vmec_wout
+        gx.make_fluxtubes()
         # gx.init_geometry() # make new flux tubes from wout
+
         # maybe rename this to make_fluxtubes()
 
 

@@ -36,12 +36,6 @@ class FluxTube():
         self.shat   = float(gf['shat'][:])
         self.Rmag   = float(gf['Rmaj'][:])
 
-# unused 8/14
-#        # read VMEC flux surface radius from file string
-#        #    assumes: gx_wout_gonzalez-2021_psiN_0.102_gds21_nt_36_geo.nc
-#        self.psiN   = float(f_geo.split('/')   [-1]
-#                                 .split('psiN')[-1]
-#                                 .split('_')   [1])
         # store arrays
         self.bmag   = gf['bmag'][:]
         self.grho   = gf['grho'][:] 
@@ -85,38 +79,35 @@ class VmecRunner():
 
         self.engine = engine
 
-    # unused
-    def write(self, f_output):
-        self.data.write(f_output)
-
     def run(self, f_input, ncpu=2):
 
         self.data.write(f_input, force=True)
 
-        #cmd = f"srun -t 2:00:00 -n {ncpu} xvmec2000 {f_input}"
-        #os.system(cmd)
-        #cmd = ["srun", "-t", "2:00:00", "-n", f"{ncpu}", "xvmec2000", f"{f_input}"] # JFP, can we change this to python vmec?
+        tag = f_input.split('/')[-1][6:]
+        vmec_wout = f"wout_{tag}.nc"
+
+        path = self.engine.path
+        if os.path.exists( path + vmec_wout ):
+            print(f" completed vmec run found: {vmec_wout}, skipping run")
+            return
+
         verbose = True
         fcomm = MPI.COMM_WORLD.py2f()
         reset_file = ''
         ictrl = np.zeros(5, dtype=np.int32)
-        ictrl[0] = 1 + 2 + 4 + 8
+        ictrl[0] = 1 + 2 + 4 + 8 + 16
+        # see VMEC2000/Sources/TimeStep/runvmec.f
         vmec_py.runvmec(ictrl, f_input, verbose, fcomm, reset_file)
-
-        #### Need to figure out how to wait for code to finish...
-
-        #path = self.engine.path
-        #tag = "".join( f_input.split('.')[1:] )
-        #f_log = path + 'log.' + tag
-
-        #with open(f_log, 'w') as fp:
-
-        #    print('   running:', tag)
-        #    p = subprocess.Popen(cmd, stdout=fp)
-        #    self.processes.append(p)
-   
-        ### wait for code to finish
-        #exitcodes = [ p.wait() for p in self.processes ]
-        ##print(exitcodes)
-        #self.processes = [] # reset
         print('slurm vmec completed')
+
+        # right now VMEC writes output to root (input is stored in engine.gx_path)
+        #    this cmd manually moves VMEC output to gx_path after vmec_py.run() finishes
+        print(f"  moving VMEC files to {path}")
+        cmd = f"mv *{tag}* {path}"
+        os.system(cmd)
+
+#        print(f"  changing vmec_path")
+#       self.engine.model_gx.vmec_path = path
+
+
+
