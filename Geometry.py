@@ -3,7 +3,10 @@
 
 from netCDF4 import Dataset
 import copy
+import vmec as vmec_py
+from mpi4py import MPI
 
+import numpy as np
 import subprocess
 import f90nml
 import os
@@ -92,20 +95,28 @@ class VmecRunner():
 
         #cmd = f"srun -t 2:00:00 -n {ncpu} xvmec2000 {f_input}"
         #os.system(cmd)
-        cmd = ["srun", "-t", "2:00:00", "-n", f"{ncpu}", "xvmec2000", f"{f_input}"]
+        #cmd = ["srun", "-t", "2:00:00", "-n", f"{ncpu}", "xvmec2000", f"{f_input}"] # JFP, can we change this to python vmec?
+        verbose = True
+        fcomm = MPI.COMM_WORLD.py2f()
+        reset_file = ''
+        ictrl = np.zeros(5, dtype=np.int32)
+        ictrl[0] = 1 + 2 + 4 + 8
+        vmec_py.runvmec(ictrl, f_input, verbose, fcomm, reset_file)
 
-        path = self.engine.path
-        tag = "".join( f_input.split('.')[1:] )
-        f_log = path + 'log.' + tag
+        #### Need to figure out how to wait for code to finish...
 
-        with open(f_log, 'w') as fp:
+        #path = self.engine.path
+        #tag = "".join( f_input.split('.')[1:] )
+        #f_log = path + 'log.' + tag
 
-            print('   running:', tag)
-            p = subprocess.Popen(cmd, stdout=fp)
-            self.processes.append(p)
+        #with open(f_log, 'w') as fp:
+
+        #    print('   running:', tag)
+        #    p = subprocess.Popen(cmd, stdout=fp)
+        #    self.processes.append(p)
    
-        ## wait for code to finish
-        exitcodes = [ p.wait() for p in self.processes ]
-        #print(exitcodes)
-        self.processes = [] # reset
+        ### wait for code to finish
+        #exitcodes = [ p.wait() for p in self.processes ]
+        ##print(exitcodes)
+        #self.processes = [] # reset
         print('slurm vmec completed')
