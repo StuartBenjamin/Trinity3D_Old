@@ -1,17 +1,18 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-import models as mf 
-from netCDF4 import Dataset
-
 import profiles as pf # needed for setting pf.rho_axis
 from profiles import Profile, Flux_profile, Flux_coefficients, Psi_profiles, init_profile
 
-
-import fusion_lib as fus
-import Collisions 
+from Geometry import VmecRunner
 from Trinity_io import Trinity_Input
+from Collisions import Collision_Model
 
+import models as mf 
+import fusion_lib as fus
+
+from scipy.interpolate import interp1d
+from netCDF4 import Dataset
 
 '''
 This class contains the bulk of TRINITY calculations.
@@ -171,6 +172,12 @@ class Trinity_Engine():
         self.R_major = R_major # meter
         self.a_minor = a_minor # meter
 
+        rerun_vmec = True
+        if rerun_vmec:
+            vmec_input = "jet-files/input.JET-256"
+            self.vmec = VmecRunner(vmec_input, self)
+        self.path = './'
+
         # local variables
         self.time = 0
         self.t_idx = 0
@@ -209,7 +216,8 @@ class Trinity_Engine():
         self.pressure_e  = init_profile(pe)
 
         # init collision model
-        svec = Collisions.Collision_Model()
+        svec = Collision_Model()
+        #svec = Collisions.Collision_Model() # deleted 8/14
         svec.add_species( n, pi, mass_p=2, charge_p=1, ion=True, name='Deuterium')
         svec.add_species( n, pe, mass_p=1/1800, charge_p=-1, ion=False, name='electrons')
         self.collision_model = svec
@@ -231,7 +239,7 @@ class Trinity_Engine():
             # read VMEC
             self.read_VMEC( vmec_wout, path=vmec_path )
 
-            gx.init_geometry()
+            gx.make_fluxtubes()
             self.model_gx = gx
     
 
@@ -317,6 +325,7 @@ class Trinity_Engine():
 
 
     def read_VMEC(self, wout, path='gx-geometry/'):
+    # read a WOUT from vmec
 
         self.vmec_wout = wout
 
@@ -1044,8 +1053,8 @@ class Trinity_Engine():
         p_SI = (pi + pe) * 1e20 * (1e3 * 1.6e-19)
         self.vmec_pressure = p_SI
 
-        if profile_diff(p_SI, self.vmec_pressure_old) > 0.1:
-            print("***** needs new VMEC ****** threshold exceeds 10%")
+        if profile_diff(p_SI, self.vmec_pressure_old) > 0.02:
+            print("***** needs new VMEC ****** threshold exceeds 2%")
             self.needs_new_vmec = True
             self.vmec_pressure_old = p_SI # maybe move this elsewhere
 
@@ -1055,12 +1064,38 @@ class Trinity_Engine():
             return
 
         ### needs new vmec
+        vmec = self.vmec
+
+        # in VMEC spline notation, 'f' is y-axis and 's' is x-axis
+        amf = vmec.data['indata']['am_aux_f'] # vmec pressure profile
+        ams = vmec.data['indata']['am_aux_s'] # vmec psi axis
+
+        p_trinity_f = np.concatenate( [ self.vmec_pressure, [amf[-1]] ] )
+        p_trinity_s = np.concatenate( [ self.rho_axis, [1.0] ] )
+        p_trin = interp1d( p_trinity_s, p_trinity_f, kind='cubic', fill_value="extrapolate")
+
+        ams_rho = np.sqrt(ams)
+        p_vmec = p_trin(ams_rho) # not used
+        p_vmec_s = p_trin(ams)
+
+        vmec.data['indata']['am_aux_f'] = p_vmec_s.tolist()
+
+
+        #plt.subplot(1,2,1); plt.plot( ams_rho,amf,'.-'); plt.plot(p_trinity_s, p_trinity_f, 'o-');  plt.plot( ams_rho, p_vmec, '*-'); plt.subplot(1,2,2); plt.plot( ams,amf,'.-'); plt.plot(p_trinity_s**2, p_trinity_f, 'o-');  plt.plot( ams, p_vmec, '*-'); plt.show()
+
 
         # run VMEC (wait)
+        tag = f"vmec-t{self.t_idx:02d}" 
+        vmec_input = f"input.{tag}"
+        vmec.run(self.path + vmec_input)
 
         # update the wout
-
+        gx = self.model_gx
+        vmec_wout = f"wout_{tag}.nc"
+        gx.vmec_wout = vmec_wout
+        gx.make_fluxtubes()
         # gx.init_geometry() # make new flux tubes from wout
+
         # maybe rename this to make_fluxtubes()
 
 

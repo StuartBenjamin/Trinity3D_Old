@@ -3,9 +3,13 @@
 
 from netCDF4 import Dataset
 import copy
+import vmec as vmec_py
+from mpi4py import MPI
 
-import pdb
-
+import numpy as np
+import subprocess
+import f90nml
+import os
 
 class FluxTube():
     ###
@@ -32,12 +36,6 @@ class FluxTube():
         self.shat   = float(gf['shat'][:])
         self.Rmag   = float(gf['Rmaj'][:])
 
-# unused 8/14
-#        # read VMEC flux surface radius from file string
-#        #    assumes: gx_wout_gonzalez-2021_psiN_0.102_gds21_nt_36_geo.nc
-#        self.psiN   = float(f_geo.split('/')   [-1]
-#                                 .split('psiN')[-1]
-#                                 .split('_')   [1])
         # store arrays
         self.bmag   = gf['bmag'][:]
         self.grho   = gf['grho'][:] 
@@ -70,4 +68,46 @@ class FluxTube():
 
         fprim = '[ {:.2f},       {:.2f}     ]'.format(kn, kn)
         gx.inputs['species']['fprim'] = fprim
+
+
+class VmecRunner():
+
+    def __init__(self, input_file, engine):
+
+        self.data = f90nml.read(input_file)
+        self.input_file = input_file
+
+        self.engine = engine
+
+    def run(self, f_input, ncpu=2):
+
+        self.data.write(f_input, force=True)
+
+        tag = f_input.split('/')[-1][6:]
+        vmec_wout = f"wout_{tag}.nc"
+
+        path = self.engine.path
+        if os.path.exists( path + vmec_wout ):
+            print(f" completed vmec run found: {vmec_wout}, skipping run")
+            return
+
+        verbose = True
+        fcomm = MPI.COMM_WORLD.py2f()
+        reset_file = ''
+        ictrl = np.zeros(5, dtype=np.int32)
+        ictrl[0] = 1 + 2 + 4 + 8 + 16
+        # see VMEC2000/Sources/TimeStep/runvmec.f
+        vmec_py.runvmec(ictrl, f_input, verbose, fcomm, reset_file)
+        print('slurm vmec completed')
+
+        # right now VMEC writes output to root (input is stored in engine.gx_path)
+        #    this cmd manually moves VMEC output to gx_path after vmec_py.run() finishes
+        print(f"  moving VMEC files to {path}")
+        cmd = f"mv *{tag}* {path}"
+        os.system(cmd)
+
+#        print(f"  changing vmec_path")
+#       self.engine.model_gx.vmec_path = path
+
+
 
