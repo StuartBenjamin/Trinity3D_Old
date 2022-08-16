@@ -66,7 +66,7 @@ def init_profile(x,debug=False):
 
 N = len(time)
 
-fig,axs = plt.subplots( 2, 6, figsize=(15,8) )
+fig,axs = plt.subplots( 2, 6, figsize=(65,8) )
 
 # run settings
 alpha = settings['alpha']
@@ -78,35 +78,43 @@ plt.suptitle(rlabel)
 
 ## set up color
 import matplotlib.pylab as pl
-warm_map = pl.cm.autumn(np.linspace(1,0,N))
-cool_map = pl.cm.Blues(np.linspace(0,1,N))
-green_map = pl.cm.YlGn(np.linspace(0,1,N))
-purple_map = pl.cm.Purples(np.linspace(0,1,N))
+warm_map = pl.cm.autumn(np.linspace(1,0.25,N))
+cool_map = pl.cm.Blues(np.linspace(0.25,1,N))
+green_map = pl.cm.YlGn(np.linspace(0.25,1,N))
+purple_map = pl.cm.Purples(np.linspace(0.25,1,N))
+
+n_leg = 5
+t_plot_freq = int(np.rint(N/n_leg)) # Ensures we only plot a maximum of n_leg timesteps in the legend.
 
 # time evolution
 for t in np.arange(N):
 
     # plot profiles
-    axs[0,0].plot(axis,n [t] ,'.-', color=green_map[t])
+    if t%t_plot_freq == 0:
+        axs[0,0].plot(axis,n [t] ,'.-', color=green_map[t], label = '{:.2f}'.format(time[t]))
+    else:
+        axs[0,0].plot(axis,n [t] ,'.-', color=green_map[t])
 
     # plot fluxes
-    axs[0,1].plot(axis,Te[t] ,'.-', color=cool_map[t])
-    axs[0,1].plot(axis,Ti[t] ,'.-', color=warm_map[t])
+    if t == 0:
+        axs[0,1].plot(axis,Te[t] ,'.-', color=cool_map[t], label = '$T_e$, {:.2f}'.format(time[t]))
+        axs[0,1].plot(axis,Ti[t] ,'.:', color=warm_map[t], label = '$T_i$, {:.2f}'.format(time[t]))
+    elif t == N-1:
+        axs[0,1].plot(axis,Te[t] ,'.-', color=cool_map[t], label = '$T_e$, {:.2f}'.format(time[t]))
+        axs[0,1].plot(axis,Ti[t] ,'.:', color=warm_map[t], label = '$T_i$, {:.2f}'.format(time[t]))
+    else:
+        axs[0,1].plot(axis,Te[t] ,'.-', color=cool_map[t])
+        axs[0,1].plot(axis,Ti[t] ,'.:', color=warm_map[t])
 
     axs[0,2].plot(axis,pe[t] ,'.-', color=cool_map[t])
-    axs[0,2].plot(axis,pi[t] ,'.-', color=warm_map[t])
-           
+    axs[0,2].plot(axis,pi[t] ,'.:', color=warm_map[t])
+
     # plot diffusivity
     axs[0,4].plot(mid_axis,Qe[t] ,'x-', color=cool_map[t])
-    axs[0,4].plot(mid_axis,Qi[t] ,'x-', color=warm_map[t])
+    axs[0,4].plot(mid_axis,Qi[t] ,'x:', color=warm_map[t])
     axs[0,5].plot(mid_axis,Gamma[t] ,'x-', color=green_map[t])
 
-    axs[0,3].plot(axis, source_pe, 'C0.-')
-    axs[0,3].plot(axis, source_pi, 'C1.-')
-    axs[0,3].plot(axis, source_n , 'C2.-')
-    #axs[1,4].plot(axis, source_pi * data['norms']['pressure_source_scale'], 'C1.-')
-
-    axs[1,4].plot( aLpi[t] - aLn[t], Qi[t] ,'.-', color=warm_map[t])
+    axs[1,4].plot( aLpi[t] - aLn[t], Qi[t] ,'.:', color=warm_map[t])
     axs[1,4].plot( aLpe[t] - aLn[t], Qe[t] ,'.-', color=cool_map[t])
     axs[1,5].plot( aLn[t],Gamma[t] ,'.-', color=green_map[t])
 
@@ -115,9 +123,27 @@ for t in np.arange(N):
     axs[1,1].plot(axis, P_brems_Wm3[t]/1e6, '.-', color=purple_map[t])
     axs[1,2].plot(axis, nu_ei_Hz[t], '.-', color=cool_map[t])
 
+axs[0,3].plot(axis, source_pe, 'C0.-', label = '$S_{p_e}$')
+axs[0,3].plot(axis, source_pi, 'C1.:', label = '$S_{p_i}$')
+axs[0,3].plot(axis, source_n , 'C2.-', label = '$S_{n}$')
+
 #axs[0,0].set_ylim( bottom=0 )
 #axs[1,0].set_ylim( bottom=0 )
 #axs[2,0].set_ylim( bottom=0 )
+
+axs[0,0].set_xlabel('$r/a$')
+axs[0,1].set_xlabel('$r/a$')
+axs[0,2].set_xlabel('$r/a$')
+axs[0,3].set_xlabel('$r/a$')
+axs[0,4].set_xlabel('$r/a$')
+axs[0,5].set_xlabel('$r/a$')
+axs[1,0].set_xlabel('$r/a$')
+axs[1,1].set_xlabel('$r/a$')
+axs[1,2].set_xlabel('$r/a$')
+axs[1,3].set_xlabel('$r/a$')
+axs[1,4].set_xlabel('$a/L_{{T_i}}$')
+axs[1,5].set_xlabel('$a/L_{{T_i}}$')
+
 
 axs[0,0].set_title(r'density [10$^{20}$ m$^{-3}$]')
 axs[0,1].set_title('temperature [keV]')
@@ -130,11 +156,32 @@ axs[1,5].set_title(r'$\Gamma(L_n)$')
 #axs[1,4].set_title(r'sources [MW/m$^{-3}$]')
 
 #axs[1,0].set_title('fusion rate')
-axs[1,0].set_title(r'fusion power density [MW/m$^{-3}$]')
-axs[1,1].set_title(r'bremstralung radiation [MW/m$^{-3}$]')
-axs[1,2].set_title('collisional heat exchange [Hz]')
+axs[1,0].set_title('fusion power density \n [MW/m$^{-3}$]')
+axs[1,1].set_title('bremstralung radiation \n [MW/m$^{-3}$]')
+axs[1,2].set_title('collisional heat \n exchange [Hz]')
 
-plt.tight_layout()
+plt.subplots_adjust(left=0.1,
+                    bottom=0.1, 
+                    right=0.9, 
+                    top=0.9, 
+                    wspace=0.4, 
+                    hspace=0.4)
+
+#plt.subplots_adjust(wspace = 0.4, hspace = 0.5)
+
+#Legends
+leg = axs[0,0].legend(loc='best', title = '$t v_{ti}/a$', fancybox=False, shadow=False,ncol=1)
+plt.setp(leg.get_title())
+leg.get_frame().set_edgecolor('k')
+leg.get_frame().set_linewidth(0.65)
+leg2 = axs[0,1].legend(loc='best', title = '$t v_{ti}/a$', fancybox=False, shadow=False,ncol=1)
+plt.setp(leg2.get_title())
+leg2.get_frame().set_edgecolor('k')
+leg2.get_frame().set_linewidth(0.65)
+leg4 = axs[0,3].legend(loc='best', fancybox=False, shadow=False,ncol=1)
+leg4.get_frame().set_edgecolor('k')
+leg4.get_frame().set_linewidth(0.65)
+#plt.tight_layout()
 
 plt.show()
 
