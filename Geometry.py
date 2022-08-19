@@ -82,9 +82,12 @@ class VmecRunner():
     def run(self, f_input, ncpu=2):
 
         self.data.write(f_input, force=True)
-
         tag = f_input.split('/')[-1][6:]
         vmec_wout = f"wout_{tag}.nc"
+
+        # overwrite previous input file
+        self.input_file = f_input
+        self.data = f90nml.read(f_input)
 
         path = self.engine.path
         if os.path.exists( path + vmec_wout ):
@@ -106,8 +109,6 @@ class VmecRunner():
         cmd = f"mv *{tag}* {path}"
         os.system(cmd)
 
-#        print(f"  changing vmec_path")
-#       self.engine.model_gx.vmec_path = path
 
 
 

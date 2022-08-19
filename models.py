@@ -449,6 +449,7 @@ class GX_Flux_Model():
         #.format(t_id, r_id, time, rho, s, kti, kn), file=f)
         ft = self.flux_tubes[r_id] 
         ft.set_gradients(kn, kti, kte)
+        ## TODO also need to update temp and dens
         
         # to be specified by Trinity input file, or by time stamp
         #root = 'gx-files/'

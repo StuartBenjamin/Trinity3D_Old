@@ -187,7 +187,7 @@ class Trinity_Engine():
 
 
         # init normalizations
-        self.norms = self.Normalizations(a_minor=a_minor)
+        self.norms = self.Normalizations(a_ref=a_minor)
 
         # TODO: need to implement <|grad rho|>, by reading surface area from VMEC
         grho = 1
@@ -1060,6 +1060,9 @@ class Trinity_Engine():
 
     def reset_fluxtubes(self):
 
+        if self.model !=  "GX":
+            return
+
         if self.needs_new_vmec == False:
             return
 
@@ -1071,32 +1074,50 @@ class Trinity_Engine():
         ams = vmec.data['indata']['am_aux_s'] # vmec psi axis
 
         p_trinity_f = np.concatenate( [ self.vmec_pressure, [amf[-1]] ] )
-        p_trinity_s = np.concatenate( [ self.rho_axis, [1.0] ] )
-        p_trin = interp1d( p_trinity_s, p_trinity_f, kind='cubic', fill_value="extrapolate")
+        p_trinity_rho = np.concatenate( [ self.rho_axis, [1.0] ] )
+        p_trin = interp1d( p_trinity_rho, p_trinity_f, kind='cubic', fill_value="extrapolate")
 
         ams_rho = np.sqrt(ams)
-        p_vmec = p_trin(ams_rho) # not used
-        p_vmec_s = p_trin(ams)
-
-        vmec.data['indata']['am_aux_f'] = p_vmec_s.tolist()
+        p_vmec_rho = p_trin(ams_rho) # not used by Trinity
+        p_vmec_psi = p_trin(ams)
 
 
-        #plt.subplot(1,2,1); plt.plot( ams_rho,amf,'.-'); plt.plot(p_trinity_s, p_trinity_f, 'o-');  plt.plot( ams_rho, p_vmec, '*-'); plt.subplot(1,2,2); plt.plot( ams,amf,'.-'); plt.plot(p_trinity_s**2, p_trinity_f, 'o-');  plt.plot( ams, p_vmec, '*-'); plt.show()
+        debug = False
+        if debug:
 
+   
+           plt.subplot(1,2,1); 
+           plt.plot( ams_rho,amf,'.-', label='prev vmec'); 
+           plt.plot(p_trinity_rho, p_trinity_f, 'o-', label='trinity now');  
+           plt.plot( ams_rho, p_vmec_rho, '*-', label='next vmec'); 
+           plt.title('Trinity rho')
+           plt.legend()
+
+           plt.subplot(1,2,2); 
+           plt.plot( ams,amf,'.-'); 
+           plt.plot(p_trinity_rho**2, p_trinity_f, 'o-');  
+           plt.plot( ams, p_vmec_rho, '*-'); 
+           plt.title('Vmec psi')
+           plt.suptitle(f"t = {self.t_idx}")
+           plt.show()
+
+           import pdb
+           pdb.set_trace()
+
+        # update pressure profile for vmec input
+        vmec.data['indata']['am_aux_f'] = p_vmec_rho.tolist()
+        #vmec.data['indata']['am_aux_f'] = p_vmec_psi.tolist()  # was bug
 
         # run VMEC (wait)
         tag = f"vmec-t{self.t_idx:02d}" 
         vmec_input = f"input.{tag}"
         vmec.run(self.path + vmec_input)
 
-        # update the wout
+        # read wout from vmec, and update flux tubes
         gx = self.model_gx
         vmec_wout = f"wout_{tag}.nc"
         gx.vmec_wout = vmec_wout
         gx.make_fluxtubes()
-        # gx.init_geometry() # make new flux tubes from wout
-
-        # maybe rename this to make_fluxtubes()
 
 
     # a subclass for handling normalizations in Trinity
@@ -1105,7 +1126,7 @@ class Trinity_Engine():
                            T_ref = 1e3,      # eV
                            B_ref = 1,        # T
                            m_ref = 1.67e-27, # kg, proton mass
-                           a_minor = 1,      # m
+                           a_ref = 1,        # minor radius, in m
                           ):
 
             # could get these constants from scipy
@@ -1126,9 +1147,9 @@ class Trinity_Engine():
             # this block current lives in calc_sources()
             #   it could simplify code to do it here
             #   but how to get a_minor out of the parent class?
-            t_ref = a_minor / vT_ref
+            t_ref = a_ref / vT_ref
             p_ref = n_ref * T_ref * self.e
-            gyro_scale = a_minor / self.rho_ref
+            gyro_scale = a_ref / self.rho_ref
             
             # converts from SI (W/m3)
             pressure_source_scale = t_ref / p_ref * gyro_scale**2 
@@ -1138,7 +1159,7 @@ class Trinity_Engine():
             self.n_ref = n_ref
             self.T_ref = T_ref
             self.B_ref = B_ref
-            self.a_ref = a_minor # unlike the above, this is device specific rather than a code convention
+            self.a_ref = a_ref
 
             self.vT_ref     = vT_ref
             self.t_ref      = t_ref
