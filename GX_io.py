@@ -138,6 +138,76 @@ def read_GX_output(fname):
     #print('  read GX output: qflux = ', med)
     return med # this is the qflux
 
+class GX_Output():
+
+    def __init__(self,fname):
+
+        try:
+            f = Dataset(fname, mode='r')
+            #f = nc.netcdf_file(fname, 'r') 
+        except: 
+            print('  read_GX_output: could not read', fname)
+    
+    
+        qflux = f.groups['Fluxes'].variables['qflux'][:,0]
+    
+        # check for NANs
+        if ( np.isnan(qflux).any() ):
+             print('  nans found in', fname)
+             qflux = np.nan_to_num(qflux)
+
+        self.qflux = qflux
+        self.time  = f.variables['time'][:]
+
+        self.tprim  = f.groups['Inputs']['Species']['T0_prime'][:]
+        self.fprim  = f.groups['Inputs']['Species']['n0_prime'][:]
+
+        self.data = f
+
+    def median_estimator(self):
+
+        N = len(self.qflux)
+        med = np.median( [ np.median( self.qflux[::-1][:k] ) for k in np.arange(1,N)] )
+
+        self.q_median = med
+        return med
+
+    def exponential_window_estimator(self, tau=100):
+
+        t0 = 0
+        qavg = 0
+        var_qavg = 0
+        
+        Q_avg = []
+        Var_Q_avg = []
+        
+        # loop through time
+        N = len(self.qflux)
+        for k in np.arange(N):
+        
+            # get q(t)
+            q = self.qflux[k]
+            t = self.time [k]
+        
+            # compute weights
+            gamma = (t - t0)/tau
+            alpha = np.e**( - gamma)
+            delta = q - qavg
+        
+            # update averages
+            qavg = alpha * qavg + q * (1 - alpha)
+            var_qavg = alpha * ( var_qavg + (1-alpha)* delta**2)
+            t0 = t
+        
+            # save
+            Q_avg.append(qavg)
+            Var_Q_avg.append(var_qavg)
+
+        self.Q_avg = Q_avg
+        self.Var_Q_avg = Var_Q_avg
+
+        return Q_avg[-1], Var_Q_avg[-1]
+        
 
 
 class VMEC_GX_geometry_module():
