@@ -3,12 +3,14 @@
 
 from netCDF4 import Dataset
 import copy
-import vmec as vmec_py
-from mpi4py import MPI
+
+## for running VMEC
+#import vmec as vmec_py
+#from mpi4py import MPI
+#import f90nml
 
 import numpy as np
 import subprocess
-import f90nml
 import os
 
 class FluxTube():
@@ -108,6 +110,45 @@ class VmecRunner():
         print(f"  moving VMEC files to {path}")
         cmd = f"mv *{tag}* {path}"
         os.system(cmd)
+
+
+
+
+class DescRunner():
+
+    def __init__(self, input_file, engine):
+
+        import desc.io
+        eq = desc.io.load(input_file) # loads desc output
+        self.input_file = input_file
+
+        self.engine = engine
+        self.desc_eq = eq
+
+
+    def run(self):
+
+        print("DESC RUNNER CALLED")
+        eq = self.desc_eq[-1]
+
+        # update profile
+        axis = self.engine.rho_axis
+        p_SI = self.engine.desc_pressure
+        pfit = np.polyfit(axis, p_SI,4)
+
+        from desc.profiles import PowerSeriesProfile
+#        from desc.profiles import SplineProfile
+        eq.pressure = PowerSeriesProfile(params=pfit)
+
+        # run equilibrium
+        eq.solve()
+
+        t_idx = self.engine.t_idx
+        path = self.engine.path
+        outname = f"{path}desc-t{t_idx:02d}.h5"
+        eq.save(outname)
+        print("  wrote decs output", outname)
+
 
 
 

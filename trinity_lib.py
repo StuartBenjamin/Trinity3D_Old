@@ -5,6 +5,7 @@ import profiles as pf # needed for setting pf.rho_axis
 from profiles import Profile, Flux_profile, Flux_coefficients, Psi_profiles, init_profile
 
 from Geometry import VmecRunner
+#from Geometry import DescRunner
 from Trinity_io import Trinity_Input
 from Collisions import Collision_Model
 
@@ -65,9 +66,12 @@ class Trinity_Engine():
                        no_collisions = False,
                        alpha_heating = False,
                        bremstrahlung = False,
-                       gx_path    = 'gx-files/run-dir/',
+                       gx_path    = 'gx-files/run-dir/', # old
+                       gx_inputs   = 'gx-files/',
+                       gx_outputs  = 'gx-files/run-dir/',
                        vmec_path  = './',
                        vmec_wout  = '',
+                       eq_model   = "",
                        ):
 
         ### Loading Trinity Inputs
@@ -108,22 +112,28 @@ class Trinity_Engine():
         Spi_center = float ( tr3d.inputs['sources']['Spi_center'] ) 
         Spe_center = float ( tr3d.inputs['sources']['Spe_center'] ) 
         
-        ext_source_file = tr3d.inputs['sources']['ext_source_file'] 
+        ext_source_file = self.load( ext_source_file, "tr3d.inputs['sources']['ext_source_file']" )
+
         # boolean as string
         no_collisions = self.load( no_collisions, "tr3d.inputs['debug']['no_collisions']" )
         alpha_heating = self.load( alpha_heating, "tr3d.inputs['debug']['alpha_heating']" )
         bremstrahlung = self.load( bremstrahlung, "tr3d.inputs['debug']['bremstrahlung']" )
        
-        gx_path   = tr3d.inputs['path']['gx_path']
+        #gx_path    = tr3d.inputs['path']['gx_path'] # old
+        gx_inputs  = tr3d.inputs['path']['gx_inputs'] 
+        gx_outputs = tr3d.inputs['path']['gx_outputs'] 
         vmec_path = tr3d.inputs['path']['vmec_path']
         vmec_wout = self.load( vmec_wout, "tr3d.inputs['geometry']['vmec_wout']")
 
-        R_major   = float ( tr3d.inputs['geometry']['R_major'] ) 
-        a_minor   = float ( tr3d.inputs['geometry']['a_minor'] ) 
-        Ba        = float ( tr3d.inputs['geometry']['Ba'     ] ) 
+        R_major   = self.load( R_major, "float( tr3d.inputs['geometry']['R_major'] )" ) 
+        a_minor   = self.load( a_minor, "float( tr3d.inputs['geometry']['a_minor'] )" ) 
+        Ba        = self.load( Ba     , "float( tr3d.inputs['geometry']['Ba'     ] )" ) 
 
         N_prints = int ( tr3d.inputs['log']['N_prints'] )
         f_save   = tr3d.inputs['log']['f_save']
+
+        # new option
+        eq_model = self.load( eq_model, "tr3d.inputs['equilibria']['eq_model']")
 
         ### Finished Loading Trinity Inputs
 
@@ -136,10 +146,10 @@ class Trinity_Engine():
         self.Te_core   = Te_core
         self.Te_edge   = Te_edge
 
-        self.pi_edge =  n_edge * Ti_edge
-        self.pe_edge =  n_edge * Te_edge
         self.pi_core =  n_core * Ti_core
         self.pe_core =  n_core * Te_core
+        self.pi_edge =  n_edge * Ti_edge
+        self.pe_edge =  n_edge * Te_edge
 
         self.model    = model
 
@@ -172,11 +182,20 @@ class Trinity_Engine():
         self.R_major = R_major # meter
         self.a_minor = a_minor # meter
 
-        rerun_vmec = True
+        rerun_vmec = False
         if rerun_vmec:
             vmec_input = "jet-files/input.JET-256"
             self.vmec = VmecRunner(vmec_input, self)
         self.path = './'
+
+
+        self.eq_model = eq_model
+        if eq_model == "DESC":
+            print("using DESC")
+
+            desc_input = "desc-examples/DSHAPE_output.h5"
+            desc = DescRunner(desc_input, self)
+            self.desc = desc
 
         # local variables
         self.time = 0
@@ -184,7 +203,6 @@ class Trinity_Engine():
         self.gx_idx = 0
         self.needs_new_flux = True
         self.needs_new_vmec = False
-
 
         # init normalizations
         self.norms = self.Normalizations(a_ref=a_minor)
@@ -217,27 +235,32 @@ class Trinity_Engine():
 
         # init collision model
         svec = Collision_Model()
-        #svec = Collisions.Collision_Model() # deleted 8/14
         svec.add_species( n, pi, mass_p=2, charge_p=1, ion=True, name='Deuterium')
         svec.add_species( n, pe, mass_p=1/1800, charge_p=-1, ion=False, name='electrons')
         self.collision_model = svec
 
+        # read VMEC
+        self.read_VMEC( vmec_wout, path=vmec_path )
+
         ### init flux models
         if (model == "GX"):
             print("  flux model: GX")
-            fout = 'gx-files/temp.gx'
-            self.path = gx_path
+#            fout = 'gx-files/temp.gx' # removed 9/7
+            self.path = gx_inputs
+            #self.path = gx_path # old
             gx = mf.GX_Flux_Model(self,
-                                  path = gx_path, 
+                                  gx_root = gx_inputs, 
+                                  path    = gx_outputs, 
+                                  #path = gx_path,  # old
                                   vmec_path = vmec_path,
                                   vmec_wout = vmec_wout,
                                   midpoints = mid_axis
                                   )
-            self.f_cmd = fout
+#            self.f_cmd = fout # removed 9/7
             self.vmec_wout = vmec_wout
 
-            # read VMEC
-            self.read_VMEC( vmec_wout, path=vmec_path )
+#            # read VMEC
+#            self.read_VMEC( vmec_wout, path=vmec_path )
 
             gx.make_fluxtubes()
             self.model_gx = gx
@@ -266,7 +289,7 @@ class Trinity_Engine():
             self.model_Qe = mf.Flux_model(D_neo=D_neo)
 
         # load sources (to do: split this into separate function self.load_source())
-        if (ext_source_file == 'none'):
+        if (ext_source_file == ''):
 
             self.Sn_height  = Sn_height  
             self.Spi_height = Spi_height 
@@ -319,7 +342,7 @@ class Trinity_Engine():
         print("  Global Geometry Information")
         print(f"    R_major: {self.R_major:.2f} m")
         print(f"    a_minor: {self.a_minor:.2f} m")
-        print(f"    Ba     : {self.Ba:.2f} T averge on LCFS \n")
+        print(f"    Ba     : {self.Ba:.2f} T average on LCFS \n")
 
     ##### End of __init__ function
 
@@ -1039,9 +1062,9 @@ class Trinity_Engine():
         delta_pi = profile_diff(pi, pi_prev) #np.std(pi - pi_prev)
         delta_pe = profile_diff(pe, pe_prev) #np.std(pe - pe_prev)
         delta_n  = profile_diff(n , n_prev) #np.std(n  - n_prev)
-        print("*****")
-        print(f"(dpi, dpe, dn) = {delta_pi}, {delta_pe}, {delta_n}")
-        print("*****")
+#        print("*****")
+#        print(f"(dpi, dpe, dn) = {delta_pi}, {delta_pe}, {delta_n}")
+#        print("*****")
 
 ### How to choose the threshold?
 ##   Maybe track convergence instead of magnitude?
@@ -1052,13 +1075,20 @@ class Trinity_Engine():
 
         p_SI = (pi + pe) * 1e20 * (1e3 * 1.6e-19)
         self.vmec_pressure = p_SI
+        self.desc_pressure = p_SI
 
         if profile_diff(p_SI, self.vmec_pressure_old) > 0.02:
-            print("***** needs new VMEC ****** threshold exceeds 2%")
+ #           print("***** needs new VMEC ****** threshold exceeds 2%")
             self.needs_new_vmec = True
             self.vmec_pressure_old = p_SI # maybe move this elsewhere
 
     def reset_fluxtubes(self):
+
+        # sloppy way to inject DESC code
+
+        if self.eq_model == "DESC":
+
+            self.desc.run()
 
         if self.model !=  "GX":
             return
@@ -1126,7 +1156,7 @@ class Trinity_Engine():
                            T_ref = 1e3,      # eV
                            B_ref = 1,        # T
                            m_ref = 1.67e-27, # kg, proton mass
-                           a_ref = 1,        # minor radius, in m
+                           a_ref = 1,        # minor radius, in m (!) this is a device-specific scale, not a unit - unlike the above
                           ):
 
             # could get these constants from scipy
@@ -1142,6 +1172,7 @@ class Trinity_Engine():
             self.rho_ref = 4.57e-3 # m
 
             vT_ref = np.sqrt(2 * (T_ref*self.e) / m_ref)
+            # (!!) m_ref is H, what about D and T?
        
 
             # this block current lives in calc_sources()
