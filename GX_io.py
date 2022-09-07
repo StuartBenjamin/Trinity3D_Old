@@ -114,7 +114,7 @@ class GX_Runner():
                 break
 
 
-# should this be a class?
+# should this be a class? Yes, this is now outdated 8/20
 def read_GX_output(fname):
     
     try:
@@ -162,6 +162,7 @@ class GX_Output():
         self.tprim  = f.groups['Inputs']['Species']['T0_prime'][:]
         self.fprim  = f.groups['Inputs']['Species']['n0_prime'][:]
 
+        self.fname = fname
         self.data = f
 
     def median_estimator(self):
@@ -174,8 +175,13 @@ class GX_Output():
 
     def exponential_window_estimator(self, tau=100):
 
-        t0 = 0
-        qavg = 0
+        # load data
+        time  = self.time
+        qflux = self.qflux
+
+        # initial state
+        t0       = time[0]
+        qavg     = qflux[0]
         var_qavg = 0
         
         Q_avg = []
@@ -186,8 +192,8 @@ class GX_Output():
         for k in np.arange(N):
         
             # get q(t)
-            q = self.qflux[k]
-            t = self.time [k]
+            q = qflux[k]
+            t = time [k]
         
             # compute weights
             gamma = (t - t0)/tau
@@ -207,6 +213,40 @@ class GX_Output():
         self.Var_Q_avg = Var_Q_avg
 
         return Q_avg[-1], Var_Q_avg[-1]
+
+    def check_convergence(self, tau_list=[10,50,100], threshold=0.5):
+
+        '''
+        Runs the exponential moving average for a list of taus
+
+        Decides whether to halt, by comparing neighboring taus.
+        '''
+        print("tau_list", tau_list)
+
+        data = [ self.exponential_window_estimator(tau=tau) for tau in tau_list]
+
+        avg,var = np.transpose(data)
+        std = np.sqrt(var)
+
+        check = std/avg < threshold
+        print(check)
+        print(avg)
+
+        N = len(tau_list)
+        for j in range(N-1):
+            
+            c0 = check[j]
+
+            if c0:
+               c1 = check[j+1]
+
+               if c1:
+                   
+                   # execute halt command
+                   run_name = self.fname[:-3]
+                   cmd = f"touch {run_name}.stop"
+                   print(cmd)
+                   return
         
 
 
@@ -305,7 +345,8 @@ class VMEC_GX_geometry_module():
         print('  wrote .ing', out_path+fname)
 
         # run
-        cmd = ['./{:}convert_VMEC_to_GX'.format(in_path),  out_path+fname]
+        cmd = ['{:}convert_VMEC_to_GX'.format(in_path),  out_path+fname]
+        #cmd = ['./{:}convert_VMEC_to_GX'.format(in_path),  out_path+fname] # old
 
         f_log = out_path + fname + '.log'
         with open(f_log, 'w') as fp:
