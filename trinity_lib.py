@@ -34,6 +34,13 @@ class Trinity_Engine():
             return eval(string)
         except:
             return x
+            '''
+            it would be great if python could run
+            self.{x} = x, instead of return x
+            where {x} is the variable name thats passed in. Maybe I just add an extra varname argument
+
+            or maybe I can strip it from the input string (get the last [], then take whats inside single quotes)
+            '''
 
     def __init__(self, trinity_input,
                        N_radial = 10, # number of radial points
@@ -64,8 +71,9 @@ class Trinity_Engine():
                        model      = 'GX',
                        D_neo      = 0.5,
                        no_collisions = False,
-                       alpha_heating = False,
-                       bremstrahlung = False,
+                       alpha_heating = True,
+                       bremstrahlung = True,
+                       update_equilibrium = True,
                        gx_path    = 'gx-files/run-dir/', # old
                        gx_inputs   = 'gx-files/',
                        gx_outputs  = 'gx-files/run-dir/',
@@ -115,9 +123,12 @@ class Trinity_Engine():
         ext_source_file = self.load( ext_source_file, "tr3d.inputs['sources']['ext_source_file']" )
 
         # boolean as string
-        no_collisions = self.load( no_collisions, "tr3d.inputs['debug']['no_collisions']" )
+        #    TODO 9/7, right now the string 'False' evaluates to bool True
+        #    so the code work around is to evaluate flag == 'false' as a string, could be improved
+        no_collisions = self.load( no_collisions, "tr3d.inputs['debug']['no_collisions']" ) # remove double negative? 9/7
         alpha_heating = self.load( alpha_heating, "tr3d.inputs['debug']['alpha_heating']" )
         bremstrahlung = self.load( bremstrahlung, "tr3d.inputs['debug']['bremstrahlung']" )
+        update_equilibrium = self.load( update_equilibrium, "tr3d.inputs['debug']['update_equilibrium']" )
        
         #gx_path    = tr3d.inputs['path']['gx_path'] # old
         gx_inputs  = tr3d.inputs['path']['gx_inputs'] 
@@ -156,6 +167,7 @@ class Trinity_Engine():
         self.no_collisions = no_collisions
         self.alpha_heating = alpha_heating
         self.bremstrahlung = bremstrahlung
+        self.update_equilibrium = update_equilibrium
 
         rho_inner = rho_edge / (2*N_radial - 1)
         rho_axis = np.linspace(rho_inner, rho_edge, N_radial) # radial axis, N points
@@ -182,7 +194,7 @@ class Trinity_Engine():
         self.R_major = R_major # meter
         self.a_minor = a_minor # meter
 
-        rerun_vmec = False
+        rerun_vmec = False # old, this is now self.update_equilibrium
         if rerun_vmec:
             vmec_input = "jet-files/input.JET-256"
             self.vmec = VmecRunner(vmec_input, self)
@@ -1083,6 +1095,11 @@ class Trinity_Engine():
             self.vmec_pressure_old = p_SI # maybe move this elsewhere
 
     def reset_fluxtubes(self):
+
+        if self.update_equilibrium == 'False':
+
+            print("  debug option triggered: skipping equilibrium update")
+            return
 
         # sloppy way to inject DESC code
 
