@@ -96,9 +96,14 @@ def plot_power_balance(t=0):
 
 
 ## plot
+path = "tmp/"
+import os
+if not os.path.exists(path):
+    os.makedirs(path)
+
 for t in np.arange(len(force_n)):
     plot_power_balance(t=t)
-    fout = 'tmp/t={:03d}.png'.format(t)
+    fout = f'{path}t={t:03d}.png'
     plt.savefig(fout)
     plt.clf()
     print('saved', fout)
