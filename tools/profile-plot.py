@@ -58,6 +58,9 @@ source_n  = profile_data['source_n' ]
 source_pi = profile_data['source_pi']
 source_pe = profile_data['source_pe']
 
+p_source_scale = data['norms']['pressure_source_scale']
+
+
 def init_profile(x,debug=False):
 
     X = pf.Profile(x, grad=True, half=True, full=True)
@@ -127,6 +130,10 @@ axs[0,3].plot(axis, source_pe, 'C0.-', label = '$S_{p_e}$')
 axs[0,3].plot(axis, source_pi, 'C1.:', label = '$S_{p_i}$')
 axs[0,3].plot(axis, source_n , 'C2.-', label = '$S_{n}$')
 
+# convert from Trinity units to MW/m3
+axs[1,3].plot(axis, source_pe / p_source_scale * 1e-6, 'C0.-', label = '$S_{p_e}$')
+axs[1,3].plot(axis, source_pi / p_source_scale * 1e-6, 'C1.:', label = '$S_{p_i}$')
+
 #axs[0,0].set_ylim( bottom=0 )
 #axs[1,0].set_ylim( bottom=0 )
 #axs[2,0].set_ylim( bottom=0 )
@@ -153,7 +160,7 @@ axs[0,5].set_title('particle flux')
 axs[0,3].set_title('sources')
 axs[1,4].set_title(r'$Q_i(L_{T_i})$')
 axs[1,5].set_title(r'$\Gamma(L_n)$')
-#axs[1,4].set_title(r'sources [MW/m$^{-3}$]')
+axs[1,3].set_title(r'sources [MW/m$^{-3}$]')
 
 #axs[1,0].set_title('fusion rate')
 axs[1,0].set_title('fusion power density \n [MW/m$^{-3}$]')
