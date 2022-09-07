@@ -60,15 +60,15 @@ class Flux_model():
 
     def __init__(self,
                # neoclassical diffusion coefficient
-               D_neo  = 0.1,
+               D_neo  = 0, # 0.1
                # critical gradient
                n_critical_gradient  = 1, 
-               pi_critical_gradient = 1,
-               pe_critical_gradient = 1,
+               pi_critical_gradient = 2,
+               pe_critical_gradient = 2, # 9/5 this used to be 1,1,1
                # slope of flux(Ln) after onset
-               n_flux_slope  = 1.1, 
-               pi_flux_slope = 1.1,
-               pe_flux_slope = 1.1,
+               n_flux_slope  = 0.5, # 9/5 this used to be 1.1,1.1,1.1
+               pi_flux_slope = 0.5,
+               pe_flux_slope = 0.5,
                zero_flux = False,
                ):
 
@@ -177,7 +177,7 @@ WAIT_TIME = 1  # this should come from the Trinity Engine
 class GX_Flux_Model():
 
     def __init__(self, engine, 
-                       #fname, # is this used? nope, 8/14
+                       gx_root='gx-files/', 
                        path='run-dir/', 
                        vmec_path='./',
                        vmec_wout="",
@@ -186,13 +186,13 @@ class GX_Flux_Model():
 
         self.engine = engine
 
-        gx_root = "gx-files/"  # this is part of repo, don't change
+#        gx_root = "gx-files/"  # this is part of repo, don't change # old, 9/7
         f_input = 'gx-sample.in'  
         f_geo   = 'gx-geometry-sample.ing' # sample input file, to be part of repo
 
         ### Check file path
         print("  Looking for GX files")
-        print("    Hard-coded GX input path:", gx_root)
+        print("    GX input path:", gx_root)
         print("      expecting GX template:", gx_root + f_input)
         print("      expecting GX executable:", gx_root + "gx")
         print("      expecting GX-VMEC template:", gx_root + f_geo)
