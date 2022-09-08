@@ -481,8 +481,8 @@ class Trinity_Engine():
         # calc
         A = area / Ba**2
         Fn = A * Gamma * pi**(1.5) / n**(0.5)
-        Fpi = A * Qi * pi**(2.5) / n**(1.5)
-        Fpe = A * Qe * pi**(2.5) / n**(1.5)
+        Fpi = A * Qi * pi**(2.5) / n**(1.5) * 10 
+        Fpe = A * Qe * pi**(2.5) / n**(1.5) * 10
 
         # new 8/11
         B_factor = grho / Ba**2 

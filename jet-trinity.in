@@ -5,8 +5,14 @@
   N_steps  = 5
   alpha    = 1
 
+[log]
+  N_prints = 5
+  f_save   = log_trinity
+
 [path]
-  gx_path   = gx-files/JET/
+  gx_inputs   = gx-files/
+  gx_outputs   = gx-files/jet-temp/
+  #gx_path   = gx-files/JET/
   vmec_path = gx-geometry/
 
 [model]
@@ -47,7 +53,5 @@
   no_collisions = False
   alpha_heating = True
   bremstrahlung = True
+  update_equilibrium = False
 
-[log]
-  N_prints = 5
-  f_save   = log_trinity

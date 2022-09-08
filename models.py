@@ -538,8 +538,12 @@ class GX_Flux_Model():
         if ( os.path.exists(f_nc) == False ):
 
             # attempt to call
-            cmd = ['srun', '-N', '1', '-t', '2:00:00', '--ntasks=1', '--gpus-per-task=1', path+'./gx', path+tag+'.in'] # new gx binary
-            #cmd = ['srun', '-N', '1', '-t', '2:00:00', '--ntasks=1', '--gpus-per-task=1', path+'./gx', path+tag]
+            system = os.environ['GK_SYSTEM']
+
+            cmd = ['srun', '-N', '1', '-t', '2:00:00', '--ntasks=1', '--gpus-per-task=1', path+'gx', path+tag+'.in'] # stellar
+            if system == 'traverse':
+                # traverse does not recognize path/to/gx as an executable
+                cmd = ['srun', '-N', '1', '-t', '2:00:00', '--ntasks=1', '--gpus-per-task=1', 'gx', path+tag+'.in'] # traverse
     
             print('Calling', tag)
             print_time()
