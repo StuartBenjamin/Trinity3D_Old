@@ -554,9 +554,8 @@ class GX_Flux_Model():
                 p = subprocess.Popen(cmd, stdout=fp)
                 self.processes.append(p)
                 #self.wait() # temp, debug
-    
-            print('slurm gx completed')
-            print_time()
+#            print('slurm gx completed')
+ #           print_time()
 
         else:
             print('  gx output {:} already exists'.format(tag) )
