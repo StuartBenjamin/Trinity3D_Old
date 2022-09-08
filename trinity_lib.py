@@ -237,13 +237,17 @@ class Trinity_Engine():
         pi = n * Ti
         pe = n * Te
 
-
         self.vmec_pressure_old = (pi + pe) * 1e20 * (1e3 * 1.6e-19) # for comparison later
 
         # save
         self.density     = init_profile(n)
         self.pressure_i  = init_profile(pi)
         self.pressure_e  = init_profile(pe)
+
+        # new 9/7: save a copy of the initial profiles
+        self.density_init     = self.density     
+        self.pressure_i_init  = self.pressure_i  
+        self.pressure_e_init  = self.pressure_e  
 
         # init collision model
         svec = Collision_Model()
@@ -1037,7 +1041,7 @@ class Trinity_Engine():
         # plt.figure(); plt.imshow( np.log(np.abs(Amat))); plt.show()
     
 
-    def update(self):
+    def update(self, threshold=0.5):
         '''
         Load the results from y = Ab, update profiles
         '''
@@ -1074,6 +1078,20 @@ class Trinity_Engine():
         delta_pi = profile_diff(pi, pi_prev) #np.std(pi - pi_prev)
         delta_pe = profile_diff(pe, pe_prev) #np.std(pe - pe_prev)
         delta_n  = profile_diff(n , n_prev) #np.std(n  - n_prev)
+
+        # sanity check
+        if np.max( [delta_pi, delta_pe, delta_n] ) > threshold:
+          
+            print("\n    WARNING: one of the profiles changed by more than 50%\n")
+
+            self.density = self.density_init
+            self.pressure_i = self.pressure_i_init
+            self.pressure_e = self.pressure_e_init
+            self.dtau = self.dtau / 2
+
+            print(f"\n    RESTARTING with dtau -> dtau/2: {self.dtau}\n")
+
+
 #        print("*****")
 #        print(f"(dpi, dpe, dn) = {delta_pi}, {delta_pe}, {delta_n}")
 #        print("*****")
@@ -1218,5 +1236,5 @@ class Trinity_Engine():
 
 
 def profile_diff(arr, old):
-    # this is an L_infinity norm
+    # this is an L_infinity norm over the radial profile
     return np.max( np.abs( (arr - old)/old ) )

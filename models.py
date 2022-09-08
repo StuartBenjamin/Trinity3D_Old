@@ -355,6 +355,18 @@ class GX_Flux_Model():
         Lpi = - a * engine.pressure_i.grad_log.profile  # L_pi^inv
         Lpe = - a * engine.pressure_e.grad_log.profile  # L_pe^inv
 
+        # get normalizations for GX, dens and temp
+        n = engine.density.midpoints
+        pi = engine.pressure_i.midpoints
+        pe = engine.pressure_e.midpoints
+
+        Ti = pi/n
+        Te = pe/n
+
+        Tref = Ti # hard-coded convention
+        gx_Ti = Ti/Tref
+        gx_Te = Te/Tref
+
 
         # turbulent flux calls, for each radial flux tube
         mid_axis = engine.mid_axis
@@ -379,10 +391,13 @@ class GX_Flux_Model():
             kti = kpi - kn
             kte = kpe - kn
 
+            temp_i = gx_Ti[j]
+            temp_e = gx_Te[j]
+
             # writes the GX input file and calls the slurm 
             scale = 1 + step
-            f0 [j] = self.gx_command(j, rho, kn      , kti        , kte        , '0' )
-            fpi[j] = self.gx_command(j, rho, kn      , kti*scale , kte        , '2' )
+            f0 [j] = self.gx_command(j, rho, kn      , kti       , kte        , '0', temp_e = temp_e )
+            fpi[j] = self.gx_command(j, rho, kn      , kti*scale , kte        , '2', temp_e = temp_e )
             #fn [j] = self.gx_command(j, rho, kn*scale , kpi        , kpe        , '1' )
             #fpe[j] = self.gx_command(j, rho, kn      , kpi        , kpe*scale , '3' )
 
@@ -435,7 +450,8 @@ class GX_Flux_Model():
         # set electron flux = to ions for now
 
     #  sets up GX input, executes GX, returns input file name
-    def gx_command(self, r_id, rho, kn, kti, kte, job_id):
+    def gx_command(self, r_id, rho, kn, kti, kte, job_id, 
+                         temp_i=1,temp_e=1):
         # this version perturbs for the gradient
         # (temp, should be merged as option, instead of duplicating code)
         
@@ -449,7 +465,12 @@ class GX_Flux_Model():
         #.format(t_id, r_id, time, rho, s, kti, kn), file=f)
         ft = self.flux_tubes[r_id] 
         ft.set_gradients(kn, kti, kte)
-        ## TODO also need to update temp and dens
+        ft.set_dens_temp(temp_i, temp_e)
+        '''
+        TODO also need to update temp and dens
+
+        normalize to species 1
+        '''
         
         # to be specified by Trinity input file, or by time stamp
         #root = 'gx-files/'
@@ -466,7 +487,8 @@ class GX_Flux_Model():
 
         else:
             ft.gx_input.inputs['Restart']['restart'] = 'true'
-            fload = 'restarts/t{:}-r{:}-{:}save.nc'.format(t_id-1, r_id, job_id)
+            fload = f"restarts/t{t_id-1}-r{r_id}-{job_id}save.nc"
+            #fload = 'restarts/t{:}-r{:}-{:}save.nc'.format(t_id-1, r_id, job_id)
             ft.gx_input.inputs['Restart']['restart_from_file'] = '"{:}"'.format(path + fload)
             ft.gx_input.inputs['Controls']['init_amp'] = '0.0'
             # restart from the same file (prev time step), to ensure parallelizability

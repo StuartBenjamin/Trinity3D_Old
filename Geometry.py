@@ -71,6 +71,15 @@ class FluxTube():
         fprim = '[ {:.2f},       {:.2f}     ]'.format(kn, kn)
         gx.inputs['species']['fprim'] = fprim
 
+    def set_dens_temp(self, temp_i, temp_e):
+
+        gx = self.gx_input
+
+        temp = f"[ {temp_i:.2f},       {temp_e:.2f}     ]"
+        gx.inputs['species']['temp'] = temp
+
+        # for adiatibatic electrons ne=ni so dens is [1,1] for now
+
 
 class VmecRunner():
 
