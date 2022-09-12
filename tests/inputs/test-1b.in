@@ -6,7 +6,6 @@
   alpha    = 0
 
 [path]
-  gx_path   = gx-files/run-dir/
   vmec_path = gx-geometry/
 
 [model]
@@ -34,7 +33,6 @@
   Sn_center   = 0.3
   Spi_center  = 0.5
   Spe_center  = 0.5
-  ext_source_file  = none !jet-42982-sources.txt
 
 [geometry]
   Ba        = 4

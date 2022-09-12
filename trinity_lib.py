@@ -24,6 +24,8 @@ It stores partial calculations
 as attributes. It also contains a subclass Normalizations that handles all normalizations.
 '''
 
+_version = "0.0.0"
+
 class Trinity_Engine():
 
     ### read inputs
@@ -74,7 +76,6 @@ class Trinity_Engine():
                        alpha_heating = True,
                        bremstrahlung = True,
                        update_equilibrium = True,
-                       gx_path    = 'gx-files/run-dir/', # old
                        gx_inputs   = 'gx-files/',
                        gx_outputs  = 'gx-files/run-dir/',
                        vmec_path  = './',
@@ -92,6 +93,8 @@ class Trinity_Engine():
         tr3d = Trinity_Input(trinity_input)
         self.trinity_input_file = trinity_input
         self.inputs = tr3d
+
+        self.version = _version
         
 
         N_radial = self.load( N_radial, "int(tr3d.inputs['grid']['N_radial'])" )
@@ -130,10 +133,9 @@ class Trinity_Engine():
         bremstrahlung = self.load( bremstrahlung, "tr3d.inputs['debug']['bremstrahlung']" )
         update_equilibrium = self.load( update_equilibrium, "tr3d.inputs['debug']['update_equilibrium']" )
        
-        #gx_path    = tr3d.inputs['path']['gx_path'] # old
-        gx_inputs  = tr3d.inputs['path']['gx_inputs'] 
-        gx_outputs = tr3d.inputs['path']['gx_outputs'] 
-        vmec_path = tr3d.inputs['path']['vmec_path']
+        gx_inputs  = self.load( gx_inputs, "tr3d.inputs['path']['gx_inputs']")
+        gx_outputs = self.load( gx_outputs, "tr3d.inputs['path']['gx_outputs']")
+        vmec_path = self.load( vmec_path, "tr3d.inputs['path']['vmec_path']")
         vmec_wout = self.load( vmec_wout, "tr3d.inputs['geometry']['vmec_wout']")
 
         R_major   = self.load( R_major, "float( tr3d.inputs['geometry']['R_major'] )" ) 
@@ -1047,7 +1049,7 @@ class Trinity_Engine():
         # plt.figure(); plt.imshow( np.log(np.abs(Amat))); plt.show()
     
 
-    def update(self, threshold=0.5):
+    def update(self, threshold=0.9):
         '''
         Load the results from y = Ab, update profiles
         '''
@@ -1088,7 +1090,7 @@ class Trinity_Engine():
         # sanity check
         if np.max( [delta_pi, delta_pe, delta_n] ) > threshold:
           
-            print("\n    WARNING: one of the profiles changed by more than 50%\n")
+            print(f"\n    WARNING: one of the profiles changed by more than {threshold*100}%\n")
 
             self.density = self.density_init
             self.pressure_i = self.pressure_i_init

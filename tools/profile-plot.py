@@ -149,7 +149,7 @@ axs[1,1].set_xlabel('$r/a$')
 axs[1,2].set_xlabel('$r/a$')
 axs[1,3].set_xlabel('$r/a$')
 axs[1,4].set_xlabel('$a/L_{{T_i}}$')
-axs[1,5].set_xlabel('$a/L_{{T_i}}$')
+axs[1,5].set_xlabel('$a/L_n$')
 
 
 axs[0,0].set_title(r'density [10$^{20}$ m$^{-3}$]')
@@ -173,21 +173,26 @@ plt.subplots_adjust(left=0.1,
                     top=0.9, 
                     wspace=0.4, 
                     hspace=0.4)
+# !! this function dumps a bunch of output
 
 #plt.subplots_adjust(wspace = 0.4, hspace = 0.5)
 
+import pdb
+pdb.set_trace()
+
 #Legends
 leg = axs[0,0].legend(loc='best', title = '$t v_{ti}/a$', fancybox=False, shadow=False,ncol=1)
-plt.setp(leg.get_title())
+#_ = plt.setp(leg.get_title())
 leg.get_frame().set_edgecolor('k')
 leg.get_frame().set_linewidth(0.65)
 leg2 = axs[0,1].legend(loc='best', title = '$t v_{ti}/a$', fancybox=False, shadow=False,ncol=1)
-plt.setp(leg2.get_title())
+#_ = plt.setp(leg2.get_title())
 leg2.get_frame().set_edgecolor('k')
 leg2.get_frame().set_linewidth(0.65)
 leg4 = axs[0,3].legend(loc='best', fancybox=False, shadow=False,ncol=1)
 leg4.get_frame().set_edgecolor('k')
 leg4.get_frame().set_linewidth(0.65)
+
 #plt.tight_layout()
 
 plt.show()

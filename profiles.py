@@ -37,8 +37,6 @@ class Profile():
         if (grad):
             self.grad     =  Profile(self.midpoint_gradient(), full=full)
             self.grad_log =  Profile(self.midpoint_log_gradient(), full=full)
-#            self.grad     =  Profile(self.gradient(), half=half, full=full)
-#            self.grad_log =  Profile(self.log_gradient(), half=half, full=full)
 
     # pos/neg are forward and backwards
     def halfstep_neg(self):

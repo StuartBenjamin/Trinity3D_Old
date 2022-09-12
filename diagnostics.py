@@ -54,6 +54,10 @@ class ProfileSaver:
 
     def save(self,engine):
 
+        # version
+        self.log['version'] = engine.version
+        
+        # profile
         n  = engine.density.profile
         pi = engine.pressure_i.profile
         pe = engine.pressure_e.profile
@@ -66,10 +70,9 @@ class ProfileSaver:
         He = engine.He.full.profile
         t  = engine.time
 
-        a = engine.a_minor
-        aLn  = - a * engine.density   .grad_log.profile
-        aLpi = - a * engine.pressure_i.grad_log.profile
-        aLpe = - a * engine.pressure_e.grad_log.profile
+        aLn  = - engine.density   .grad_log.profile # a / Ln
+        aLpi = - engine.pressure_i.grad_log.profile # a / Lpi
+        aLpe = - engine.pressure_e.grad_log.profile # a / Lpe
 
         self.log['time'].append(t)
         self.log['n'].append(n)

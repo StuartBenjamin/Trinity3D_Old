@@ -140,9 +140,8 @@ class Barnes_Model2():
         pi = engine.pressure_i.midpoints
         pe = engine.pressure_e.midpoints
 
-        a = engine.a_minor
-        Lpi = - a * engine.pressure_i.grad_log.profile  # L_pi^inv
-        Lpe = - a * engine.pressure_e.grad_log.profile  # L_pe^inv
+        Lpi = - engine.pressure_i.grad_log.profile  # a / L_pi
+        Lpe = - engine.pressure_e.grad_log.profile  # a / L_pe
 
         D = self.D
         Qi = 1.5 * D * Lpi / pi**(-1.5) # assume p_ref = pi
@@ -350,10 +349,9 @@ class GX_Flux_Model():
         self.time = engine.time
 
         # preparing dimensionless (tprim = L_ref/LT) for GX
-        a = engine.a_minor
-        Ln  = - a * engine.density.grad_log   .profile  # L_n^inv
-        Lpi = - a * engine.pressure_i.grad_log.profile  # L_pi^inv
-        Lpe = - a * engine.pressure_e.grad_log.profile  # L_pe^inv
+        Ln  = - engine.density.grad_log   .profile  # a / L_n
+        Lpi = - engine.pressure_i.grad_log.profile  # a / L_pi
+        Lpe = - engine.pressure_e.grad_log.profile  # a / L_pe
 
         # get normalizations for GX, dens and temp
         n = engine.density.midpoints
