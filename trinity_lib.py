@@ -178,6 +178,12 @@ class Trinity_Engine():
         # set axis for Profiles library
         pf.rho_axis   = rho_axis
         pf.mid_axis   = mid_axis
+        '''
+        The Profiles.py library needs rho_axis and mid_axis for intitative Profile and Flux_Profile class objects.
+        This line of code sets them as a global variable of the library, during the init of the trinity engine.
+
+        It is not ideal, and I am open to suggestions on how to do this better.
+        '''
 
         self.dtau     = dtau
         self.alpha    = alpha

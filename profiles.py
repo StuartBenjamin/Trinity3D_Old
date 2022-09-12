@@ -126,13 +126,12 @@ class Profile():
         return grad
 
     def midpoint_log_gradient(self):
-        # this is actually the gradient of the log...
-
-        midpoints = self.profile[1:] - self.profile[:-1]
+        '''
+        This computes a/LT by taking dimensionless derivative d/drho in Trinity's radial coordinate
+        '''
 
         with np.errstate(divide='ignore', invalid='ignore'):
             gradlog = np.nan_to_num(self.midpoint_gradient() / self.midpoints )
-            #gradlog = np.nan_to_num(self.midpoint_gradient() / midpoints )
 
         return gradlog
 

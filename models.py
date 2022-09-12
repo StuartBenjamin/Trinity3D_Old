@@ -421,8 +421,14 @@ class GX_Flux_Model():
 
         # record the heat flux
         Qflux  =  Q0
-        # recort dQ / dLx
+        # record dQ / dLx
         Qi_pi  =  (Qpi - Q0) / (Lpi * step)
+        '''
+        document
+        Lpi = a/Lpi # rename
+
+        !!! check Ln != case
+        '''
         #Qi_n   =  (Qn  - Q0) / (Ln * step) 
         #Qi_pe  =  (Qpe - Q0) / (Lpe * step) 
         Qi_n = 0*Q0 # this is already the init state
