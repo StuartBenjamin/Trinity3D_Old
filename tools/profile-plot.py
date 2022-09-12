@@ -173,15 +173,13 @@ plt.subplots_adjust(left=0.1,
                     top=0.9, 
                     wspace=0.4, 
                     hspace=0.4)
-# !! this function dumps a bunch of output
 
 #plt.subplots_adjust(wspace = 0.4, hspace = 0.5)
 
-import pdb
-pdb.set_trace()
 
 #Legends
 leg = axs[0,0].legend(loc='best', title = '$t v_{ti}/a$', fancybox=False, shadow=False,ncol=1)
+# !! this function dumps a bunch of output
 #_ = plt.setp(leg.get_title())
 leg.get_frame().set_edgecolor('k')
 leg.get_frame().set_linewidth(0.65)
