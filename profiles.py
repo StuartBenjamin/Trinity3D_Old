@@ -71,6 +71,13 @@ class Profile():
         x1[0] = x0[0]
         return x1
 
+    def radial_midpoints(self):
+        # Gets midpoints for flux tube simulations.
+        ax = self.axis
+        dx_gen = ax[1:] - ax[:-1]
+        fluxtube_ax = ax[:-1] + dx_gen/2
+        return fluxtube_ax
+
     def gradient(self):
         '''
         used less, now that GX is evaluated on the MIDPOINTS
