@@ -56,6 +56,7 @@ class ProfileSaver:
 
         # version
         self.log['version'] = engine.version
+        self.log['trinity_infile'] = engine.trinity_infile
         
         # profile
         n  = engine.density.profile

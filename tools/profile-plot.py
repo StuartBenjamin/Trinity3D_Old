@@ -75,7 +75,9 @@ fig,axs = plt.subplots( 2, 6, figsize=(65,8) )
 alpha = settings['alpha']
 dtau  = settings['dtau']
 N_steps = settings['N_steps']
-rlabel = rf'$\alpha = {alpha} : d\tau = {dtau:.3e} : N_\tau = {N_steps} : \Delta\tau = {dtau*N_steps:.1e}$'
+
+filename = data['trinity_infile']
+rlabel = rf'[{filename}] :: $\alpha = {alpha} : d\tau = {dtau:.3e} : N_\tau = {N_steps} : \Delta\tau = {dtau*N_steps:.1e}$'
 plt.suptitle(rlabel)
 
 

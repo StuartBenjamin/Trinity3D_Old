@@ -72,7 +72,7 @@ class Trinity_Engine():
                        ext_source_file = '',
                        model      = 'GX',
                        D_neo      = 0.5,
-                       no_collisions = False,
+                       collisions = True,
                        alpha_heating = True,
                        bremstrahlung = True,
                        update_equilibrium = True,
@@ -90,8 +90,8 @@ class Trinity_Engine():
         then overwrite with input file as needed.
         '''
 
-        tr3d = Trinity_Input(trinity_input)
-        self.trinity_input_file = trinity_input
+        tr3d = Trinity_Input(trinity_input) # parse the input file data
+        self.trinity_infile = trinity_input  # save input file name
         self.inputs = tr3d
 
         self.version = _version
@@ -128,7 +128,7 @@ class Trinity_Engine():
         # boolean as string
         #    TODO 9/7, right now the string 'False' evaluates to bool True
         #    so the code work around is to evaluate flag == 'false' as a string, could be improved
-        no_collisions = self.load( no_collisions, "tr3d.inputs['debug']['no_collisions']" ) # remove double negative? 9/7
+        collisions = self.load( collisions, "tr3d.inputs['debug']['collisions']" ) 
         alpha_heating = self.load( alpha_heating, "tr3d.inputs['debug']['alpha_heating']" )
         bremstrahlung = self.load( bremstrahlung, "tr3d.inputs['debug']['bremstrahlung']" )
         update_equilibrium = self.load( update_equilibrium, "tr3d.inputs['debug']['update_equilibrium']" )
@@ -166,7 +166,7 @@ class Trinity_Engine():
 
         self.model    = model
 
-        self.no_collisions = no_collisions
+        self.collisions = collisions
         self.alpha_heating = alpha_heating
         self.bremstrahlung = bremstrahlung
         self.update_equilibrium = update_equilibrium
@@ -269,18 +269,14 @@ class Trinity_Engine():
         ### init flux models
         if (model == "GX"):
             print("  flux model: GX")
-#            fout = 'gx-files/temp.gx' # removed 9/7
             self.path = gx_inputs
-            #self.path = gx_path # old
             gx = mf.GX_Flux_Model(self,
                                   gx_root = gx_inputs, 
                                   path    = gx_outputs, 
-                                  #path = gx_path,  # old
                                   vmec_path = vmec_path,
                                   vmec_wout = vmec_wout,
                                   midpoints = mid_axis
                                   )
-#            self.f_cmd = fout # removed 9/7
             self.vmec_wout = vmec_wout
 
 #            # read VMEC
@@ -646,10 +642,11 @@ class Trinity_Engine():
         self.Ei = Ei
         self.Ee = Ee
         
-        if self.no_collisions == "True":  
-            # could write this to skil the function and return instead
+        if self.collisions == "False":  
+            # could write this to skip the function and return instead
             self.Ei = Ei*0
             self.Ee = Ei*0
+
 
     def calc_psi_n(self):
     
