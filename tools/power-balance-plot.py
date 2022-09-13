@@ -99,7 +99,7 @@ def plot_power_balance(t=0):
     axs[1,1].plot(axis, pi[t] , '.-')
     axs[1,2].plot(axis, pe[t] , '.-')
 
-    plt.suptitle('t = {}'.format(t))
+    plt.suptitle('t = {:.3f}'.format(time[t]))
 
 ## plot
 path = "tmp/"

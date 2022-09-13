@@ -439,7 +439,6 @@ class Trinity_Engine():
         Qi = vec(s.model_Qi.flux)(0*kn, kpi-kn, 0*kpe) + Qi_neo
         Qe = vec(s.model_Qe.flux)(0*kn, 0*kpi, kpe-kn) + Qe_neo
 
-
         ### off diagonal is turned off
         G_n, G_pi, G_pe    = vec(s.model_G.flux_gradients )(kn,0*kpi, 0*kpe) 
         Qi_n, Qi_pi, Qi_pe = vec(s.model_Qi.flux_gradients)(0*kn, kpi-kn, 0*kpe)
@@ -482,9 +481,9 @@ class Trinity_Engine():
         grho  = self.grho
         a     = self.a_minor
 
-        aLn  = - a * self.density.grad_log   .profile  # L_n^inv
-        aLpi = - a * self.pressure_i.grad_log.profile  # L_pi^inv
-        aLpe = - a * self.pressure_e.grad_log.profile  # L_pe^inv
+        aLn  = - self.density.grad_log   .profile  # a / L_n
+        aLpi = - self.pressure_i.grad_log.profile  # a / L_pi
+        aLpe = - self.pressure_e.grad_log.profile  # a / L_pe
 
         # calc
         A = area / Ba**2
@@ -495,11 +494,14 @@ class Trinity_Engine():
         # new 8/11
         B_factor = grho / Ba**2 
         Impurity_ratio = 1 # Zs/Zi
+
         # kappa1 is (7.78) kappa2 is (7.79)
         kappa1_i = 1.5 * aLpi - 2.5 * aLn
         kappa1_e = 1.5 * aLpe - 2.5 * aLn
-        kappa2_i = aLn - aLpi
-        kappa2_e = aLn - aLpe
+
+        eps = 1e-16 # if aLT = 0, this avoids a 1/0 downstream
+        kappa2_i = aLn - aLpi + eps
+        kappa2_e = aLn - aLpe + eps
 
         Gi = B_factor * Impurity_ratio * pi**1.5 * pi / n**1.5 * kappa1_i * Gamma
         Ge = B_factor * Impurity_ratio * pi**1.5 * pe / n**1.5 * kappa1_e * Gamma
@@ -520,6 +522,7 @@ class Trinity_Engine():
         self.Ge  = Flux_profile( Ge )
         self.Hi  = Flux_profile( Hi )
         self.He  = Flux_profile( He )
+
 
 # for debugging
 #        self.Gamma.plot(title='Gamma',show=False)
@@ -577,11 +580,6 @@ class Trinity_Engine():
         self.Cpe_pe = Flux_coefficients(pe, Fpe, Qe, s.Qe_pe, norm)
         # maybe these class definitions can be condensed
 
-        # mu coefficients (to be deleted)
-        self.mu1 = 0
-        self.mu2 = 0
-        self.mu3 = 0
-
         G_n = s.G_n.profile
         G_i = s.G_pi.profile
         G_e = s.G_pe.profile
@@ -599,7 +597,7 @@ class Trinity_Engine():
 
         ### mu coefficients (Eq 7.109-7.111)
         # these mu's are missing 3rd K-term ~ H (EM potential)
-        mu_1i = Gi * (G_n - 2.5/k1_i) + Hi * (Qi_n + 1/k2_i) 
+        mu_1i = Gi * (G_n - 2.5/k1_i) + Hi * (Qi_n + 1/k2_i)  # sometimes k2_i = 0, but then Hi=Qi_n=0 also
         mu_1e = Ge * (G_n - 2.5/k1_e) + He * (Qe_n + 1/k2_e)  
         # what about when Gamma_e != Gamma_i (only for multiple species)
         mu_2i = Gi * (G_i + 1.5/k1_i) + Hi * (Qi_i - 1/k2_i) 

@@ -14,7 +14,7 @@
   #model = zero-flux   ! zero
   #model = diffusive   ! Barnes test 2
   #model = GX          ! use slurm to call 
-  D_neo  = 0.1
+  D_neo  = 0.05
 
 [profiles]
   n_core  = 5
