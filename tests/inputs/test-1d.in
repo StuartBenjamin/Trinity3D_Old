@@ -1,7 +1,7 @@
 [grid]
   N_radial = 10
   rho_edge = 0.85
-  dtau     = 5e-2
+  dtau     = 0.01
   N_steps  = 80
   alpha    = 1
 
@@ -14,7 +14,7 @@
   #model = zero-flux   ! zero
   #model = diffusive   ! Barnes test 2
   #model = GX          ! use slurm to call 
-  D_neo  = 0.01
+  D_neo  = 0.001
 
 [profiles]
   n_core  = 5
@@ -41,6 +41,9 @@
   a_minor   = 0.95
   vmec_wout = wout_w7x.nc
   use_vmec  = False ! (B,R,a) can be overwritten from vmec
+
+[debug]
+  collisions = False
 
 [log]
   N_prints = 8

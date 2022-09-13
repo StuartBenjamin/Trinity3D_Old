@@ -43,7 +43,7 @@
   use_vmec  = False ! (B,R,a) can be overwritten from vmec
 
 [debug]
-  no_collisions = True
+  collisions = False
 
 [log]
   N_prints = 8

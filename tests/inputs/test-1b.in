@@ -41,6 +41,9 @@
   vmec_wout = wout_w7x.nc
   use_vmec  = False ! (B,R,a) can be overwritten from vmec
 
+[debug]
+  collisions = False
+
 [log]
   N_prints = 12
   f_save   = log_trinity
