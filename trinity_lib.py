@@ -364,6 +364,15 @@ class Trinity_Engine():
         print(f"    a_minor: {self.a_minor:.2f} m")
         print(f"    Ba     : {self.Ba:.2f} T average on LCFS \n")
 
+        # init history
+        n_prev  = self.density.profile    [:-1]
+        pi_prev = self.pressure_i.profile [:-1]
+        pe_prev = self.pressure_e.profile [:-1]
+
+        y_init = np.concatenate( [n_prev, pi_prev, pe_prev] )
+        self.y_hist = []
+        self.y_hist.append(y_init)
+
     ##### End of __init__ function
 
 
@@ -886,6 +895,7 @@ class Trinity_Engine():
                       [ M_pin, M_pipi, M_pipe ],
                       [ M_pen, M_pepi, M_pepe ]
                      ])
+        self.psi_mat = M
 
         I3 = np.block([[I, Z, Z ],
                        [Z, I, Z ],
@@ -1114,6 +1124,62 @@ class Trinity_Engine():
  #           print("***** needs new VMEC ****** threshold exceeds 2%")
             self.needs_new_vmec = True
             self.vmec_pressure_old = p_SI # maybe move this elsewhere
+
+
+        # save history
+        self.y_hist.append( y_next )
+
+        #self.check_finite_difference()
+
+    def check_finite_difference(self):
+
+        t = self.t_idx
+        if t < 2:
+            return
+
+        y1 = self.y_hist[-1]
+        y0 = self.y_hist[-2]
+
+        force_n  = self.force_n  
+        force_pi = self.force_pi 
+        force_pe = self.force_pe 
+
+        # load source terms
+        source_n  = self.source_n[:-1] 
+        source_pi = self.source_pi[:-1]
+        source_pe = self.source_pe[:-1]
+
+        F = np.concatenate( [force_n, force_pi, force_pe] ) # Note: F < 0
+        S = np.concatenate( [source_n, source_pi, source_pe] )
+
+        dt = self.dtau
+        y_err = (y1/dt - F - S) - y0/dt
+        #y_err = y1/dt - (F + S + y0/dt)
+        chi2 = np.sum(y_err**2)/2
+
+        print(f"t = {t}: {chi2}")
+
+        # do matrix algebra
+        psi = self.psi_mat
+        N = len(psi)
+        I = np.identity(N)
+
+        J = I/dt + psi
+
+        b_eff = - J.T @ y_err
+        lamb = 0
+        A_eff = J.T @ J + lamb * np.diag( J.T @ J )
+
+        y2 = np.linalg.inv(A_eff) @ b_eff  + y1 # iterate?
+        # write a compute_error(), and an iterator. 
+        # I need a function to recompute J(psi, F)L for each iteration for y
+
+        # check that things make sense?
+
+        if t>10:
+            import pdb
+            pdb.set_trace()
+
 
     def reset_fluxtubes(self):
 
