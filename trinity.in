@@ -43,6 +43,12 @@
   a_minor   = 0.95
   vmec_wout = wout_w7x.nc
   use_vmec  = False ! (B,R,a) can be overwritten from vmec
+  ion_scale_fluxtube = True
+  electron_scale_fluxtube = True
+
+[species]
+  kinetic_ions = True ! recommend if ion_scale_fluxtube == True
+  kinetic_electrons = True ! recommend if electron_scale_fluxtube == True
 
 [debug]
   no_collisions = False
@@ -52,3 +58,4 @@
 [log]
   N_prints = 10
   f_save   = log_trinity
+

@@ -39,10 +39,9 @@ N_step_print = engine.N_steps // engine.N_prints   # how often to print
 while (engine.t_idx < engine.N_steps):
 #while (engine.gx_idx < engine.N_steps):
 
-
-    engine.get_flux()
-    engine.normalize_fluxes()
-    engine.calc_flux_coefficients()
+    engine.get_flux() # Get fluxes from GX or ReLu model. Electron scale Moose [x]
+    engine.normalize_fluxes() # Electron scale Moose [x]
+    engine.calc_flux_coefficients() # Electron scale Moose [x]
 
     # I think collisions and turb. heat exchange should be added here
     engine.calc_collisions()

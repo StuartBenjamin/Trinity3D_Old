@@ -115,16 +115,15 @@ class GX_Runner():
 
 
 # should this be a class? Yes, this is now outdated 8/20
-def read_GX_output(fname):
+def read_GX_qflux_output(fname, species_number): # species_number 0 for ions, 1 for electrons
     
     try:
         f = Dataset(fname, mode='r')
     except: 
-        print('  read_GX_output: could not read', fname)
-
+        print('  read_GX_qflux_output: could not read', fname)
 
     t = f.variables['time'][:]
-    q = f.groups['Fluxes'].variables['qflux'][:,0]
+    q = f.groups['Fluxes'].variables['qflux'][:,species_number]
 
     # check for NANs
     if ( np.isnan(q).any() ):
@@ -146,7 +145,7 @@ class GX_Output():
             f = Dataset(fname, mode='r')
             #f = nc.netcdf_file(fname, 'r') 
         except: 
-            print('  read_GX_output: could not read', fname)
+            print('  read_GX_qflux_output: could not read', fname)
     
     
         qflux = f.groups['Fluxes'].variables['qflux'][:,0]
@@ -328,6 +327,14 @@ class VMEC_GX_geometry_module():
         self.data['vmec_path'] = '"{:}"'.format(vmec_path) 
 
     def init_radius(self,rho,r_idx):
+        '''
+        Initialises a flux tube geometry.
+        Given a radial location rho in [0,1]
+        and a flux tube index r_idx in integer
+
+        by running precompiled executable convert_VMEC_to_GX
+        from the GX geometry module.
+        '''
 
         # set radius
         s = rho**2

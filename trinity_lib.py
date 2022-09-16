@@ -81,6 +81,11 @@ class Trinity_Engine():
                        vmec_path  = './',
                        vmec_wout  = '',
                        eq_model   = "",
+                       ion_scale_fluxtube = True,
+                       electron_scale_fluxtube = False, # Moose default to no electron scale flux tube
+                       kinetic_ions = True,
+                       kinetic_electrons = False,
+                       two_species = False
                        ):
 
         ### Loading Trinity Inputs
@@ -133,6 +138,14 @@ class Trinity_Engine():
         bremstrahlung = self.load( bremstrahlung, "tr3d.inputs['debug']['bremstrahlung']" )
         update_equilibrium = self.load( update_equilibrium, "tr3d.inputs['debug']['update_equilibrium']" )
        
+        # adding flux tube options Moose
+        ion_scale_fluxtube = self.load( ion_scale_fluxtube, "tr3d.inputs['geometry']['ion_scale_fluxtube']" )
+        electron_scale_fluxtube = self.load( electron_scale_fluxtube, "tr3d.inputs['geometry']['electron_scale_fluxtube']" )
+
+        # adding kinetic ions and kinetic electrons options Moose
+        kinetics_ions = self.load( kinetic_ions, "tr3d.inputs['species']['kinetics_ions']" )
+        kinetics_electrons = self.load( kinetic_ions, "tr3d.inputs['species']['kinetics_electrons']" )
+
         gx_inputs  = self.load( gx_inputs, "tr3d.inputs['path']['gx_inputs']")
         gx_outputs = self.load( gx_outputs, "tr3d.inputs['path']['gx_outputs']")
         vmec_path = self.load( vmec_path, "tr3d.inputs['path']['vmec_path']")
@@ -149,7 +162,6 @@ class Trinity_Engine():
         eq_model = self.load( eq_model, "tr3d.inputs['equilibria']['eq_model']")
 
         ### Finished Loading Trinity Inputs
-
 
         self.N_radial = N_radial         # if this is total points, including core and edge, then GX simulates (N-2) points
         self.n_core   = n_core
@@ -170,6 +182,34 @@ class Trinity_Engine():
         self.alpha_heating = alpha_heating
         self.bremstrahlung = bremstrahlung
         self.update_equilibrium = update_equilibrium
+
+        # Moose flux tube options
+        self.ion_scale_fluxtube = ion_scale_fluxtube
+        self.electron_scale_fluxtube = electron_scale_fluxtube
+
+        # Moose kinetic species options
+        self.kinetic_ions = kinetic_ions
+        self.kinetic_electrons = kinetic_electrons
+        if (kinetic_ions == True) and (kinetic_electrons == True):
+            self.two_species = True
+        else:
+            self.two_species = False
+
+        # Warning messages for various flux tube and kinetic species choices:
+        if (kinetic_ions == False) and (kinetic_electrons == False):
+            print("WARNING: no kinetic species. Defaulting to adiabatic electron, ion scale flux tube simulations.")
+            self.kinetic_ions = True
+            self.ion_scale_fluxtube = True
+            self.electron_scale_fluxtube = False
+        if (kinetic_ions == False) and (self.electron_scale_fluxtube == False):
+            print("WARNING: running with adiabatic ions and an ion scale flux tube ONLY. Be sure that you want to simulate kinetic electron physics ONLY at ion scales ONLY.")
+        if (kinetic_electrons == False) and (self.ion_scale_fluxtube == False):
+            print("WARNING: running with adiabatic electrons and an electron scale flux tube ONLY. Be sure that you want this.")
+        if (self.electron_scale_fluxtube == False) and (self.ion_scale_fluxtube == False):
+            print("Running with neither ion nor electron scale flux tubes. Defaulting to adiabatic electron, ion scale flux tube simulations.")
+            self.kinetic_ions = True
+            self.ion_scale_fluxtube = True
+            self.kinetic_electrons = False
 
         rho_inner = rho_edge / (2*N_radial - 1)
         rho_axis = np.linspace(rho_inner, rho_edge, N_radial) # radial axis, N points
@@ -462,15 +502,19 @@ class Trinity_Engine():
         Using (Gamma, Q) compute (F,G,H) from Eq 7.45, 7.74-76 in Michael's thesis.
         '''
 
+        # Moose: do we need to know if we're an ion or electron scale flux tube?
+        # Initially, just add the ion and electron scale fluxes for simplicity.
+        # Ion and electron scale fluxes calculated in prep_commands() in models.py.
+
         # load
         n     = self.density   .midpoints 
         pi    = self.pressure_i.midpoints 
         pe    = self.pressure_e.midpoints 
 
-        Gamma = self.Gamma.profile
-        Qi    = self.Qi.profile
-        Qe    = self.Qe.profile
-
+        # adding fluxes from both ion and electron scales. Likely incorrect.
+        Gamma = self.Gamma_ionscale.profile + self.Gamma_electronscale.profile
+        Qi    = self.Qi_ionscale.profile + self.Qi_electronscale.profile
+        Qe    = self.Qe_ionscale.profile + self.Qe_electronscale.profile
 
         area  = self.area.midpoints # this should be defined properly for fluxtubes
         Ba    = self.Ba
@@ -519,7 +563,6 @@ class Trinity_Engine():
         self.Hi  = Flux_profile( Hi )
         self.He  = Flux_profile( He )
 
-
 # for debugging
 #        self.Gamma.plot(title='Gamma',show=False)
 #        self.Qi.plot(title='Qi',show=False)
@@ -539,6 +582,7 @@ class Trinity_Engine():
         Computes A and B profiles for density and pressure.
         This involves finite difference gradients.
         '''
+        # Moose: simple-minded appproach of adding fluxes from ion and electron scales. Assumes no multiscale effects.
         
         # load
         n   = self.density
@@ -548,9 +592,9 @@ class Trinity_Engine():
         Fpi = self.Fpi
         Fpe = self.Fpe
 
-        Gamma = self.Gamma
-        Qi    = self.Qi
-        Qe    = self.Qe
+        Gamma = self.Gamma_ionscale.profile + self.Gamma_electronscale.profile
+        Qi    = self.Qi_ionscale.profile + self.Qi_electronscale.profile
+        Qe    = self.Qe_ionscale.profile + self.Qe_electronscale.profile
 
         Gi  = self.Gi.profile
         Ge  = self.Ge.profile
@@ -564,27 +608,29 @@ class Trinity_Engine():
 
         # calculate and save
         s = self
-        self.Cn_n  = Flux_coefficients(n,  Fn, Gamma, s.G_n, norm)
-        self.Cn_pi = Flux_coefficients(pi, Fn, Gamma, s.G_pi, norm) 
-        self.Cn_pe = Flux_coefficients(pe, Fn, Gamma, s.G_pe, norm)
 
-        self.Cpi_n  = Flux_coefficients(n,  Fpi, Qi, s.Qi_n, norm)
-        self.Cpi_pi = Flux_coefficients(pi, Fpi, Qi, s.Qi_pi, norm) 
-        self.Cpi_pe = Flux_coefficients(pe, Fpi, Qi, s.Qi_pe, norm)
-        self.Cpe_n  = Flux_coefficients(n,  Fpe, Qe, s.Qe_n, norm)
-        self.Cpe_pi = Flux_coefficients(pi, Fpe, Qe, s.Qe_pi, norm) 
-        self.Cpe_pe = Flux_coefficients(pe, Fpe, Qe, s.Qe_pe, norm)
+        # derivatives of quantities with respect to n, Te, and Ti.
+        G_n = s.G_n_ionscale.profile + s.G_n_electronscale.profile
+        G_pi = s.G_pi_ionscale.profile + s.G_pi_electronscale.profile
+        G_pe = s.G_pe_ionscale.profile + s.G_pe_electronscale.profile
+        Qi_n = s.Qi_n_ionscale.profile + s.Qi_n_electronscale.profile
+        Qe_n = s.Qe_n_ionscale.profile + s.Qe_n_electronscale.profile
+        Qi_i = s.Qi_pi_ionscale.profile + s.Qi_pi_electronscale.profile
+        Qe_i = s.Qe_pi_ionscale.profile + s.Qe_pi_electronscale.profile
+        Qi_e = s.Qi_pe_ionscale.profile + s.Qi_pe_electronscale.profile
+        Qe_e = s.Qe_pe_ionscale.profile + s.Qe_pe_electronscale.profile
+
+        self.Cn_n  = Flux_coefficients(n,  Fn, Gamma, G_n, norm)
+        self.Cn_pi = Flux_coefficients(pi, Fn, Gamma, G_pi, norm) 
+        self.Cn_pe = Flux_coefficients(pe, Fn, Gamma, G_pe, norm)
+
+        self.Cpi_n  = Flux_coefficients(n,  Fpi, Qi, Qi_n, norm)
+        self.Cpi_pi = Flux_coefficients(pi, Fpi, Qi, Qi_pi, norm) 
+        self.Cpi_pe = Flux_coefficients(pe, Fpi, Qi, Qi_pe, norm)
+        self.Cpe_n  = Flux_coefficients(n,  Fpe, Qe, Qe_n, norm)
+        self.Cpe_pi = Flux_coefficients(pi, Fpe, Qe, Qe_pi, norm) 
+        self.Cpe_pe = Flux_coefficients(pe, Fpe, Qe, Qe_pe, norm)
         # maybe these class definitions can be condensed
-
-        G_n = s.G_n.profile
-        G_i = s.G_pi.profile
-        G_e = s.G_pe.profile
-        Qi_n = s.Qi_n.profile
-        Qe_n = s.Qe_n.profile
-        Qi_i = s.Qi_pi.profile
-        Qe_i = s.Qe_pi.profile
-        Qi_e = s.Qi_pe.profile
-        Qe_e = s.Qe_pe.profile
 
         k1_i = s.kappa1_i.profile
         k1_e = s.kappa1_e.profile
@@ -610,11 +656,10 @@ class Trinity_Engine():
         self.mu3_i = Flux_profile( factor * mu_3i )
         self.mu3_e = Flux_profile( factor * mu_3e )
 
-
     def calc_collisions(self):
         # this function computes the E terms (Barnes 7.73)
         # there is one for each species.
-
+        # Moose: more complicated for electron scale flux tubes. Skip for now.
 
         # update profiles in collision lib
         cmod = self.collision_model

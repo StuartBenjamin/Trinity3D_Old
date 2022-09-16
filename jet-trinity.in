@@ -1,5 +1,5 @@
 [grid]
-  N_radial = 5
+  N_radial = 3
   rho_edge = 0.85
   dtau     = 2e-2
   N_steps  = 5
@@ -11,7 +11,8 @@
 
 [path]
   gx_inputs   = gx-files/
-  gx_outputs   = gx-files/jet-temp/
+  #gx_outputs   = gx-files/jet-temp/
+  gx_outputs   = gx-files/jet-temp-electronscale/
   #gx_path   = gx-files/JET/
   vmec_path = gx-geometry/
 
@@ -48,6 +49,12 @@
   R_major   = 2.95
   a_minor   = 0.95
   vmec_wout = wout_JET-256.nc
+  ion_scale_fluxtube = True
+  electron_scale_fluxtube = True
+
+[species]
+  kinetic_ions = True ! recommend if ion_scale_fluxtube == True
+  kinetic_electrons = True ! recommend if electron_scale_fluxtube == True
 
 [debug]
   no_collisions = False
