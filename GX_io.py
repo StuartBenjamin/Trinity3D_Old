@@ -359,6 +359,7 @@ class VMEC_GX_geometry_module():
 
         f_log = out_path + fname + '.log'
         with open(f_log, 'w') as fp:
+            print('cmd is ' + str(cmd))
             subprocess.call(cmd,stdout=fp)
 
         f_geometry = f"gx_geo_{file_tag}.nc"

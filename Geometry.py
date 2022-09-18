@@ -84,10 +84,10 @@ class FluxTube():
         # Moose Set y0 for the fluxtube. See models.py for how this is set.
         gx = self.gx_input
         if y0model == 'CBC': # y0_GX = 4*tprim_GX sqrt(m_{sGX} T_{sGX})
-            y0 = 4*kts*sqrt(mass, temp)
+            y0 = 4*kts*np.sqrt(mass*temp)
             gx.inputs['Domain']['y0'] = y0
         if y0model == 'basic': # y0_GX = y0_ionscale sqrt(m_{sGX} T_{sGX})
-            y0 = y0ionscale*sqrt(mass, temp)
+            y0 = y0ionscale*np.sqrt(mass*temp)
             gx.inputs['Domain']['y0'] = y0
 
 class VmecRunner():

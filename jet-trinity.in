@@ -1,5 +1,5 @@
 [grid]
-  N_radial = 3
+  N_radial = 5 ! number of radial Trinity points.
   rho_edge = 0.85
   dtau     = 2e-2
   N_steps  = 5

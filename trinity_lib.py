@@ -299,8 +299,8 @@ class Trinity_Engine():
 
         # init collision model
         svec = Collision_Model()
-        svec.add_species( n, pi, mass_p=2, charge_p=1, ion=True, name='Deuterium')
-        svec.add_species( n, pe, mass_p=1/1800, charge_p=-1, ion=False, name='electrons')
+        svec.add_species( n, pi, mass_p=2.0141, charge_p=1, ion=True, name='Deuterium')
+        svec.add_species( n, pe, mass_p=1/1836, charge_p=-1, ion=False, name='electrons')
         self.collision_model = svec
 
         # read VMEC
