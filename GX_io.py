@@ -117,10 +117,11 @@ class GX_Runner():
 # should this be a class? Yes, this is now outdated 8/20
 def read_GX_qflux_output(fname, species_number): # species_number 0 for ions, 1 for electrons
     
-    try:
-        f = Dataset(fname, mode='r')
-    except: 
-        print('  read_GX_qflux_output: could not read', fname)
+    #try:
+    print('fname is {}'.format(fname))
+    f = Dataset(fname, mode='r')
+    #except: 
+    #    print('  read_GX_qflux_output: could not read', fname)
 
     t = f.variables['time'][:]
     q = f.groups['Fluxes'].variables['qflux'][:,species_number]

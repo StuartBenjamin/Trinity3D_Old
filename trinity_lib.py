@@ -620,6 +620,7 @@ class Trinity_Engine():
         Qi_e = s.Qi_pe_ionscale.profile + s.Qi_pe_electronscale.profile
         Qe_e = s.Qe_pe_ionscale.profile + s.Qe_pe_electronscale.profile
 
+        print('Gamma is {} G_n is {} norm is {}'.format(Gamma, G_n, norm))
         self.Cn_n  = Flux_coefficients(n,  Fn, Gamma, G_n, norm)
         self.Cn_pi = Flux_coefficients(pi, Fn, Gamma, G_pi, norm) 
         self.Cn_pe = Flux_coefficients(pe, Fn, Gamma, G_pe, norm)

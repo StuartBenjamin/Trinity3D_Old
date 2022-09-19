@@ -90,6 +90,14 @@ class FluxTube():
             y0 = y0ionscale*np.sqrt(mass*temp)
             gx.inputs['Domain']['y0'] = y0
 
+    def set_fluxtube_hyperviscosity(self, temp, mass, hyperviscousmodel = 'basic',D_ionscale=0.1):
+        # Moose Set hyperviscosity for the flux tube.
+        gx = self.gx_input
+        if y0model == 'basic': # y0_GX = y0_ionscale sqrt(m_{sGX} T_{sGX})
+            D_hyp = D_ionscale/np.sqrt(mass*temp)
+            gx.inputs['Controls']['D_hyper'] = D_hyp
+
+
 class VmecRunner():
 
     def __init__(self, input_file, engine):

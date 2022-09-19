@@ -258,14 +258,14 @@ class Flux_coefficients():
         self.state   = x
         self.flux    = Y # this is normalized flux F,I
         self.RawFlux = Z # this is Gamma,Q
+        print('self.RawFlux is {}'.format(self.RawFlux))
         self.dRawFlux = dZ # this is Gamma,Q
         self.norm    = norm # normalizlation constant (R/a)/drho
-
         # plus,minus,zero : these are the A,B coefficients
         self.plus  = self.C_plus()
+        print('self.plus is {}'.format(self.plus))
         self.minus = self.C_minus()
         self.zero  = self.C_zero()
-
 
     def C_plus(self):
 

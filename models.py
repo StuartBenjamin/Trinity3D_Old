@@ -421,13 +421,15 @@ class GX_Flux_Model():
 
             # writes the GX input file and calls the slurm 
             scale = 1 + step
-            print('Launching flux tubes. j is {}'.format(j))
+            print('Launching ion scale flux tubes. j is {}'.format(j))
             f0_ionscale [j] = self.gx_command(j, rho, kn      , kti       , kte        , '0iscale', temp_i = temp_i, temp_e = temp_e , flux_tube_type = 'ion_scale') # Moose
             fn_ionscale [j] = self.gx_command(j, rho, kn*scale , kti        , kte        , '1iscale', temp_i = temp_i, temp_e = temp_e , flux_tube_type = 'ion_scale' ) # Always submit density scan.
-            if engine.kinetic_ions == 'True': # If kinetic ions (includes both adiabatic electron and two kinetic species simulations), perturb LTi.
+            if engine.kinetic_ions == True: # If kinetic ions (includes both adiabatic electron and two kinetic species simulations), perturb LTi.
                 # Moose why is this perturbing ion temperature gradient, whereas fpe perturbs electron pressure gradient? Weird.
                 fti_ionscale[j] = self.gx_command(j, rho, kn      , kti*scale , kte        , '2iscale', temp_i = temp_i, temp_e = temp_e , flux_tube_type = 'ion_scale')
-            if engine.kinetic_electrons == 'True': # If kinetic electrons (includes both adiabatic ion and two kinetic species simulations), perturb LTe.
+                print('fti_ionscale[j] is {}'.format(fti_ionscale[j]))
+
+            if engine.kinetic_electrons == True: # If kinetic electrons (includes both adiabatic ion and two kinetic species simulations), perturb LTe.
                 fte_ionscale[j] = self.gx_command(j, rho, kn      , kti        , kte*scale , '3iscale', temp_i = temp_i, temp_e = temp_e , flux_tube_type = 'ion_scale' )
                 # Moose kpe --> kte
 
@@ -462,12 +464,13 @@ class GX_Flux_Model():
 
             # writes the GX input file and calls the slurm 
             scale = 1 + step
+            print('Launching electron scale flux tubes. j is {}'.format(j))
             f0_electronscale [j] = self.gx_command(j, rho, kn      , kti       , kte        , '0escale', temp_i = temp_i, temp_e = temp_e , flux_tube_type = 'electron_scale') # Moose
             fn_electronscale [j] = self.gx_command(j, rho, kn*scale , kti        , kte        , '1escale', temp_i = temp_i, temp_e = temp_e , flux_tube_type = 'electron_scale' )
-            if engine.kinetic_ions == 'True': # If kinetic ions (includes both adiabatic electron and two kinetic species simulations), perturb LTi.
+            if engine.kinetic_ions == True: # If kinetic ions (includes both adiabatic electron and two kinetic species simulations), perturb LTi.
                 # Moose why is this perturbing ion temperature gradient, whereas fpe perturbs electron pressure gradient? Weird.
                 fti_electronscale[j] = self.gx_command(j, rho, kn      , kti*scale , kte        , '2escale', temp_i = temp_i, temp_e = temp_e , flux_tube_type = 'electron_scale')
-            if engine.kinetic_electrons == 'True': # If kinetic electrons (includes both adiabatic ion and two kinetic species simulations), perturb LTe.
+            if engine.kinetic_electrons == True: # If kinetic electrons (includes both adiabatic ion and two kinetic species simulations), perturb LTe.
                 fte_electronscale[j] = self.gx_command(j, rho, kn      , kti        , kte*scale , '3escale', temp_i = temp_i, temp_e = temp_e , flux_tube_type = 'electron_scale' )
 
             ### there is choice, relative step * or absolute step +?
@@ -511,6 +514,7 @@ class GX_Flux_Model():
                 if engine.kinetic_ions == True: # response of ion heat flux to ion temp perturbation. Moose, needs cleaning up
                     Q0i_baseline_ionscale [j] = return_gx_heat_flux(f0_ionscale [j], 0) # First argument is flux tube simulation, second is species index: 0 for ions, 1 for electrons.
                     print('Q0i_baseline_ionscale is {}'.format(Q0i_baseline_ionscale))
+                    print('fti_ionscale[j] is {}'.format(fti_ionscale[j]))
                     Qi_ti_scan_ionscale[j] = return_gx_heat_flux(fti_ionscale[j], 0)
                     Qi_n_scan_ionscale [j] = return_gx_heat_flux(fn_ionscale [j], 0)
 
@@ -756,11 +760,14 @@ class GX_Flux_Model():
             # Better to read gx input file and get the ion mass? However, for now, always assume gx input files use proton mass as reference mass.
             mass_i = self.engine.collision_model.m_mp[0]
             ft.set_fluxtube_scale(temp_i, mass_i, kti, y0model = 'CBC')
+            ft.set_fluxtube_hyperviscosity(temp_e, mass_e,hyperviscousmodel = 'basic')
 
         if flux_tube_type == 'electron_scale':
             #mass_e = Collision_Model.m_mp[1] # Get electron mass.
             mass_e = self.engine.collision_model.m_mp[1] # Get electron mass.
             ft.set_fluxtube_scale(temp_e, mass_e, kte, y0model = 'CBC')
+	    ft.set_fluxtube_hyperviscosity(temp_e, mass_e,hyperviscousmodel = 'basic')
+            # Set fluxtube hyperviscosity?
 
         # to be specified by Trinity input file, or by time stamp
         #root = 'gx-files/'
@@ -789,6 +796,7 @@ class GX_Flux_Model():
         ### execute
         ft.gx_input.write(path + fout) # Moose variables live in gx_input
         gx_filename = self.run_gx(tag, path) # this returns a file name
+        print('In GX_command, gx_filename is {}'.format(gx_filename))
         return gx_filename
 
 
@@ -852,7 +860,7 @@ def print_time():
 # read a GX netCDF output file, returns HEAT flux only: Moose, does it return for two species?
 # Moose: for two species, also add particle flux
 def return_gx_heat_flux(f_nc, species_number = 0): # species_number = 0 for ions, 1 for electrons
-    try:
+    #try:
         qflux = gx_io.read_GX_qflux_output( f_nc , species_number)
         if ( np.isnan(qflux).any() ):
              print('  nans found in', f_nc, '(setting NaNs to 0)')
@@ -862,9 +870,9 @@ def return_gx_heat_flux(f_nc, species_number = 0): # species_number = 0 for ions
         print('  {:} qflux: {:}'.format(tag, qflux))
         return qflux
 
-    except:
-        print('  issue reading', f_nc)
-        return 0 # for safety, this will be problematic
+    #except:
+    #    print('  issue reading heat flux', f_nc)
+    #    return 0 # for safety, this will be problematic
 
 
 # read a GX netCDF output file, returns PARTICLE flux only: Moose, does it return for two species?
@@ -877,11 +885,11 @@ def return_gx_particle_flux(f_nc):
              qflux = np.nan_to_num(qflux)
 
         tag = f_nc.split('/')[-1]
-        print('  {:} qflux: {:}'.format(tag, qflux))
+        print('  {:} pflux: {:}'.format(tag, pflux))
         return qflux
 
     except:
-        print('  issue reading', f_nc)
+        print('  issue reading particle flux', f_nc)
         return 0 # for safety, this will be problematic
 
 
@@ -895,10 +903,10 @@ def return_gx_momentum_flux(f_nc):
              qflux = np.nan_to_num(qflux)
 
         tag = f_nc.split('/')[-1]
-        print('  {:} qflux: {:}'.format(tag, qflux))
+        print('  {:} mflux: {:}'.format(tag, mflux))
         return qflux
 
     except:
-        print('  issue reading', f_nc)
+        print('  issue reading momentum flux', f_nc)
         return 0 # for safety, this will be problematic
 
