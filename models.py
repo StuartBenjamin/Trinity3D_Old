@@ -772,12 +772,15 @@ class GX_Flux_Model():
             mass_i = self.engine.collision_model.m_mp[0]
             ft.set_fluxtube_scale(temp_i, mass_i, kti, y0model = 'CBC')
             ft.set_fluxtube_hyperviscosity(temp_i, mass_i,hyperviscousmodel = 'basic')
+            ft.set_fluxtube_timescale(temp_i, mass_i, kti, tmodel = 'basic')
 
         if flux_tube_type == 'electron_scale':
             #mass_e = Collision_Model.m_mp[1] # Get electron mass.
             mass_e = self.engine.collision_model.m_mp[1] # Get electron mass.
             ft.set_fluxtube_scale(temp_e, mass_e, kte, y0model = 'CBC')
             ft.set_fluxtube_hyperviscosity(temp_e, mass_e,hyperviscousmodel = 'basic')
+            ft.set_fluxtube_timescale(temp_e, mass_e, kti, tmodel = 'basic')
+
             # Set fluxtube hyperviscosity?
 
         # to be specified by Trinity input file, or by time stamp
@@ -870,6 +873,7 @@ def print_time():
 # Moose: for two species, also add particle flux
 def return_gx_heat_flux(f_nc, species_number = 0): # species_number = 0 for ions, 1 for electrons
     #try:
+        print('f_nc is {}'.format(f_nc))
         qflux = gx_io.read_GX_qflux_output( f_nc , species_number)
         if ( np.isnan(qflux).any() ):
              print('  nans found in', f_nc, '(setting NaNs to 0)')

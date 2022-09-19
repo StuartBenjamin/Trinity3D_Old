@@ -97,6 +97,15 @@ class FluxTube():
             D_hyp = D_ionscale/np.sqrt(mass*temp)
             gx.inputs['Controls']['D_hyper'] = D_hyp
 
+    def set_fluxtube_timescale(self, temp, mass, tmodel = 'basic',dt_ionscale=0.1):
+        # Moose Set dt for the flux tube.
+        gx = self.gx_input
+        if tmodel == 'basic': # dt_GX = dt_ionscale * sqrt(m_{sGX} T_{sGX})
+            dt = dt_ionscale*np.sqrt(mass*temp)
+            gx.inputs['Controls']['dt'] = dt
+
+
+
 
 class VmecRunner():
 

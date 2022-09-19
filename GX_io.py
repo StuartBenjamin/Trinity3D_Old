@@ -113,17 +113,20 @@ class GX_Runner():
             if (entry != ''):
                 break
 
-
 # should this be a class? Yes, this is now outdated 8/20
 def read_GX_qflux_output(fname, species_number): # species_number 0 for ions, 1 for electrons
     
     #try:
     print('fname is {}'.format(fname))
     f = Dataset(fname, mode='r')
+    print('fname is {}'.format(fname))
     #except: 
     #    print('  read_GX_qflux_output: could not read', fname)
 
     t = f.variables['time'][:]
+    #print('time is {}'.format(t))
+    print('species is {}'.format(species_number))
+    print('flux is ' + str(f.groups['Fluxes'].variables['qflux'][:,species_number]))
     q = f.groups['Fluxes'].variables['qflux'][:,species_number]
 
     # check for NANs
@@ -147,7 +150,6 @@ class GX_Output():
             #f = nc.netcdf_file(fname, 'r') 
         except: 
             print('  read_GX_qflux_output: could not read', fname)
-    
     
         qflux = f.groups['Fluxes'].variables['qflux'][:,0]
     
