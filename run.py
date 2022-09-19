@@ -64,9 +64,9 @@ while (engine.t_idx < engine.N_steps):
         Fn         = engine.Fn
         Fpi        = engine.Fpi
         Fpe        = engine.Fpe
-        Gamma      = engine.Gamma
-        Q_i        = engine.Qi
-        Q_e        = engine.Qe
+        Gamma      = engine.Gamma_total
+        Q_i        = engine.Qi_total
+        Q_e        = engine.Qe_total
 
         print(f"  Plot: t = {engine.t_idx}")
         #print(f"  Plot: t = {engine.t_idx}, t_gx = {engine.gx_idx}") # unnecessary

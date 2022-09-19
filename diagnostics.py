@@ -62,9 +62,9 @@ class ProfileSaver:
         n  = engine.density.profile
         pi = engine.pressure_i.profile
         pe = engine.pressure_e.profile
-        G  = engine.Gamma.profile
-        Qi = engine.Qi.profile
-        Qe = engine.Qe.profile
+        G  = engine.Gamma_total.profile
+        Qi = engine.Qi_total.profile
+        Qe = engine.Qe_total.profile
         Gi = engine.Gi.full.profile
         Ge = engine.Ge.full.profile
         Hi = engine.Hi.full.profile

@@ -208,6 +208,17 @@ class Flux_profile():
         # save raw data
         self.profile = arr
 
+    def add_profiles(self,input_arr): # Used to add fluxes when ion and electron scale flux tubes.
+        
+        profile1 = self.profile
+        profile2 = input_arr.profile
+        return profile1 + profile2 
+
+    def self_add_profiles(self,input_arr): # Used to add fluxes when ion and electron scale flux tubes.
+
+        profile1 = self.profile
+        profile2 = input_arr.profile
+        self.profile = profile1 + profile2
 
     def plot(self,show=True,new_fig=True,title=''):
 
@@ -253,34 +264,56 @@ class Flux_coefficients():
     # x is state vector (n, pi, pe)
     # Y is normalized flux (F,I)
     # Z is dlog flux (d log Gamma / d L_x ), evaluated at +- half step
-    def __init__(self,x,Y,Z,dZ,norm):
-
+    def __init__(self,x,Y,Z,dZ,norm,Y2=None,Z2=None,dZ2=None,two_flux_tube_scales=False):
+    # Moose: If two flux tube scales, want (d log (Gamma_s^IS +  Gamma_s^ES)/ d L_x )
         self.state   = x
         self.flux    = Y # this is normalized flux F,I
         self.RawFlux = Z # this is Gamma,Q
-        print('self.RawFlux is {}'.format(self.RawFlux))
         self.dRawFlux = dZ # this is Gamma,Q
         self.norm    = norm # normalizlation constant (R/a)/drho
+        self.two_flux_tube_scales = two_flux_tube_scales
         # plus,minus,zero : these are the A,B coefficients
+        print('Z.profile is {}, dZ.profile is {}'.format(Z.profile,dZ.profile))
+
         self.plus  = self.C_plus()
-        print('self.plus is {}'.format(self.plus))
         self.minus = self.C_minus()
         self.zero  = self.C_zero()
+        #if two_flux_tube_scales == True:
+        #    self.flux_ionscale    = Y # this is normalized flux F,I
+        #    self.RawFlux_ionscale = Z # this is Gamma,Q
+        #    print('self.RawFlux_ionscale is {}'.format(self.RawFlux_ionscale))
+        #    self.dRawFlux_ionscale = dZ # this is Gamma,Q
+        #    self.flux_electronscale    = Y2 # this is normalized flux F,I
+        #    self.RawFlux_electronscale = Z2 # this is Gamma,Q
+        #    print('self.RawFlux_electronscale is {}'.format(self.RawFlux_electronscale))
+        #    self.dRawFlux_ionscale = dZ # this is Gamma,Q
+        #    self.norm    = norm # normalizlation constant (R/a)/drho
+        #    # plus,minus,zero : these are the A,B coefficients
+        #    self.plus  = self.C_plus()
+        #    print('self.plus is {}'.format(self.plus))
+        #    self.minus = self.C_minus()
+        #    self.zero  = self.C_zero()
+
 
     def C_plus(self):
 
         norm = self.norm
-
         x  = self.state.profile
         xp = self.state.plus.profile
+
+        #if two_flux_tube_scales == False:
         Yp = self.flux.plus.profile
+        print('Yp is {}'.format(Yp))
         Zp = self.RawFlux.plus.profile
         dZp = self.dRawFlux.plus.profile
+        print('Zp is {}, dZp is {}'.format(Zp,dZp))
 
         with np.errstate(divide='ignore', invalid='ignore'):
             dLogZp = np.nan_to_num( dZp / Zp )
 
         Cp = - norm * (x / xp**2) * Yp * dLogZp
+
+        #if two_flux_tube_scales == True:
         return Profile(Cp)
 
     def C_minus(self):
@@ -325,6 +358,10 @@ class Flux_coefficients():
         cm = xm1 / xm**2 * Ym * dLogZm
         Cz = norm * ( cp + cm ) 
         return Profile(Cz)
+
+    #def __add__(self,array): # Add array of same class.
+
+
 
 
 # This class organizes the psi-profiles in tri-diagonal matrix

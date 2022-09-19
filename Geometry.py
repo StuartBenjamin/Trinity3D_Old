@@ -93,7 +93,7 @@ class FluxTube():
     def set_fluxtube_hyperviscosity(self, temp, mass, hyperviscousmodel = 'basic',D_ionscale=0.1):
         # Moose Set hyperviscosity for the flux tube.
         gx = self.gx_input
-        if y0model == 'basic': # y0_GX = y0_ionscale sqrt(m_{sGX} T_{sGX})
+        if hyperviscousmodel == 'basic': # y0_GX = y0_ionscale sqrt(m_{sGX} T_{sGX})
             D_hyp = D_ionscale/np.sqrt(mass*temp)
             gx.inputs['Controls']['D_hyper'] = D_hyp
 

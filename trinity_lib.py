@@ -143,8 +143,8 @@ class Trinity_Engine():
         electron_scale_fluxtube = self.load( electron_scale_fluxtube, "tr3d.inputs['geometry']['electron_scale_fluxtube']" )
 
         # adding kinetic ions and kinetic electrons options Moose
-        kinetics_ions = self.load( kinetic_ions, "tr3d.inputs['species']['kinetics_ions']" )
-        kinetics_electrons = self.load( kinetic_ions, "tr3d.inputs['species']['kinetics_electrons']" )
+        kinetic_ions = self.load( kinetic_ions, "tr3d.inputs['species']['kinetic_ions']" )
+        kinetic_electrons = self.load( kinetic_electrons, "tr3d.inputs['species']['kinetic_electrons']" )
 
         gx_inputs  = self.load( gx_inputs, "tr3d.inputs['path']['gx_inputs']")
         gx_outputs = self.load( gx_outputs, "tr3d.inputs['path']['gx_outputs']")
@@ -190,13 +190,20 @@ class Trinity_Engine():
         # Moose kinetic species options
         self.kinetic_ions = kinetic_ions
         self.kinetic_electrons = kinetic_electrons
-        if (kinetic_ions == True) and (kinetic_electrons == True):
+        
+        # Convert strings to bools.
+        self.str_to_bool()
+
+        if np.logical_and(self.kinetic_ions == True, self.kinetic_electrons == True):
             self.two_species = True
+            print('Running Trinity with kinetic ions and kinetic electrons.')
         else:
             self.two_species = False
+        print('So... self.kinetic_ions is {} and self.kinetic_electrons is {}'.format(self.kinetic_ions,self.kinetic_electrons))
+        print('initial self.two_species is {}'.format(self.two_species))
 
         # Warning messages for various flux tube and kinetic species choices:
-        if (kinetic_ions == False) and (kinetic_electrons == False):
+        if (self.kinetic_ions == False) and (self.kinetic_electrons == False):
             print("WARNING: no kinetic species. Defaulting to adiabatic electron, ion scale flux tube simulations.")
             self.kinetic_ions = True
             self.ion_scale_fluxtube = True
@@ -406,6 +413,32 @@ class Trinity_Engine():
 
     ##### End of __init__ function
 
+    def str_to_bool(self):
+
+        if self.kinetic_ions == 'True':
+           self.kinetic_ions = True
+        else:
+           self.kinetic_ions = False
+
+        if self.kinetic_electrons == 'True':
+           self.kinetic_electrons = True
+        else:
+           self.kinetic_electrons = False
+
+        #if self.two_species == 'True':
+        #   self.two_species = True
+        #else:
+        #   self.two_species = False
+
+        if self.ion_scale_fluxtube == 'True':
+           self.ion_scale_fluxtube = True
+        else:
+           self.ion_scale_fluxtube = False
+
+        if self.electron_scale_fluxtube == 'True':
+           self.electron_scale_fluxtube = True
+        else:
+           self.electron_scale_fluxtube = False
 
     def read_VMEC(self, wout, path='gx-geometry/'):
     # read a WOUT from vmec
@@ -588,13 +621,44 @@ class Trinity_Engine():
         n   = self.density
         pi  = self.pressure_i
         pe  = self.pressure_e
-        Fn  = self.Fn
+        Fn  = self.Fn # Moose gB normalizations.
         Fpi = self.Fpi
         Fpe = self.Fpe
 
-        Gamma = self.Gamma_ionscale.profile + self.Gamma_electronscale.profile
-        Qi    = self.Qi_ionscale.profile + self.Qi_electronscale.profile
-        Qe    = self.Qe_ionscale.profile + self.Qe_electronscale.profile
+        #print('Gamma is {}'.format(self.Gamma_ionscale))
+        #Gamma = self.Gamma_ionscale + self.Gamma_electronscale # These are Flux_profile() class objects. Need to define addition.
+
+        # Adding fluxes across two scales if necessary.
+        self.Gamma_total = self.Gamma_ionscale
+        self.Qi_total = self.Qi_ionscale
+        self.Qe_total = self.Qi_ionscale
+
+        #### Adding ion and electron scale fluxes.
+        self.Gamma_total.self_add_profiles(self.Gamma_electronscale)
+        self.Qi_total.self_add_profiles(self.Qi_electronscale)
+        self.Qe_total.self_add_profiles(self.Qe_electronscale)
+
+        # Adding flux derivatrives across two scales.
+        self.Qi_n_total = self.Qi_n_ionscale
+        self.Qe_n_total = self.Qe_n_ionscale
+        self.Qi_pi_total = self.Qi_pi_ionscale
+        self.Qi_pe_total = self.Qi_pe_ionscale
+        self.Qe_pi_total = self.Qe_pi_ionscale
+        self.Qe_pe_total = self.Qe_pe_ionscale
+        self.G_n_total = self.G_n_ionscale
+        self.G_pi_total = self.G_pi_ionscale
+        self.G_pe_total = self.G_pe_ionscale
+
+        self.Qi_n_total.self_add_profiles(self.Qi_n_electronscale)
+        self.Qe_n_total.self_add_profiles(self.Qe_n_electronscale)
+        self.Qi_pi_total.self_add_profiles(self.Qi_pi_electronscale)
+        self.Qi_pe_total.self_add_profiles(self.Qi_pe_electronscale)
+        self.Qe_pi_total.self_add_profiles(self.Qe_pi_electronscale)
+        self.Qe_pe_total.self_add_profiles(self.Qe_pe_electronscale)
+        self.G_n_total.self_add_profiles(self.G_n_electronscale)
+        self.G_pi_total.self_add_profiles(self.G_pi_electronscale)
+        self.G_pe_total.self_add_profiles(self.G_pe_electronscale)
+        print('added!')
 
         Gi  = self.Gi.profile
         Ge  = self.Ge.profile
@@ -610,27 +674,32 @@ class Trinity_Engine():
         s = self
 
         # derivatives of quantities with respect to n, Te, and Ti.
-        G_n = s.G_n_ionscale.profile + s.G_n_electronscale.profile
-        G_pi = s.G_pi_ionscale.profile + s.G_pi_electronscale.profile
-        G_pe = s.G_pe_ionscale.profile + s.G_pe_electronscale.profile
-        Qi_n = s.Qi_n_ionscale.profile + s.Qi_n_electronscale.profile
-        Qe_n = s.Qe_n_ionscale.profile + s.Qe_n_electronscale.profile
-        Qi_i = s.Qi_pi_ionscale.profile + s.Qi_pi_electronscale.profile
-        Qe_i = s.Qe_pi_ionscale.profile + s.Qe_pi_electronscale.profile
-        Qi_e = s.Qi_pe_ionscale.profile + s.Qi_pe_electronscale.profile
-        Qe_e = s.Qe_pe_ionscale.profile + s.Qe_pe_electronscale.profile
+        #self.Qi_n_ionscale.self_add_profiles(self.Qi_n_electronscale)
+        #self.Qe_n_ionscale.self_add_profiles(self.Qe_n_electronscale)
+        #self.Qi_pi_ionscale.self_add_profiles(self.Qi_pi_electronscale)
+        #self.Qi_pe_ionscale.self_add_profiles(self.Qi_pe_electronscale)
+        #self.Qe_pi_ionscale.self_add_profiles(self.Qe_pi_electronscale)
+        #self.Qe_pe_ionscale.self_add_profiles(self.Qe_pe_electronscale)
+        #self.G_n_ionscale.self_add_profiles(self.G_n_electronscale)
+        #self.G_pi_ionscale.self_add_profiles(self.G_pi_electronscale)
+        #self.G_pe_ionscale.self_add_profiles(self.G_pe_electronscale)
 
-        print('Gamma is {} G_n is {} norm is {}'.format(Gamma, G_n, norm))
-        self.Cn_n  = Flux_coefficients(n,  Fn, Gamma, G_n, norm)
-        self.Cn_pi = Flux_coefficients(pi, Fn, Gamma, G_pi, norm) 
-        self.Cn_pe = Flux_coefficients(pe, Fn, Gamma, G_pe, norm)
+        #print('Gamma is {} G_n is {} norm is {}'.format(Gamma, G_n, norm))
+        #print('pi is {} and Gamma_twoscales is {}'.format(pi.profile, Gamma_twoscales.profile))
+        #self.Cn_pi = Flux_coefficients(pi, Fn, Gamma_twoscales, G_pi_twoscales, norm)
+        print('self.Gamma_total {} ,self.G_total {}'.format(self.Gamma_total,self.G_pi_total))
+        self.Cn_pi = Flux_coefficients(pi, Fn, self.Gamma_total, self.G_pi_total, norm) # self.
 
-        self.Cpi_n  = Flux_coefficients(n,  Fpi, Qi, Qi_n, norm)
-        self.Cpi_pi = Flux_coefficients(pi, Fpi, Qi, Qi_pi, norm) 
-        self.Cpi_pe = Flux_coefficients(pe, Fpi, Qi, Qi_pe, norm)
-        self.Cpe_n  = Flux_coefficients(n,  Fpe, Qe, Qe_n, norm)
-        self.Cpe_pi = Flux_coefficients(pi, Fpe, Qe, Qe_pi, norm) 
-        self.Cpe_pe = Flux_coefficients(pe, Fpe, Qe, Qe_pe, norm)
+        self.Cn_n  = Flux_coefficients(n,  Fn, self.Gamma_total, self.G_n_total, norm)
+        self.Cn_pe = Flux_coefficients(pe, Fn, self.Gamma_total, self.G_pe_total, norm)
+
+        self.Cpi_n  = Flux_coefficients(n,  Fpi, self.Qi_total, self.Qi_n_total, norm) # Error with no 'plus'
+        self.Cpi_pi = Flux_coefficients(pi, Fpi, self.Qi_total, self.Qi_pi_total, norm) 
+        self.Cpi_pe = Flux_coefficients(pe, Fpi, self.Qi_total, self.Qi_pe_total, norm)
+        self.Cpe_n  = Flux_coefficients(n,  Fpe, self.Qe_total, self.Qe_n_total, norm)
+        self.Cpe_pi = Flux_coefficients(pi, Fpe, self.Qe_total, self.Qe_pi_total, norm) 
+        self.Cpe_pe = Flux_coefficients(pe, Fpe, self.Qe_total, self.Qe_pe_total, norm)
+
         # maybe these class definitions can be condensed
 
         k1_i = s.kappa1_i.profile
@@ -640,13 +709,13 @@ class Trinity_Engine():
 
         ### mu coefficients (Eq 7.109-7.111)
         # these mu's are missing 3rd K-term ~ H (EM potential)
-        mu_1i = Gi * (G_n - 2.5/k1_i) + Hi * (Qi_n + 1/k2_i)  # sometimes k2_i = 0, but then Hi=Qi_n=0 also
-        mu_1e = Ge * (G_n - 2.5/k1_e) + He * (Qe_n + 1/k2_e)  
+        mu_1i = Gi * (self.G_n_total.profile - 2.5/k1_i) + Hi * (self.Qi_n_total.profile + 1/k2_i)  # sometimes k2_i = 0, but then Hi=Qi_n=0 also
+        mu_1e = Ge * (self.G_n_total.profile - 2.5/k1_e) + He * (self.Qe_n_total.profile + 1/k2_e)  
         # what about when Gamma_e != Gamma_i (only for multiple species)
-        mu_2i = Gi * (G_i + 1.5/k1_i) + Hi * (Qi_i - 1/k2_i) 
-        mu_2e = Ge *  G_i             + He *  Qe_i   
-        mu_3i = Gi *  G_e             + Hi *  Qi_e
-        mu_3e = Ge * (G_e + 1.5/k1_e) + He * (Qe_e - 1/k2_e) 
+        mu_2i = Gi * (self.G_pi_total.profile + 1.5/k1_i) + Hi * (self.Qi_pi_total.profile - 1/k2_i) 
+        mu_2e = Ge *  self.G_pi_total.profile             + He *  self.Qe_pi_total.profile   
+        mu_3i = Gi *  self.G_pe_total.profile             + Hi *  self.Qi_pe_total.profile
+        mu_3e = Ge * (self.G_pe_total.profile + 1.5/k1_e) + He * (self.Qe_pe_total.profile - 1/k2_e) 
 
         # save
         factor = 1. / (2 * self.drho)
