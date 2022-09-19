@@ -28,7 +28,7 @@
 [Dimensions]
  ntheta = 36
  nperiod = 1
- ny = 32
+ ny = 64
  nx = 32
 
  nhermite  = 6
