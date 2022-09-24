@@ -62,22 +62,36 @@ class FluxTube():
         self.gx_input = gx
         print('gx.inputs[Boltzmann_type] {}'.format(gx.inputs['Boltzmann']['Boltzmann_type']))
 
-    def set_gradients(self, kn, kpi, kpe):
+    def set_gradients(self, kn, kpi, kpe, kinetic_ions = True):
 
         gx = self.gx_input
 
-        tprim = '[ {:.2f},       {:.2f}     ]'.format(kpi, kpe)
-        gx.inputs['species']['tprim'] = tprim
+        if kinetic_ions == True:
 
-        fprim = '[ {:.2f},       {:.2f}     ]'.format(kn, kn)
-        gx.inputs['species']['fprim'] = fprim
+            tprim = '[ {:.2f},       {:.2f}     ]'.format(kpi, kpe)
+            gx.inputs['species']['tprim'] = tprim
 
-    def set_dens_temp(self, temp_i, temp_e):
+            fprim = '[ {:.2f},       {:.2f}     ]'.format(kn, kn)
+            gx.inputs['species']['fprim'] = fprim
+
+        else: # If adiabatic ions, our input file has electron species as first species. So swap round ordering of gradient inputs.
+
+            tprim = '[ {:.2f},       {:.2f}     ]'.format(kpe, kpi)
+            gx.inputs['species']['tprim'] = tprim
+
+            fprim = '[ {:.2f},       {:.2f}     ]'.format(kn, kn)
+            gx.inputs['species']['fprim'] = fprim
+
+
+    def set_dens_temp(self, temp_i, temp_e, kinetic_ions = True):
 
         gx = self.gx_input
-
-        temp = f"[ {temp_i:.2f},       {temp_e:.2f}     ]"
-        gx.inputs['species']['temp'] = temp
+        if kinetic_ions == True:
+            temp = f"[ {temp_i:.2f},       {temp_e:.2f}     ]"
+            gx.inputs['species']['temp'] = temp
+        else:
+            temp = f"[ {temp_e:.2f},       {temp_i:.2f}     ]"
+            gx.inputs['species']['temp'] = temp
 
         # for single species ions ne=ni so dens is [1,1] for now
 

@@ -505,13 +505,13 @@ class GX_Flux_Model():
             # writes the GX input file and calls the slurm 
             scale = 1 + step
             print('Launching electron scale flux tubes. j is {}'.format(j))
-            f0_electronscale [j] = self.gx_command(j, rho, kn      , kti       , kte        , '0escale', temp_i = temp_i, temp_e = temp_e , flux_tube_type = 'electronscale') # Moose
-            fn_electronscale [j] = self.gx_command(j, rho, kn*scale , kti        , kte        , '1escale', temp_i = temp_i, temp_e = temp_e , flux_tube_type = 'electronscale' )
+            f0_electronscale [j] = self.gx_command(j, rho, kn      , kti       , kte        , '0escale', temp_i = temp_i, temp_e = temp_e , flux_tube_type = 'electronscale', kinetic_ions = engine.kinetic_ions_electronscale) # Moose
+            fn_electronscale [j] = self.gx_command(j, rho, kn*scale , kti        , kte        , '1escale', temp_i = temp_i, temp_e = temp_e , flux_tube_type = 'electronscale', kinetic_ions = engine.kinetic_ions_electronscale )
             if engine.kinetic_ions_electronscale == True: # If kinetic ions (includes both adiabatic electron and two kinetic species simulations), perturb LTi.
                 # Moose why is this perturbing ion temperature gradient, whereas fpe perturbs electron pressure gradient? Weird.
-                fti_electronscale[j] = self.gx_command(j, rho, kn      , kti*scale , kte        , '2escale', temp_i = temp_i, temp_e = temp_e , flux_tube_type = 'electronscale')
+                fti_electronscale[j] = self.gx_command(j, rho, kn      , kti*scale , kte        , '2escale', temp_i = temp_i, temp_e = temp_e , flux_tube_type = 'electronscale', kinetic_ions = engine.kinetic_ions_electronscale)
             if engine.kinetic_electrons_electronscale == True: # If kinetic electrons (includes both adiabatic ion and two kinetic species simulations), perturb LTe.
-                fte_electronscale[j] = self.gx_command(j, rho, kn      , kti        , kte*scale , '3escale', temp_i = temp_i, temp_e = temp_e , flux_tube_type = 'electronscale' )
+                fte_electronscale[j] = self.gx_command(j, rho, kn      , kti        , kte*scale , '3escale', temp_i = temp_i, temp_e = temp_e , flux_tube_type = 'electronscale' , kinetic_ions = engine.kinetic_ions_electronscale)
 
             ## there is choice, relative step * or absolute step +?
 
@@ -758,7 +758,7 @@ class GX_Flux_Model():
 
     #  sets up GX input, executes GX, returns input file name
     def gx_command(self, r_id, rho, kn, kti, kte, job_id, 
-                         temp_i=1,temp_e=1, flux_tube_type = 'ionscale'): # Moose
+                         temp_i=1,temp_e=1, flux_tube_type = 'ionscale', kinetic_ions = True): # Moose
         # this version perturbs for the gradient
         # (temp, should be merged as option, instead of duplicating code)
         # job_id describes whether flux tube is ion or electron scale.
@@ -780,8 +780,12 @@ class GX_Flux_Model():
             print('Whoop! Launching both ion and electron scale flux tubes.')
         else:
             ft = self.flux_tubes[r_id] # Retrieve a single fluxtube for r_id.
-        ft.set_gradients(kn, kti, kte) # Moose, we need to set the input file correctly! Sep 23 2022
-        ft.set_dens_temp(temp_i, temp_e)
+        if kinetic_ions == False: # When setting gradients, ordering of kinetic ion and electron species in input files depends on whether ions are kinetic or not.
+            ft.set_gradients(kn, kti, kte, kinetic_ions = False)
+            ft.set_dens_temp(temp_i, temp_e, kinetic_ions = False)
+        else:
+            ft.set_gradients(kn, kti, kte) # Moose, we need to set the input file correctly! Sep 23 2022. If adiabatic ions, need to set correctly...
+            ft.set_dens_temp(temp_i, temp_e)
 
         # Moose for now assume n_e = n_i.
         # Moose place for changing y0 whether ion or electron scale. In future, can add more complicated 
