@@ -81,11 +81,14 @@ class Trinity_Engine():
                        vmec_path  = './',
                        vmec_wout  = '',
                        eq_model   = "",
-                       ion_scale_fluxtube = True,
-                       electron_scale_fluxtube = False, # Moose default to no electron scale flux tube
-                       kinetic_ions = True,
-                       kinetic_electrons = False,
-                       two_species = False
+                       ionscale_fluxtube = True,
+                       electronscale_fluxtube = False, # Moose default to no electron scale flux tube
+                       kinetic_ions_ionscale = True,
+                       kinetic_electrons_ionscale = False,
+                       kinetic_ions_electronscale = False,
+                       kinetic_electrons_electronscale = True,
+                       two_species_ionscale = False,
+                       two_species_electronscale = False
                        ):
 
         ### Loading Trinity Inputs
@@ -139,12 +142,14 @@ class Trinity_Engine():
         update_equilibrium = self.load( update_equilibrium, "tr3d.inputs['debug']['update_equilibrium']" )
        
         # adding flux tube options Moose
-        ion_scale_fluxtube = self.load( ion_scale_fluxtube, "tr3d.inputs['geometry']['ion_scale_fluxtube']" )
-        electron_scale_fluxtube = self.load( electron_scale_fluxtube, "tr3d.inputs['geometry']['electron_scale_fluxtube']" )
+        ionscale_fluxtube = self.load( ionscale_fluxtube, "tr3d.inputs['geometry']['ionscale_fluxtube']" )
+        electronscale_fluxtube = self.load( electronscale_fluxtube, "tr3d.inputs['geometry']['electronscale_fluxtube']" )
 
         # adding kinetic ions and kinetic electrons options Moose
-        kinetic_ions = self.load( kinetic_ions, "tr3d.inputs['species']['kinetic_ions']" )
-        kinetic_electrons = self.load( kinetic_electrons, "tr3d.inputs['species']['kinetic_electrons']" )
+        kinetic_ions_ionscale = self.load( kinetic_ions_ionscale, "tr3d.inputs['species']['kinetic_ions_ionscale']" )
+        kinetic_electrons_ionscale = self.load( kinetic_electrons_ionscale, "tr3d.inputs['species']['kinetic_electrons_ionscale']" )
+        kinetic_ions_electronscale = self.load( kinetic_ions_electronscale, "tr3d.inputs['species']['kinetic_ions_electronscale']" )
+        kinetic_electrons_electronscale = self.load( kinetic_electrons_electronscale, "tr3d.inputs['species']['kinetic_electrons_electronscale']" )
 
         gx_inputs  = self.load( gx_inputs, "tr3d.inputs['path']['gx_inputs']")
         gx_outputs = self.load( gx_outputs, "tr3d.inputs['path']['gx_outputs']")
@@ -184,39 +189,49 @@ class Trinity_Engine():
         self.update_equilibrium = update_equilibrium
 
         # Moose flux tube options
-        self.ion_scale_fluxtube = ion_scale_fluxtube
-        self.electron_scale_fluxtube = electron_scale_fluxtube
+        self.ionscale_fluxtube = ionscale_fluxtube
+        self.electronscale_fluxtube = electronscale_fluxtube
 
         # Moose kinetic species options
-        self.kinetic_ions = kinetic_ions
-        self.kinetic_electrons = kinetic_electrons
-        
+        self.kinetic_ions_ionscale = kinetic_ions_ionscale
+        self.kinetic_electrons_ionscale = kinetic_electrons_ionscale
+        self.kinetic_ions_electronscale = kinetic_ions_electronscale
+        self.kinetic_electrons_electronscale = kinetic_electrons_electronscale
+
         # Convert strings to bools.
         self.str_to_bool()
 
-        if np.logical_and(self.kinetic_ions == True, self.kinetic_electrons == True):
-            self.two_species = True
-            print('Running Trinity with kinetic ions and kinetic electrons.')
+        if np.logical_and(self.kinetic_ions_electronscale == True, self.kinetic_electrons_electronscale == True):
+            self.two_species_electronscale = True
+            print('Running Trinity with kinetic ions and kinetic electrons at electron scales.')
         else:
-            self.two_species = False
-        print('So... self.kinetic_ions is {} and self.kinetic_electrons is {}'.format(self.kinetic_ions,self.kinetic_electrons))
-        print('initial self.two_species is {}'.format(self.two_species))
+            self.two_species_electronscale = False
+        print('So... self.kinetic_ions_electronscale is {} and self.kinetic_electrons_electronscale is {}'.format(self.kinetic_ions_electronscale,self.kinetic_electrons_electronscale))
+        print('initial self.two_species_electronscale is {}'.format(self.two_species_electronscale))
 
-        # Warning messages for various flux tube and kinetic species choices:
-        if (self.kinetic_ions == False) and (self.kinetic_electrons == False):
-            print("WARNING: no kinetic species. Defaulting to adiabatic electron, ion scale flux tube simulations.")
-            self.kinetic_ions = True
-            self.ion_scale_fluxtube = True
-            self.electron_scale_fluxtube = False
-        if (kinetic_ions == False) and (self.electron_scale_fluxtube == False):
-            print("WARNING: running with adiabatic ions and an ion scale flux tube ONLY. Be sure that you want to simulate kinetic electron physics ONLY at ion scales ONLY.")
-        if (kinetic_electrons == False) and (self.ion_scale_fluxtube == False):
-            print("WARNING: running with adiabatic electrons and an electron scale flux tube ONLY. Be sure that you want this.")
-        if (self.electron_scale_fluxtube == False) and (self.ion_scale_fluxtube == False):
-            print("Running with neither ion nor electron scale flux tubes. Defaulting to adiabatic electron, ion scale flux tube simulations.")
-            self.kinetic_ions = True
-            self.ion_scale_fluxtube = True
-            self.kinetic_electrons = False
+        if np.logical_and(self.kinetic_ions_ionscale == True, self.kinetic_electrons_ionscale == True):
+            self.two_species_ionscale = True
+            print('Running Trinity with kinetic ions and kinetic electrons at electron scales.')
+        else:
+            self.two_species_ionscale = False
+        print('So... self.kinetic_ions_ionscale is {} and self.kinetic_electrons_ionscale is {}'.format(self.kinetic_ions_ionscale,self.kinetic_electrons_ionscale))
+        print('initial self.two_species_ionscale is {}'.format(self.two_species_ionscale))
+
+        ## Warning messages for various flux tube and kinetic species choices:
+        #if (self.kinetic_ions == False) and (self.kinetic_electrons == False):
+        #    print("WARNING: no kinetic species. Defaulting to adiabatic electron, ion scale flux tube simulations.")
+        #    self.kinetic_ions = True
+        #    self.ionscale_fluxtube = True
+        #    self.electronscale_fluxtube = False
+        #if (kinetic_ions == False) and (self.electronscale_fluxtube == False):
+        #    print("WARNING: running with adiabatic ions and an ion scale flux tube ONLY. Be sure that you want to simulate kinetic electron physics ONLY at ion scales ONLY.")
+        #if (kinetic_electrons == False) and (self.ionscale_fluxtube == False):
+        #    print("WARNING: running with adiabatic electrons and an electron scale flux tube ONLY. Be sure that you want this.")
+        #if (self.electronscale_fluxtube == False) and (self.ionscale_fluxtube == False):
+        #    print("Running with neither ion nor electron scale flux tubes. Defaulting to adiabatic electron, ion scale flux tube simulations.")
+        #    self.kinetic_ions = True
+        #    self.ionscale_fluxtube = True
+        #    self.kinetic_electrons = False
 
         rho_inner = rho_edge / (2*N_radial - 1)
         rho_axis = np.linspace(rho_inner, rho_edge, N_radial) # radial axis, N points
@@ -415,30 +430,41 @@ class Trinity_Engine():
 
     def str_to_bool(self):
 
-        if self.kinetic_ions == 'True':
-           self.kinetic_ions = True
+        if self.kinetic_ions_ionscale == 'True':
+           self.kinetic_ions_ionscale = True
         else:
-           self.kinetic_ions = False
+           self.kinetic_ions_ionscale = False
 
-        if self.kinetic_electrons == 'True':
-           self.kinetic_electrons = True
+        if self.kinetic_electrons_ionscale == 'True':
+           self.kinetic_electrons_ionscale = True
         else:
-           self.kinetic_electrons = False
+           self.kinetic_electrons_ionscale = False
+
+
+        if self.kinetic_ions_electronscale == 'True':
+           self.kinetic_ions_electronscale = True
+        else:
+           self.kinetic_ions_electronscale = False
+
+        if self.kinetic_electrons_electronscale == 'True':
+           self.kinetic_electrons_electronscale = True
+        else:
+           self.kinetic_electrons_electronscale = False
 
         #if self.two_species == 'True':
         #   self.two_species = True
         #else:
         #   self.two_species = False
 
-        if self.ion_scale_fluxtube == 'True':
-           self.ion_scale_fluxtube = True
+        if self.ionscale_fluxtube == 'True':
+           self.ionscale_fluxtube = True
         else:
-           self.ion_scale_fluxtube = False
+           self.ionscale_fluxtube = False
 
-        if self.electron_scale_fluxtube == 'True':
-           self.electron_scale_fluxtube = True
+        if self.electronscale_fluxtube == 'True':
+           self.electronscale_fluxtube = True
         else:
-           self.electron_scale_fluxtube = False
+           self.electronscale_fluxtube = False
 
     def read_VMEC(self, wout, path='gx-geometry/'):
     # read a WOUT from vmec

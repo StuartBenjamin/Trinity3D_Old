@@ -60,6 +60,7 @@ class FluxTube():
 
         # save
         self.gx_input = gx
+        print('gx.inputs[Boltzmann_type] {}'.format(gx.inputs['Boltzmann']['Boltzmann_type']))
 
     def set_gradients(self, kn, kpi, kpe):
 
@@ -103,8 +104,6 @@ class FluxTube():
         if tmodel == 'basic': # dt_GX = dt_ionscale * sqrt(m_{sGX} T_{sGX})
             dt = dt_ionscale*np.sqrt(mass*temp)
             gx.inputs['Controls']['dt'] = dt
-
-
 
 
 class VmecRunner():

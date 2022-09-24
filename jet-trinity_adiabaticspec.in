@@ -12,7 +12,7 @@
 [path]
   gx_inputs   = gx-files/
   #gx_outputs   = gx-files/jet-temp/
-  gx_outputs   = gx-files/jet-temp-electronscale3/
+  gx_outputs   = gx-files/jet-temp-adiabaticspec/
   #gx_path   = gx-files/JET/
   vmec_path = gx-geometry/
 
@@ -54,8 +54,8 @@
 
 [species]
   kinetic_ions_ionscale = True
-  kinetic_electrons_ionscale = True
-  kinetic_ions_electronscale = True
+  kinetic_electrons_ionscale = False
+  kinetic_ions_electronscale = False
   kinetic_electrons_electronscale = True
 
 [debug]

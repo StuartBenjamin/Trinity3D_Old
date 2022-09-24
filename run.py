@@ -26,13 +26,10 @@ print("\n  Loading input file:", fin, "\n")
 ### Run Trinity!
 
 engine = trl.Trinity_Engine(fin)
-
 writer = dgn.ProfileSaver()
-
 
 ### Set up time controls
 N_step_print = engine.N_steps // engine.N_prints   # how often to print 
-
 
 # Put this into "Trinity Runner" class
 #    "better to have functions than scripts"
