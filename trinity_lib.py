@@ -82,11 +82,11 @@ class Trinity_Engine():
                        vmec_wout  = '',
                        eq_model   = "",
                        ionscale_fluxtube = True,
-                       electronscale_fluxtube = False, # Moose default to no electron scale flux tube
-                       kinetic_ions_ionscale = True,
+                       electronscale_fluxtube = False, # Default to no electron scale flux tube
+                       kinetic_ions_ionscale = True, # Default to kinetic ions only at ion scales.
                        kinetic_electrons_ionscale = False,
                        kinetic_ions_electronscale = False,
-                       kinetic_electrons_electronscale = True,
+                       kinetic_electrons_electronscale = True, # Default to kinetic electrons only at electron scales.
                        two_species_ionscale = False,
                        two_species_electronscale = False
                        ):
@@ -141,11 +141,11 @@ class Trinity_Engine():
         bremstrahlung = self.load( bremstrahlung, "tr3d.inputs['debug']['bremstrahlung']" )
         update_equilibrium = self.load( update_equilibrium, "tr3d.inputs['debug']['update_equilibrium']" )
        
-        # adding flux tube options Moose
+        # Flux tube scales.
         ionscale_fluxtube = self.load( ionscale_fluxtube, "tr3d.inputs['geometry']['ionscale_fluxtube']" )
         electronscale_fluxtube = self.load( electronscale_fluxtube, "tr3d.inputs['geometry']['electronscale_fluxtube']" )
 
-        # adding kinetic ions and kinetic electrons options Moose
+        # Kinetic ions and kinetic electrons options at ion and electron scales.
         kinetic_ions_ionscale = self.load( kinetic_ions_ionscale, "tr3d.inputs['species']['kinetic_ions_ionscale']" )
         kinetic_electrons_ionscale = self.load( kinetic_electrons_ionscale, "tr3d.inputs['species']['kinetic_electrons_ionscale']" )
         kinetic_ions_electronscale = self.load( kinetic_ions_electronscale, "tr3d.inputs['species']['kinetic_ions_electronscale']" )
@@ -188,11 +188,9 @@ class Trinity_Engine():
         self.bremstrahlung = bremstrahlung
         self.update_equilibrium = update_equilibrium
 
-        # Moose flux tube options
         self.ionscale_fluxtube = ionscale_fluxtube
         self.electronscale_fluxtube = electronscale_fluxtube
 
-        # Moose kinetic species options
         self.kinetic_ions_ionscale = kinetic_ions_ionscale
         self.kinetic_electrons_ionscale = kinetic_electrons_ionscale
         self.kinetic_ions_electronscale = kinetic_ions_electronscale
@@ -206,18 +204,16 @@ class Trinity_Engine():
             print('Running Trinity with kinetic ions and kinetic electrons at electron scales.')
         else:
             self.two_species_electronscale = False
-        print('So... self.kinetic_ions_electronscale is {} and self.kinetic_electrons_electronscale is {}'.format(self.kinetic_ions_electronscale,self.kinetic_electrons_electronscale))
-        print('initial self.two_species_electronscale is {}'.format(self.two_species_electronscale))
+            print('Running Trinity with a single species at electron scales.')
 
         if np.logical_and(self.kinetic_ions_ionscale == True, self.kinetic_electrons_ionscale == True):
             self.two_species_ionscale = True
             print('Running Trinity with kinetic ions and kinetic electrons at electron scales.')
         else:
             self.two_species_ionscale = False
-        print('So... self.kinetic_ions_ionscale is {} and self.kinetic_electrons_ionscale is {}'.format(self.kinetic_ions_ionscale,self.kinetic_electrons_ionscale))
-        print('initial self.two_species_ionscale is {}'.format(self.two_species_ionscale))
+        print('Running Trinity with a single species at ion scales.')
 
-        ## Warning messages for various flux tube and kinetic species choices:
+        ## Warning messages for various flux tube and kinetic species choices. To update if we wish to keep.
         #if (self.kinetic_ions == False) and (self.kinetic_electrons == False):
         #    print("WARNING: no kinetic species. Defaulting to adiabatic electron, ion scale flux tube simulations.")
         #    self.kinetic_ions = True
@@ -561,7 +557,7 @@ class Trinity_Engine():
         Using (Gamma, Q) compute (F,G,H) from Eq 7.45, 7.74-76 in Michael's thesis.
         '''
 
-        # Moose: do we need to know if we're an ion or electron scale flux tube?
+        # Moose: do we need to know if we're an ion or electron scale flux tube? I.e. do we normalize by q_gB_e at electron scales?
         # Initially, just add the ion and electron scale fluxes for simplicity.
         # Ion and electron scale fluxes calculated in prep_commands() in models.py.
 
@@ -641,13 +637,13 @@ class Trinity_Engine():
         Computes A and B profiles for density and pressure.
         This involves finite difference gradients.
         '''
-        # Moose: simple-minded appproach of adding fluxes from ion and electron scales. Assumes no multiscale effects.
+        # Moose: simple-minded appproach of adding fluxes from ion and electron scales. Assumes no multiscale effects. TO DO: calculate backward and forward reactions between scales.
         
         # load
         n   = self.density
         pi  = self.pressure_i
         pe  = self.pressure_e
-        Fn  = self.Fn # Moose gB normalizations.
+        Fn  = self.Fn 
         Fpi = self.Fpi
         Fpe = self.Fpe
 
@@ -755,7 +751,6 @@ class Trinity_Engine():
     def calc_collisions(self):
         # this function computes the E terms (Barnes 7.73)
         # there is one for each species.
-        # Moose: more complicated for electron scale flux tubes. Skip for now.
 
         # update profiles in collision lib
         cmod = self.collision_model

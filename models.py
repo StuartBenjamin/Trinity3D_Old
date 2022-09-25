@@ -189,44 +189,24 @@ class GX_Flux_Model():
 
         self.engine = engine
 
-#        gx_root = "gx-files/"  # this is part of repo, don't change # old, 9/7
-        #f_input = 'gx-adiabatic-electrons.in' # Moose, this should be renamed as adiabatic electrons.
-        #f_geo   = 'gx-geometry-adiabatic-electrons.ing' # sample input file, to be part of repo
-        # Moose add option to specify GX input file in trinity.in
-
-        print('self.engine.two_species_ionscale is {}'.format(self.engine.two_species_ionscale))
-        #if self.engine.two_species == True: # We are not finding this...
-        #    f_input = 'gx-two-kinetic-species.in' # Moose, this should be renamed as adiabatic electrons.
-        #    f_geo   = 'gx-geometry-two-kinetic-species.ing' # sample input file, to be part of repo
-        #    print('Found two species input file.')
-        #elif self.engine.kinetic_ions == False: # Adiabatic ion simulation.
-        #    f_input = 'gx-adiabatic-ions.in' # Moose, this should be renamed as adiabatic electrons.
-        #    f_geo   = 'gx-geometry-adiabatic-ions.ing' # sample input file, to be part of repo
-        #    print('Found adiabatic ions input file.')
-        #elif self.engine.kinetic_electrons == False: # Adiabatic electron simulation.
-        #    f_input = 'gx-adiabatic-electrons.in' # Moose, this should be renamed as adiabatic electrons.
-        #    f_geo   = 'gx-geometry-adiabatic-electrons.ing' # sample input file, to be part of repo
-        #    print('Found adiabatic electrons input file.')
-
-        # Moose
-        if self.engine.two_species_ionscale == True: # We are not finding this...
-            f_input_ionscale = 'gx-two-kinetic-species.in' # Moose, this should be renamed as adiabatic electrons.
+        if self.engine.two_species_ionscale == True:
+            f_input_ionscale = 'gx-two-kinetic-species.in' 
             print('Found two species input file at ion scales.')
         elif self.engine.kinetic_ions_ionscale == False: # Adiabatic ion simulation.
-            f_input_ionscale = 'gx-adiabatic-ions.in' # Moose, this should be renamed as adiabatic electrons.
+            f_input_ionscale = 'gx-adiabatic-ions.in'
             print('Found adiabatic ions input file at ion scales.')
         if self.engine.kinetic_electrons_ionscale == False: # Adiabatic electron simulation.
-            f_input_ionscale = 'gx-adiabatic-electrons.in' # Moose, this should be renamed as adiabatic electrons.
+            f_input_ionscale = 'gx-adiabatic-electrons.in'
             print('Found adiabatic electrons input file at ion scales.')
 
-        if self.engine.two_species_electronscale == True: # We are not finding this...
-            f_input_electronscale = 'gx-two-kinetic-species.in' # Moose, this should be renamed as adiabatic electrons.
+        if self.engine.two_species_electronscale == True: 
+            f_input_electronscale = 'gx-two-kinetic-species.in'
             print('Found two species input file at electron scales.')
         elif self.engine.kinetic_ions_electronscale == False: # Adiabatic ion simulation.
-            f_input_electronscale = 'gx-adiabatic-ions.in' # Moose, this should be renamed as adiabatic electrons.
+            f_input_electronscale = 'gx-adiabatic-ions.in'
             print('Found adiabatic ions input file at electron scales.')
-        elif self.engine.kinetic_electrons_electronscale == False: # Adiabatic electron simulation.
-            f_input_electronscale = 'gx-adiabatic-electrons.in' # Moose, this should be renamed as adiabatic electrons.
+        elif self.engine.kinetic_electrons_electronscale == False: 
+            f_input_electronscale = 'gx-adiabatic-electrons.in' 
             print('Found adiabatic electrons input file at electron scales.')
  
         #### Geo is independent of ion or electron flux tube scales / kinetic species.
@@ -266,11 +246,10 @@ class GX_Flux_Model():
             self.input_template_ionscale = GX_Runner(gx_root + f_input_ionscale)
         if self.engine.electronscale_fluxtube == True:
             self.input_template_electronscale = GX_Runner(gx_root + f_input_electronscale)
-        # Moose to make each fluxtube different.
         self.path = path # this is the GX output path (todo: rename)
         # check that path exists, if it does not, mkdir and copy gx executable
         
-        self.midpoints = midpoints # Moose to rename cell_centres or axial_midpoints
+        self.midpoints = midpoints
         self.vmec_path = vmec_path
         self.vmec_wout = vmec_wout
         self.gx_root = gx_root
@@ -286,7 +265,6 @@ class GX_Flux_Model():
 #        # store file name (includes path)
 #        self.fname = fname
 #        self.f_handle = open(fname, 'a')
-#        ###
 
         self.processes = []
 
@@ -331,7 +309,6 @@ class GX_Flux_Model():
             geo_files = []
             N_fluxtubes = len(self.midpoints)
             print('N_fluxtubes is {}'.format(N_fluxtubes))
-            # Moose, don't include ion and electron scale as separate flux tube?
             for j in np.arange(N_fluxtubes):
                 rho = self.midpoints[j]
                 f_geometry = geo_template.init_radius(rho,j) 
@@ -358,7 +335,6 @@ class GX_Flux_Model():
 
         ### store fluxtubes in a list
         self.flux_tubes = []
-        ### Moose load fluxtubes at each ion and electron scale.
         print('self.engine.ionscale_fluxtube is {}'.format(self.engine.ionscale_fluxtube))
         if self.engine.ionscale_fluxtube == True:
             for fin in geo_files:
@@ -390,8 +366,6 @@ class GX_Flux_Model():
     def load_fluxtube(self, f_geo, fluxtube_scale = "ion"):
 
         ft = FluxTube(f_geo)       # init an instance of fluxtube class
-        #if self.engine.ionscale_fluxtube == True:
-        #    ft.load_gx_input(self.input_template_ionscale) # Moose.
         if fluxtube_scale == "ion":
             print('Loading ionscale fluxtube')
             ft.load_gx_input(self.input_template_ionscale)
@@ -462,16 +436,12 @@ class GX_Flux_Model():
             # writes the GX input file and calls the slurm 
             scale = 1 + step
             print('Launching ion scale flux tubes. j is {}'.format(j))
-            f0_ionscale [j] = self.gx_command(j, rho, kn      , kti       , kte        , '0iscale', temp_i = temp_i, temp_e = temp_e , flux_tube_type = 'ionscale') # Moose
+            f0_ionscale [j] = self.gx_command(j, rho, kn      , kti       , kte        , '0iscale', temp_i = temp_i, temp_e = temp_e , flux_tube_type = 'ionscale')
             fn_ionscale [j] = self.gx_command(j, rho, kn*scale , kti        , kte        , '1iscale', temp_i = temp_i, temp_e = temp_e , flux_tube_type = 'ionscale' ) # Always submit density scan.
             if engine.kinetic_ions_ionscale == True: # If kinetic ions (includes both adiabatic electron and two kinetic species simulations), perturb LTi.
-                # Moose why is this perturbing ion temperature gradient, whereas fpe perturbs electron pressure gradient? Weird.
                 fti_ionscale[j] = self.gx_command(j, rho, kn      , kti*scale , kte        , '2iscale', temp_i = temp_i, temp_e = temp_e , flux_tube_type = 'ionscale')
-                print('fti_ionscale[j] is {}'.format(fti_ionscale[j]))
-
             if engine.kinetic_electrons_ionscale == True: # If kinetic electrons (includes both adiabatic ion and two kinetic species simulations), perturb LTe.
                 fte_ionscale[j] = self.gx_command(j, rho, kn      , kti        , kte*scale , '3iscale', temp_i = temp_i, temp_e = temp_e , flux_tube_type = 'ionscale' )
-                # Moose kpe --> kte
 
         # Launch electron scale fluxtubes. _electronscale suffix indicates 'electron gyroradius scale'.
         if engine.electronscale_fluxtube == True:
@@ -490,7 +460,7 @@ class GX_Flux_Model():
             Qe_n_scan_electronscale  = np.zeros( len(idx) )
             Qe_ti_scan_electronscale  = np.zeros( len(idx) )
 
-        for j in idx: # Loop over radial positions. Moose, do I need to add additional j indexing for electron scale stuff?
+        for j in idx: # Loop over radial positions.
             rho = mid_axis[j]
             kn  = Ln [j]
             kpi = Lpi[j]
@@ -505,14 +475,12 @@ class GX_Flux_Model():
             # writes the GX input file and calls the slurm 
             scale = 1 + step
             print('Launching electron scale flux tubes. j is {}'.format(j))
-            f0_electronscale [j] = self.gx_command(j, rho, kn      , kti       , kte        , '0escale', temp_i = temp_i, temp_e = temp_e , flux_tube_type = 'electronscale', kinetic_ions = engine.kinetic_ions_electronscale) # Moose
+            f0_electronscale [j] = self.gx_command(j, rho, kn      , kti       , kte        , '0escale', temp_i = temp_i, temp_e = temp_e , flux_tube_type = 'electronscale', kinetic_ions = engine.kinetic_ions_electronscale)
             fn_electronscale [j] = self.gx_command(j, rho, kn*scale , kti        , kte        , '1escale', temp_i = temp_i, temp_e = temp_e , flux_tube_type = 'electronscale', kinetic_ions = engine.kinetic_ions_electronscale )
             if engine.kinetic_ions_electronscale == True: # If kinetic ions (includes both adiabatic electron and two kinetic species simulations), perturb LTi.
-                # Moose why is this perturbing ion temperature gradient, whereas fpe perturbs electron pressure gradient? Weird.
                 fti_electronscale[j] = self.gx_command(j, rho, kn      , kti*scale , kte        , '2escale', temp_i = temp_i, temp_e = temp_e , flux_tube_type = 'electronscale', kinetic_ions = engine.kinetic_ions_electronscale)
             if engine.kinetic_electrons_electronscale == True: # If kinetic electrons (includes both adiabatic ion and two kinetic species simulations), perturb LTe.
                 fte_electronscale[j] = self.gx_command(j, rho, kn      , kti        , kte*scale , '3escale', temp_i = temp_i, temp_e = temp_e , flux_tube_type = 'electronscale' , kinetic_ions = engine.kinetic_ions_electronscale)
-
             ## there is choice, relative step * or absolute step +?
 
         ### collect parallel runs
@@ -521,19 +489,13 @@ class GX_Flux_Model():
         # read
         _time.sleep(WAIT_TIME)
 
-        # Moose, need to add all the fluxes, Sep 13 2022. Go through tomorrow and add more.
-
-        # Sep 14 2022: fluxes now complete.
-
         # Loop over radius, read ion scale fluxes.
 
         # NOTATION:
         # Q0i_pi_scan: Q is heat flux, i is ion species, ti is ion temperature gradient scan, _scan means perturbed wrt Lti
 
         if engine.ionscale_fluxtube == True:
-            print('starting to read ion scale fluxes.')
-            print('engine.kinetic_ions_ionscale is ' + str(engine.kinetic_ions_ionscale))
-            print('idx is {}'.format(idx))
+            print('Reading ion scale fluxes.')
             for j in idx: 
 
                 kn  = Ln [j]
@@ -542,18 +504,9 @@ class GX_Flux_Model():
                 kti = kpi - kn
                 kte = kpe - kn
 
-                # loop over fluxtubes
-                print('second engine.kinetic_ions_ionscale is ' + str(engine.kinetic_ions_ionscale))
-                print('j is {}'.format(j))
-                print('logic engine.kinetic_ions_ionscale == True is ... {}'.format(engine.kinetic_ions_ionscale == True))
-                print('type(engine.kinetic_ions_ionscale ==) {}'.format(type(engine.kinetic_ions_ionscale)))
-                print('type(engine.kinetic_electrons_ionscale ==) {}'.format(type(engine.kinetic_electrons_ionscale)))
-                print('type(engine.two_species_ionscale ==) {}'.format(type(engine.two_species_ionscale)))
-
-                if engine.kinetic_ions_ionscale == True: # response of ion heat flux to ion temp perturbation. Moose, needs cleaning up
+                if engine.kinetic_ions_ionscale == True: # response of ion heat flux to ion temp perturbation.
                     Q0i_baseline_ionscale [j] = return_gx_heat_flux(f0_ionscale [j], 0) # First argument is flux tube simulation, second is species index: 0 for ions, 1 for electrons.
                     print('Q0i_baseline_ionscale is {}'.format(Q0i_baseline_ionscale))
-                    print('fti_ionscale[j] is {}'.format(fti_ionscale[j]))
                     Qi_ti_scan_ionscale[j] = return_gx_heat_flux(fti_ionscale[j], 0)
                     Qi_n_scan_ionscale [j] = return_gx_heat_flux(fn_ionscale [j], 0)
 
@@ -565,11 +518,11 @@ class GX_Flux_Model():
                     if engine.two_species_ionscale == True:
                         Q0e_baseline_ionscale [j] = return_gx_heat_flux(f0_ionscale [j], 1)
                         Qe_te_scan_ionscale[j] = return_gx_heat_flux(fte_ionscale[j], 1)
-                        Qe_n_scan_ionscale [j] = return_gx_heat_flux(fn_ionscale [j], 1) # Moose activate once we have non-adiabatic electrons.
+                        Qe_n_scan_ionscale [j] = return_gx_heat_flux(fn_ionscale [j], 1)
                     else:
                         Q0e_baseline_ionscale [j] = return_gx_heat_flux(f0_ionscale [j], 0)
                         Qe_te_scan_ionscale[j] = return_gx_heat_flux(fte_ionscale[j], 0)
-                        Qe_n_scan_ionscale [j] = return_gx_heat_flux(fn_ionscale [j], 0) # Moose activate once we have non-adiabatic electrons.
+                        Qe_n_scan_ionscale [j] = return_gx_heat_flux(fn_ionscale [j], 0)
 
                 if engine.kinetic_ions_ionscale == False:
                     Q0i_baseline_ionscale = 0*Q0e_baseline_ionscale
@@ -587,7 +540,7 @@ class GX_Flux_Model():
 
 	    # record dQ / dLx
             if engine.kinetic_ions_ionscale == True: # If kinetic ions (includes both adiabatic electron and two kinetic species simulations), perturb LTi.
-                Qi_ti_deriv_ionscale  =  (Qi_ti_scan_ionscale - Q0i_baseline_ionscale) / (kti * step) # Moose changing denom to (kti * step) from (Lpi * step)
+                Qi_ti_deriv_ionscale  =  (Qi_ti_scan_ionscale - Q0i_baseline_ionscale) / (kti * step) # Moose changing denom to (kti * step) from (Lpi * step). Is this correct?
                 Qi_n_deriv_ionscale   =  (Qi_n_scan_ionscale  - Q0i_baseline_ionscale) / (Ln * step)
             if engine.two_species_ionscale == True: # If two kinetic species.
                 Qe_ti_deriv_ionscale  =  (Qe_ti_scan_ionscale - Q0e_baseline_ionscale) / (kti * step)
@@ -596,8 +549,8 @@ class GX_Flux_Model():
                 Qe_te_deriv_ionscale  =  (Qe_te_scan_ionscale - Q0e_baseline_ionscale) / (kte * step)
                 Qe_n_deriv_ionscale   =  (Qe_n_scan_ionscale  - Q0e_baseline_ionscale) / (Ln * step)
             if engine.kinetic_ions_ionscale == False:
-                Qi_ti_deriv_ionscale  = 0*Qe_te_deriv_ionscale # Moose, is this correct? Set to zero? Alternatives: Qe_te_deriv_ionscale
-                Qi_n_deriv_ionscale   = 0*Qe_n_deriv_ionscale # Moose, is this correct? Set to zero? Alternatives: Qe_n_deriv_ionscale
+                Qi_ti_deriv_ionscale  = 0*Qe_te_deriv_ionscale # Moose: is this reasonable?
+                Qi_n_deriv_ionscale   = 0*Qe_n_deriv_ionscale # Moose: is this reasonable?
             if engine.kinetic_electrons_ionscale == False:
                 Qe_te_deriv_ionscale  = 0*Qi_ti_deriv_ionscale
                 Qe_n_deriv_ionscale   = 0*Qi_n_deriv_ionscale
@@ -611,12 +564,10 @@ class GX_Flux_Model():
             zero = 0*Q0i_baseline_ionscale
             eps = 1e-8 + zero # want to avoid divide by zero
 
-            print('Q0i_baseline_ionscale is {}'.format(Q0i_baseline_ionscale))
-
-            engine.Gamma_ionscale  = pf.Flux_profile(eps  ) # Moose, set these up to get profile data.
+            engine.Gamma_ionscale  = pf.Flux_profile(eps  ) # Moose. Currently, no particle fluxes includes. Now that we have two species simulations, we can turn this on.
             engine.Qi_ionscale     = pf.Flux_profile(Q0i_baseline_ionscale) 
             engine.Qe_ionscale     = pf.Flux_profile(Q0e_baseline_ionscale) 
-            engine.G_n_ionscale    = pf.Flux_profile(zero ) #???Moose
+            engine.G_n_ionscale    = pf.Flux_profile(zero ) # ???
             engine.G_pi_ionscale   = pf.Flux_profile(zero )
             engine.G_pe_ionscale   = pf.Flux_profile(zero )
             engine.Qi_n_ionscale   = pf.Flux_profile(Qi_n_deriv_ionscale ) # d Q / d Ln
@@ -627,8 +578,8 @@ class GX_Flux_Model():
             engine.Qe_pe_ionscale  = pf.Flux_profile(Qe_te_deriv_ionscale)
 
         # Loop over radius, read electron scale fluxes, find heat flux gradients.
-        if engine.electronscale_fluxtube == True: # Moose string, not boolean. Change.
-            print('starting to read electron scale fluxes.')
+        if engine.electronscale_fluxtube == True:
+            print('Reading electron scale fluxes.')
             for j in idx:
 
                 kn  = Ln [j]
@@ -638,7 +589,7 @@ class GX_Flux_Model():
                 kte = kpe - kn
 
                 # loop over fluxtubes
-                if engine.kinetic_ions_electronscale == True: # response of ion heat flux to ion temp perturbation. Moose, needs cleaning up
+                if engine.kinetic_ions_electronscale == True:
                     Q0i_baseline_electronscale [j] = return_gx_heat_flux(f0_electronscale [j], 0) # First argument is flux tube simulation, second is species index: 0 for ions, 1 for electrons.
                     Qi_ti_scan_electronscale[j] = return_gx_heat_flux(fti_electronscale[j], 0)
                     Qi_n_scan_electronscale [j] = return_gx_heat_flux(fn_electronscale [j], 0)
@@ -651,11 +602,11 @@ class GX_Flux_Model():
                     if engine.two_species_electronscale == True:
                         Q0e_baseline_electronscale [j] = return_gx_heat_flux(f0_electronscale [j], 1)
                         Qe_te_scan_electronscale[j] = return_gx_heat_flux(fte_electronscale[j], 1)
-                        Qe_n_scan_electronscale [j] = return_gx_heat_flux(fn_electronscale [j], 1) # Moose activate once we have non-adiabatic electrons.
+                        Qe_n_scan_electronscale [j] = return_gx_heat_flux(fn_electronscale [j], 1)
                     else:
                         Q0e_baseline_electronscale [j] = return_gx_heat_flux(f0_electronscale [j], 0)
                         Qe_te_scan_electronscale[j] = return_gx_heat_flux(fte_electronscale[j], 0)
-                        Qe_n_scan_electronscale [j] = return_gx_heat_flux(fn_electronscale [j], 0) # Moose activate once we have non-adiabatic electrons.
+                        Qe_n_scan_electronscale [j] = return_gx_heat_flux(fn_electronscale [j], 0)
 
                 if engine.kinetic_ions_electronscale == False:
                     Q0i_baseline_electronscale = 0*Q0e_baseline_electronscale
@@ -671,14 +622,11 @@ class GX_Flux_Model():
                     Qe_te_scan_electronscale = 0*Qi_ti_scan_electronscale
                     Qe_n_scan_electronscale = 0*Qi_n_scan_electronscale
 
-            # Moose: how to choose which gradient scans to perform.
-            # local shorthands, contained within function. More broadly, more verbose variable names, better`
-
             # record the heat flux
             #Qflux_electronscale  =  Q0
             # record dQ / dLx
             if engine.kinetic_ions_electronscale == True: # If kinetic ions (includes both adiabatic electron and two kinetic species simulations), perturb LTi.
-                Qi_ti_deriv_electronscale  =  (Qi_ti_scan_electronscale - Q0i_baseline_electronscale) / (kti * step) # Moose changing denom to (kti * step) from (Lpi * step)
+                Qi_ti_deriv_electronscale  =  (Qi_ti_scan_electronscale - Q0i_baseline_electronscale) / (kti * step) # Moose changing denom to (kti * step) from (Lpi * step). Check this is correct!
                 Qi_n_deriv_electronscale   =  (Qi_n_scan_electronscale  - Q0i_baseline_electronscale) / (Ln * step)
             if engine.two_species_electronscale == True: # If two kinetic species.
                 Qe_ti_deriv_electronscale  =  (Qe_ti_scan_electronscale - Q0e_baseline_electronscale) / (kti * step)
@@ -687,8 +635,8 @@ class GX_Flux_Model():
                 Qe_te_deriv_electronscale  =  (Qe_te_scan_electronscale - Q0e_baseline_electronscale) / (kte * step)
                 Qe_n_deriv_electronscale   =  (Qe_n_scan_electronscale  - Q0e_baseline_electronscale) / (Ln * step)
             if engine.kinetic_ions_electronscale == False:
-                Qi_ti_deriv_electronscale  = 0*Qe_te_deriv_electronscale # Moose, is this correct? Set to zero? Alternatives: Qe_te_deriv_electronscale
-                Qi_n_deriv_electronscale   = 0*Qe_n_deriv_electronscale # Moose, is this correct? Set to zero? Alternatives: Qe_n_deriv_electronscale
+                Qi_ti_deriv_electronscale  = 0*Qe_te_deriv_electronscale # Moose, is this reasonable?
+                Qi_n_deriv_electronscale   = 0*Qe_n_deriv_electronscale # Moose, is this reasonable?
             if engine.kinetic_electrons_electronscale == False:
                 Qe_te_deriv_electronscale  = 0*Qi_ti_deriv_electronscale
                 Qe_n_deriv_electronscale   = 0*Qi_n_deriv_electronscale
@@ -697,7 +645,6 @@ class GX_Flux_Model():
                 Qi_te_deriv_electronscale  =  0*Qi_ti_deriv_electronscale
 
             # need to add neoclassical diffusion
-
             # save, this is what engine.compute_flux() writes
             zero = 0*Q0e_baseline_electronscale
             eps = 1e-8 + zero # want to avoid divide by zero
@@ -753,12 +700,9 @@ class GX_Flux_Model():
             engine.Qe_pi_electronscale  = pf.Flux_profile(zero )
             engine.Qe_pe_electronscale  = pf.Flux_profile(zero )
  
-        # Moose, adding fluxes across flux tube scales. Easier to do elsewhere.
-        #if (engine.ionscale_fluxtube == 'False') and (engine.electronscale_fluxtube == 'False'):
-
     #  sets up GX input, executes GX, returns input file name
     def gx_command(self, r_id, rho, kn, kti, kte, job_id, 
-                         temp_i=1,temp_e=1, flux_tube_type = 'ionscale', kinetic_ions = True): # Moose
+                         temp_i=1,temp_e=1, flux_tube_type = 'ionscale', kinetic_ions = True):
         # this version perturbs for the gradient
         # (temp, should be merged as option, instead of duplicating code)
         # job_id describes whether flux tube is ion or electron scale.
@@ -771,27 +715,25 @@ class GX_Flux_Model():
         t_id = self.t_id # time integer
         
         #.format(t_id, r_id, time, rho, s, kti, kn), file=f)
-        if (self.engine.ionscale_fluxtube == True and self.engine.electronscale_fluxtube == True): ### If both ion and electron scale flux tubes!
+
+        ### Logic for choosing the flux tube ID, based on what scale fluxtubes are being simulated.
+        if (self.engine.ionscale_fluxtube == True and self.engine.electronscale_fluxtube == True): ### If both ion and electron scale flux tubes.
             if flux_tube_type == 'ionscale':
                 ft = self.flux_tubes[r_id] # Retrieve a single fluxtube for r_id. Ion scale flux tubes go first, so index is just r_id.
             else:
                 N_fluxtubes = len(self.midpoints)
                 ft = self.flux_tubes[r_id + N_fluxtubes] # Retrieve a single fluxtube for r_id. Electron scale flux tubes go second, so index is r_id + N_fluxtubes.
-            print('Whoop! Launching both ion and electron scale flux tubes.')
+            print('Launching both ion and electron scale flux tubes.')
         else:
-            ft = self.flux_tubes[r_id] # Retrieve a single fluxtube for r_id.
+            ft = self.flux_tubes[r_id] # Retrieve a single fluxtube for r_id. Appropriate when we are simulating only with a single scale flux tube.
         if kinetic_ions == False: # When setting gradients, ordering of kinetic ion and electron species in input files depends on whether ions are kinetic or not.
             ft.set_gradients(kn, kti, kte, kinetic_ions = False)
             ft.set_dens_temp(temp_i, temp_e, kinetic_ions = False)
         else:
-            ft.set_gradients(kn, kti, kte) # Moose, we need to set the input file correctly! Sep 23 2022. If adiabatic ions, need to set correctly...
-            ft.set_dens_temp(temp_i, temp_e)
+            ft.set_gradients(kn, kti, kte)
+            ft.set_dens_temp(temp_i, temp_e) # for now assume n_e = n_i.
 
-        # Moose for now assume n_e = n_i.
-        # Moose place for changing y0 whether ion or electron scale. In future, can add more complicated 
-        # function to calculate y0_electronscale, for now, y0_electronscale = (rho_i/rho_e)y0_ionscale
-
-        # Get the rescaled y0
+        # Here, we change y0 based on whether ion or electron scale. We have basic models for y0. For now, CBC is the standard model.
         '''
 
         ------ 1) Model 1
@@ -817,21 +759,19 @@ class GX_Flux_Model():
 
         '''
 
+        ### Functionality for different fluxtubes at each radius.
+        ### Setting the flux tube y0 value, hyperviscosity, and dt value, based on whether we are at ion or electron scales.
         if flux_tube_type == 'ionscale':
-            #mass_i = Collision_Model.m_mp[0] # Get ion mass. This is in proton masses.
-            # Better to read gx input file and get the ion mass? However, for now, always assume gx input files use proton mass as reference mass.
-            mass_i = self.engine.collision_model.m_mp[0]
-            ft.set_fluxtube_scale(temp_i, mass_i, kti, y0model = 'CBC')
+            mass_i = self.engine.collision_model.m_mp[0] # Get ion mass.
+            ft.set_fluxtube_scale(temp_i, mass_i, kti, y0model = 'CBC') ### Important: this can only be called for the first Trinity timestep. Otherwise, we cannot restart if y0 changes between Trinity timesteps for a given fluxtube.
             ft.set_fluxtube_hyperviscosity(temp_i, mass_i,hyperviscousmodel = 'basic')
             ft.set_fluxtube_timescale(temp_i, mass_i, tmodel = 'basic')
 
         if flux_tube_type == 'electronscale':
-            #mass_e = Collision_Model.m_mp[1] # Get electron mass.
             mass_e = self.engine.collision_model.m_mp[1] # Get electron mass.
-            ft.set_fluxtube_scale(temp_e, mass_e, kte, y0model = 'CBC')
+            ft.set_fluxtube_scale(temp_e, mass_e, kte, y0model = 'CBC') ### Important: this can only be called for the first Trinity timestep. Otherwise, we cannot restart if y0 changes between Trinity timesteps for a given fluxtube.
             ft.set_fluxtube_hyperviscosity(temp_e, mass_e,hyperviscousmodel = 'basic')
             ft.set_fluxtube_timescale(temp_e, mass_e, tmodel = 'basic')
-            # Set fluxtube hyperviscosity?
 
         # to be specified by Trinity input file, or by time stamp
         #root = 'gx-files/'
@@ -841,28 +781,27 @@ class GX_Flux_Model():
         fout  = tag + '.in'
         fsave = tag + '-restart.nc'
 
-        ### Decide whether to load restart
+        ### Decide whether to load restart.
         if (t_id == 0): 
-            # skip only for first time step
+            # skip only for first time step.
             ft.gx_input.inputs['Restart']['restart'] = 'false'
         else:
             ft.gx_input.inputs['Restart']['restart'] = 'true'
             fload = f"restarts/t{t_id-1}-r{r_id}-{job_id}save.nc"
             ft.gx_input.inputs['Restart']['restart_from_file'] = '"{:}"'.format(path + fload)
             ft.gx_input.inputs['Controls']['init_amp'] = '0.0'
-            # restart from the same file (prev time step), to ensure parallelizability
+            # restart from the same file (prev time step), to ensure parallelizability.
 
-        #### save restart file (always)
+        #### save restart file (always).
         ft.gx_input.inputs['Restart']['save_for_restart'] = 'true'
         fsave = 'restarts/t{:}-r{:}-{:}save.nc'.format(t_id, r_id, job_id)
         ft.gx_input.inputs['Restart']['restart_to_file'] = '"{:}"'.format(path + fsave)
 
         ### execute
-        ft.gx_input.write(path + fout) # Moose variables live in gx_input
-        gx_filename = self.run_gx(tag, path) # this returns a file name
+        ft.gx_input.write(path + fout) # Fluxtube variables live in gx_input.
+        gx_filename = self.run_gx(tag, path) # this returns a file name.
         print('In GX_command, gx_filename is {}'.format(gx_filename))
         return gx_filename
-
 
     def run_gx(self,tag,path):
 
@@ -919,12 +858,11 @@ def print_time():
 #def array_cat(arr):
 #    return np.concatenate( [ [arr[0]] , arr ] )
 
-# read a GX netCDF output file, returns HEAT flux only: Moose, does it return for two species?
-# Moose: for two species, also add particle flux
+# read a GX netCDF output file, returns HEAT flux only.
 def return_gx_heat_flux(f_nc, species_number = 0): # species_number = 0 for ions, 1 for electrons
     #try:
         print('f_nc is {}'.format(f_nc))
-        qflux = gx_io.read_GX_qflux_output( f_nc , species_number)
+        qflux = gx_io.read_GX_flux_output( f_nc , species_number, 0)
         if ( np.isnan(qflux).any() ):
              print('  nans found in', f_nc, '(setting NaNs to 0)')
              qflux = np.nan_to_num(qflux)
@@ -937,37 +875,34 @@ def return_gx_heat_flux(f_nc, species_number = 0): # species_number = 0 for ions
     #    print('  issue reading heat flux', f_nc)
     #    return 0 # for safety, this will be problematic
 
-
-# read a GX netCDF output file, returns PARTICLE flux only: Moose, does it return for two species?
-# Moose: for two species, also add particle flux
-def return_gx_particle_flux(f_nc):
+# read a GX netCDF output file, returns PARTICLE flux only.
+def return_gx_particle_flux(f_nc, species_number = 0):
     try:
-        qflux = gx_io.read_GX_pflux_output( f_nc )
-        if ( np.isnan(qflux).any() ):
+        pflux = gx_io.read_GX_flux_output( f_nc, species_number, 1)
+        if ( np.isnan(pflux).any() ):
              print('  nans found in', f_nc, '(setting NaNs to 0)')
-             qflux = np.nan_to_num(qflux)
+             pflux = np.nan_to_num(pflux)
 
         tag = f_nc.split('/')[-1]
         print('  {:} pflux: {:}'.format(tag, pflux))
-        return qflux
+        return pflux
 
     except:
         print('  issue reading particle flux', f_nc)
         return 0 # for safety, this will be problematic
 
 
-# read a GX netCDF output file, returns MOMENTUM flux only: Moose, does it return for two species?
-# Moose: for two species, also add particle flux
-def return_gx_momentum_flux(f_nc):
+# read a GX netCDF output file, returns MOMENTUM flux only.
+def return_gx_momentum_flux(f_nc, species_number = 0):
     try:
-        qflux = gx_io.read_GX_mflux_output( f_nc )
-        if ( np.isnan(qflux).any() ):     
+        mflux = gx_io.read_GX_flux_output( f_nc, species_number, 2)
+        if ( np.isnan(mflux).any() ):     
              print('  nans found in', f_nc, '(setting NaNs to 0)')
-             qflux = np.nan_to_num(qflux)
+             mflux = np.nan_to_num(mflux)
 
         tag = f_nc.split('/')[-1]
         print('  {:} mflux: {:}'.format(tag, mflux))
-        return qflux
+        return mflux
 
     except:
         print('  issue reading momentum flux', f_nc)

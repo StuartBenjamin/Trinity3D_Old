@@ -114,7 +114,7 @@ class GX_Runner():
                 break
 
 # should this be a class? Yes, this is now outdated 8/20
-def read_GX_qflux_output(fname, species_number): # species_number 0 for ions, 1 for electrons
+def read_GX_flux_output(fname, species_number, flux_quant = 0): # species_number 0 for ions, 1 for electrons, flux_quant = 0 for heat, 1 for particle, 2 for momentum.
     
     #try:
     print('fname is {}'.format(fname))
@@ -126,8 +126,17 @@ def read_GX_qflux_output(fname, species_number): # species_number 0 for ions, 1 
     t = f.variables['time'][:]
     #print('time is {}'.format(t))
     print('species is {}'.format(species_number))
-    print('flux is ' + str(f.groups['Fluxes'].variables['qflux'][:,species_number]))
-    q = f.groups['Fluxes'].variables['qflux'][:,species_number]
+    if flux_quant == 0:
+        print('flux is ' + str(f.groups['Fluxes'].variables['qflux'][:,species_number]))
+        q = f.groups['Fluxes'].variables['qflux'][:,species_number]
+
+    if flux_quant == 1:
+        print('flux is ' + str(f.groups['Fluxes'].variables['pflux'][:,species_number]))
+        q = f.groups['Fluxes'].variables['pflux'][:,species_number]
+
+    if flux_quant == 2: # TO DO: update once we have momentum fluxes.
+        print('flux is ' + str(f.groups['Fluxes'].variables['qflux'][:,species_number]))
+        q = f.groups['Fluxes'].variables['qflux'][:,species_number]
 
     # check for NANs
     if ( np.isnan(q).any() ):
@@ -139,7 +148,8 @@ def read_GX_qflux_output(fname, species_number): # species_number 0 for ions, 1 
     med = np.median( [ np.median( q[::-1][:k] ) for k in np.arange(1,N)] )
 
     #print('  read GX output: qflux = ', med)
-    return med # this is the qflux
+    return med # this is the flux
+
 
 class GX_Output():
 

@@ -30,6 +30,7 @@ writer = dgn.ProfileSaver()
 
 ### Set up time controls
 N_step_print = engine.N_steps // engine.N_prints   # how often to print 
+print('engine.N_steps is {} engine.N_prints is {}'.format(engine.N_steps, engine.N_prints))
 
 # Put this into "Trinity Runner" class
 #    "better to have functions than scripts"
@@ -51,6 +52,8 @@ while (engine.t_idx < engine.N_steps):
     engine.calc_y_next()
 
     engine.update()
+
+    print('engine.t_idx is {} N_step_print is {}'.format(engine.t_idx, N_step_print))
 
     if not ( engine.t_idx % N_step_print):
         
