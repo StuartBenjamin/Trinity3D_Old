@@ -44,6 +44,10 @@
 
 [debug]
   collisions = False
+  alpha_heating      = False
+  bremstrahlung      = False
+  update_equilibrium = False
+  turbulent_exchange = False
 
 [log]
   N_prints = 8

@@ -69,8 +69,7 @@ while (engine.t_idx < engine.N_steps):
         Q_i        = engine.Qi
         Q_e        = engine.Qe
 
-        print(f"  Plot: t = {engine.t_idx}")
-        #print(f"  Plot: t = {engine.t_idx}, t_gx = {engine.gx_idx}") # unnecessary
+        print(f"  Saving: t = {engine.t_idx}")
         writer.save(engine)
 
     engine.reset_fluxtubes()
@@ -78,7 +77,7 @@ while (engine.t_idx < engine.N_steps):
 writer.store_system(engine)
 writer.export(engine.f_save)
 
-print('TRINITY Complete. Exiting normally')
+print('\nTRINITY Complete. Exiting normally')
 
 path = "~tqian/CODE/Trinity3D/"
 cmd = f"python {path}tools/profile-plot.py {engine.f_save}.npy"

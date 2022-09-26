@@ -72,10 +72,16 @@ class Trinity_Engine():
                        ext_source_file = '',
                        model      = 'GX',
                        D_neo      = 0.5,
-                       collisions = True,
-                       alpha_heating = True,
-                       bremstrahlung = True,
-                       update_equilibrium = True,
+                       #collisions = True,
+                       #alpha_heating = True,
+                       #bremstrahlung = True,
+                       #update_equilibrium = True,
+                       #turbulent_exchange = False,
+                       collisions         = "True",
+                       alpha_heating      = "True",
+                       bremstrahlung      = "True",
+                       update_equilibrium = "True",
+                       turbulent_exchange = "False",
                        gx_inputs   = 'gx-files/',
                        gx_outputs  = 'gx-files/run-dir/',
                        vmec_path  = './',
@@ -132,6 +138,7 @@ class Trinity_Engine():
         alpha_heating = self.load( alpha_heating, "tr3d.inputs['debug']['alpha_heating']" )
         bremstrahlung = self.load( bremstrahlung, "tr3d.inputs['debug']['bremstrahlung']" )
         update_equilibrium = self.load( update_equilibrium, "tr3d.inputs['debug']['update_equilibrium']" )
+        turbulent_exchange = self.load( turbulent_exchange, "tr3d.inputs['debug']['turbulent_exchange']" )
        
         gx_inputs  = self.load( gx_inputs, "tr3d.inputs['path']['gx_inputs']")
         gx_outputs = self.load( gx_outputs, "tr3d.inputs['path']['gx_outputs']")
@@ -170,6 +177,7 @@ class Trinity_Engine():
         self.alpha_heating = alpha_heating
         self.bremstrahlung = bremstrahlung
         self.update_equilibrium = update_equilibrium
+        self.turbulent_exchange = turbulent_exchange
 
         rho_inner = rho_edge / (2*N_radial - 1)
         rho_axis = np.linspace(rho_inner, rho_edge, N_radial) # radial axis, N points
@@ -499,6 +507,8 @@ class Trinity_Engine():
         # new 8/11
         B_factor = grho / Ba**2 
         Impurity_ratio = 1 # Zs/Zi
+        Impurity_ratio_i = 1 
+        Impurity_ratio_e = -1 
 
         # kappa1 is (7.78) kappa2 is (7.79)
         kappa1_i = 1.5 * aLpi - 2.5 * aLn
@@ -510,8 +520,19 @@ class Trinity_Engine():
 
         Gi = B_factor * Impurity_ratio * pi**1.5 * pi / n**1.5 * kappa1_i * Gamma
         Ge = B_factor * Impurity_ratio * pi**1.5 * pe / n**1.5 * kappa1_e * Gamma
+#        Gi = B_factor * Impurity_ratio_i * pi**1.5 * pi / n**1.5 * kappa1_i * Gamma
+#        Ge = B_factor * Impurity_ratio_e * pi**1.5 * pe / n**1.5 * kappa1_e * Gamma
         Hi = B_factor * pi**2.5 / n**1.5 * kappa2_i * Qi
         He = B_factor * pi**2.5 / n**1.5 * kappa2_e * Qe
+
+
+        if self.turbulent_exchange == "False":
+            # turn off the G and H terms
+
+            Gi = np.zeros_like(Gi)
+            Ge = np.zeros_like(Gi)
+            Hi = np.zeros_like(Gi)
+            He = np.zeros_like(Gi)
 
         # save
         self.Fn   = Flux_profile( Fn )
@@ -1185,7 +1206,7 @@ class Trinity_Engine():
 
         if self.update_equilibrium == 'False':
 
-            print("  debug option triggered: skipping equilibrium update")
+            #print("  debug option triggered: skipping equilibrium update")
             return
 
         # sloppy way to inject DESC code
