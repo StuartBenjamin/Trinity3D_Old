@@ -29,13 +29,15 @@ _version = "0.0.0"
 class Trinity_Engine():
 
     ### read inputs
-    def load(self,x,string):
-        # this is my toml find or
-        tr3d = self.inputs
+    def load(self,default,string):
+
+        # this implements TOML find or
+
         try:
-            return eval(string)
+            tr3d = self.inputs # the "string" expects tr3d to be defined
+            x = eval(string)
         except:
-            return x
+            x = default
             '''
             it would be great if python could run
             self.{x} = x, instead of return x
@@ -43,6 +45,15 @@ class Trinity_Engine():
 
             or maybe I can strip it from the input string (get the last [], then take whats inside single quotes)
             '''
+
+        # check for booleans
+        if x == 'False':
+            return False
+
+        if x == 'True':
+            return True
+
+        return x
 
     def __init__(self, trinity_input,
                        N_radial = 10, # number of radial points
@@ -74,16 +85,16 @@ class Trinity_Engine():
                        ext_source_file = '',
                        model      = 'GX',
                        D_neo      = 0.5,
-                       #collisions = True,
-                       #alpha_heating = True,
-                       #bremstrahlung = True,
-                       #update_equilibrium = True,
-                       #turbulent_exchange = False,
-                       collisions         = "True",
-                       alpha_heating      = "True",
-                       bremstrahlung      = "True",
-                       update_equilibrium = "True",
-                       turbulent_exchange = "False",
+                       collisions         = True,
+                       alpha_heating      = True,
+                       bremstrahlung      = True,
+                       update_equilibrium = True,
+                       turbulent_exchange = False,
+#                       collisions         = "True",
+#                       alpha_heating      = "True",
+#                       bremstrahlung      = "True",
+#                       update_equilibrium = "True",
+#                       turbulent_exchange = "False",
                        gx_inputs   = 'gx-files/',
                        gx_outputs  = 'gx-files/run-dir/',
                        vmec_path  = './',
@@ -540,8 +551,8 @@ class Trinity_Engine():
         Hi = B_factor * pi**2.5 / n**1.5 * kappa2_i * Qi
         He = B_factor * pi**2.5 / n**1.5 * kappa2_e * Qe
 
-
-        if self.turbulent_exchange == "False":
+        if not self.turbulent_exchange:
+        #if self.turbulent_exchange == "False":
             # turn off the G and H terms
 
             Gi = np.zeros_like(Gi)
@@ -687,7 +698,8 @@ class Trinity_Engine():
         self.Ei = Ei
         self.Ee = Ee
         
-        if self.collisions == "False":  
+        if not self.collisions:  
+        #if self.collisions == "False":  
             # could write this to skip the function and return instead
             self.Ei = Ei*0
             self.Ee = Ei*0
@@ -949,7 +961,8 @@ class Trinity_Engine():
 
 
         # compute fusion power
-        if (self.alpha_heating == "True"):
+        if self.alpha_heating:
+        #if (self.alpha_heating == "True"):
             Ti_profile_eV = Ti_profile_keV * 1e3
             P_fusion_Wm3, fusion_rate  \
                     = fus.alpha_heating_DT( n_profile_m3, Ti_profile_eV )
@@ -958,7 +971,8 @@ class Trinity_Engine():
             fusion_rate = 0 * n_profile_m3
 
         # compute bremstrahlung radiation
-        if (self.bremstrahlung == "True"):
+        if self.bremstrahlung:
+        #if (self.bremstrahlung == "True"):
             P_brems_Wm3 = fus.radiation_bremstrahlung(n_profile_m3/1e20, Te_profile_keV) 
         else:
             P_brems_Wm3 = 0 * n_profile_m3
@@ -1270,7 +1284,8 @@ class Trinity_Engine():
 
     def reset_fluxtubes(self):
 
-        if self.update_equilibrium == 'False':
+        if not self.update_equilibrium:
+        #if self.update_equilibrium == 'False':
 
             #print("  debug option triggered: skipping equilibrium update")
             return
