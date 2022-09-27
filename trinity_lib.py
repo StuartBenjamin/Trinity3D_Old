@@ -72,10 +72,16 @@ class Trinity_Engine():
                        ext_source_file = '',
                        model      = 'GX',
                        D_neo      = 0.5,
-                       collisions = True,
-                       alpha_heating = True,
-                       bremstrahlung = True,
-                       update_equilibrium = True,
+                       #collisions = True,
+                       #alpha_heating = True,
+                       #bremstrahlung = True,
+                       #update_equilibrium = True,
+                       #turbulent_exchange = False,
+                       collisions         = "True",
+                       alpha_heating      = "True",
+                       bremstrahlung      = "True",
+                       update_equilibrium = "True",
+                       turbulent_exchange = "False",
                        gx_inputs   = 'gx-files/',
                        gx_outputs  = 'gx-files/run-dir/',
                        vmec_path  = './',
@@ -132,6 +138,7 @@ class Trinity_Engine():
         alpha_heating = self.load( alpha_heating, "tr3d.inputs['debug']['alpha_heating']" )
         bremstrahlung = self.load( bremstrahlung, "tr3d.inputs['debug']['bremstrahlung']" )
         update_equilibrium = self.load( update_equilibrium, "tr3d.inputs['debug']['update_equilibrium']" )
+        turbulent_exchange = self.load( turbulent_exchange, "tr3d.inputs['debug']['turbulent_exchange']" )
        
         gx_inputs  = self.load( gx_inputs, "tr3d.inputs['path']['gx_inputs']")
         gx_outputs = self.load( gx_outputs, "tr3d.inputs['path']['gx_outputs']")
@@ -170,6 +177,7 @@ class Trinity_Engine():
         self.alpha_heating = alpha_heating
         self.bremstrahlung = bremstrahlung
         self.update_equilibrium = update_equilibrium
+        self.turbulent_exchange = turbulent_exchange
 
         rho_inner = rho_edge / (2*N_radial - 1)
         rho_axis = np.linspace(rho_inner, rho_edge, N_radial) # radial axis, N points
@@ -364,6 +372,15 @@ class Trinity_Engine():
         print(f"    a_minor: {self.a_minor:.2f} m")
         print(f"    Ba     : {self.Ba:.2f} T average on LCFS \n")
 
+        # init history
+        n_prev  = self.density.profile    [:-1]
+        pi_prev = self.pressure_i.profile [:-1]
+        pe_prev = self.pressure_e.profile [:-1]
+
+        y_init = np.concatenate( [n_prev, pi_prev, pe_prev] )
+        self.y_hist = []
+        self.y_hist.append(y_init)
+
     ##### End of __init__ function
 
 
@@ -490,6 +507,8 @@ class Trinity_Engine():
         # new 8/11
         B_factor = grho / Ba**2 
         Impurity_ratio = 1 # Zs/Zi
+        Impurity_ratio_i = 1 
+        Impurity_ratio_e = -1 
 
         # kappa1 is (7.78) kappa2 is (7.79)
         kappa1_i = 1.5 * aLpi - 2.5 * aLn
@@ -501,8 +520,19 @@ class Trinity_Engine():
 
         Gi = B_factor * Impurity_ratio * pi**1.5 * pi / n**1.5 * kappa1_i * Gamma
         Ge = B_factor * Impurity_ratio * pi**1.5 * pe / n**1.5 * kappa1_e * Gamma
+#        Gi = B_factor * Impurity_ratio_i * pi**1.5 * pi / n**1.5 * kappa1_i * Gamma
+#        Ge = B_factor * Impurity_ratio_e * pi**1.5 * pe / n**1.5 * kappa1_e * Gamma
         Hi = B_factor * pi**2.5 / n**1.5 * kappa2_i * Qi
         He = B_factor * pi**2.5 / n**1.5 * kappa2_e * Qe
+
+
+        if self.turbulent_exchange == "False":
+            # turn off the G and H terms
+
+            Gi = np.zeros_like(Gi)
+            Ge = np.zeros_like(Gi)
+            Hi = np.zeros_like(Gi)
+            He = np.zeros_like(Gi)
 
         # save
         self.Fn   = Flux_profile( Fn )
@@ -886,6 +916,7 @@ class Trinity_Engine():
                       [ M_pin, M_pipi, M_pipe ],
                       [ M_pen, M_pepi, M_pepe ]
                      ])
+        self.psi_mat = M
 
         I3 = np.block([[I, Z, Z ],
                        [Z, I, Z ],
@@ -1115,11 +1146,67 @@ class Trinity_Engine():
             self.needs_new_vmec = True
             self.vmec_pressure_old = p_SI # maybe move this elsewhere
 
+
+        # save history
+        self.y_hist.append( y_next )
+
+        #self.check_finite_difference()
+
+    def check_finite_difference(self):
+
+        t = self.t_idx
+        if t < 2:
+            return
+
+        y1 = self.y_hist[-1]
+        y0 = self.y_hist[-2]
+
+        force_n  = self.force_n  
+        force_pi = self.force_pi 
+        force_pe = self.force_pe 
+
+        # load source terms
+        source_n  = self.source_n[:-1] 
+        source_pi = self.source_pi[:-1]
+        source_pe = self.source_pe[:-1]
+
+        F = np.concatenate( [force_n, force_pi, force_pe] ) # Note: F < 0
+        S = np.concatenate( [source_n, source_pi, source_pe] )
+
+        dt = self.dtau
+        y_err = (y1/dt - F - S) - y0/dt
+        #y_err = y1/dt - (F + S + y0/dt)
+        chi2 = np.sum(y_err**2)/2
+
+        print(f"t = {t}: {chi2}")
+
+        # do matrix algebra
+        psi = self.psi_mat
+        N = len(psi)
+        I = np.identity(N)
+
+        J = I/dt + psi
+
+        b_eff = - J.T @ y_err
+        lamb = 0
+        A_eff = J.T @ J + lamb * np.diag( J.T @ J )
+
+        y2 = np.linalg.inv(A_eff) @ b_eff  + y1 # iterate?
+        # write a compute_error(), and an iterator. 
+        # I need a function to recompute J(psi, F)L for each iteration for y
+
+        # check that things make sense?
+
+        if t>10:
+            import pdb
+            pdb.set_trace()
+
+
     def reset_fluxtubes(self):
 
         if self.update_equilibrium == 'False':
 
-            print("  debug option triggered: skipping equilibrium update")
+            #print("  debug option triggered: skipping equilibrium update")
             return
 
         # sloppy way to inject DESC code
