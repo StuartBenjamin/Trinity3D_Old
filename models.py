@@ -540,13 +540,13 @@ class GX_Flux_Model():
 
 	    # record dQ / dLx
             if engine.kinetic_ions_ionscale == True: # If kinetic ions (includes both adiabatic electron and two kinetic species simulations), perturb LTi.
-                Qi_ti_deriv_ionscale  =  (Qi_ti_scan_ionscale - Q0i_baseline_ionscale) / (kti * step) # Moose changing denom to (kti * step) from (Lpi * step). Is this correct?
+                Qi_ti_deriv_ionscale  =  (Qi_ti_scan_ionscale - Q0i_baseline_ionscale) / (kpi * step) # Moose changing denom to (kti * step) from (Lpi * step). Is this correct?
                 Qi_n_deriv_ionscale   =  (Qi_n_scan_ionscale  - Q0i_baseline_ionscale) / (Ln * step)
             if engine.two_species_ionscale == True: # If two kinetic species.
-                Qe_ti_deriv_ionscale  =  (Qe_ti_scan_ionscale - Q0e_baseline_ionscale) / (kti * step)
-                Qi_te_deriv_ionscale  =  (Qi_te_scan_ionscale - Q0i_baseline_ionscale) / (kte * step)
+                Qe_ti_deriv_ionscale  =  (Qe_ti_scan_ionscale - Q0e_baseline_ionscale) / (kpi * step)
+                Qi_te_deriv_ionscale  =  (Qi_te_scan_ionscale - Q0i_baseline_ionscale) / (kpe * step)
             if engine.kinetic_electrons_ionscale == True: # If kinetic electrons (includes both adiabatic ion and two kinetic species simulations), perturb LTe.
-                Qe_te_deriv_ionscale  =  (Qe_te_scan_ionscale - Q0e_baseline_ionscale) / (kte * step)
+                Qe_te_deriv_ionscale  =  (Qe_te_scan_ionscale - Q0e_baseline_ionscale) / (kpe * step)
                 Qe_n_deriv_ionscale   =  (Qe_n_scan_ionscale  - Q0e_baseline_ionscale) / (Ln * step)
             if engine.kinetic_ions_ionscale == False:
                 Qi_ti_deriv_ionscale  = 0*Qe_te_deriv_ionscale # Moose: is this reasonable?
@@ -626,13 +626,13 @@ class GX_Flux_Model():
             #Qflux_electronscale  =  Q0
             # record dQ / dLx
             if engine.kinetic_ions_electronscale == True: # If kinetic ions (includes both adiabatic electron and two kinetic species simulations), perturb LTi.
-                Qi_ti_deriv_electronscale  =  (Qi_ti_scan_electronscale - Q0i_baseline_electronscale) / (kti * step) # Moose changing denom to (kti * step) from (Lpi * step). Check this is correct!
+                Qi_ti_deriv_electronscale  =  (Qi_ti_scan_electronscale - Q0i_baseline_electronscale) / (kpi * step) # Moose changing denom to (kti * step) from (Lpi * step). Check this is correct!
                 Qi_n_deriv_electronscale   =  (Qi_n_scan_electronscale  - Q0i_baseline_electronscale) / (Ln * step)
             if engine.two_species_electronscale == True: # If two kinetic species.
-                Qe_ti_deriv_electronscale  =  (Qe_ti_scan_electronscale - Q0e_baseline_electronscale) / (kti * step)
-                Qi_te_deriv_electronscale  =  (Qi_te_scan_electronscale - Q0i_baseline_electronscale) / (kte * step)
+                Qe_ti_deriv_electronscale  =  (Qe_ti_scan_electronscale - Q0e_baseline_electronscale) / (kpi * step)
+                Qi_te_deriv_electronscale  =  (Qi_te_scan_electronscale - Q0i_baseline_electronscale) / (kpe * step)
             if engine.kinetic_electrons_electronscale == True: # If kinetic electrons (includes both adiabatic ion and two kinetic species simulations), perturb LTe.
-                Qe_te_deriv_electronscale  =  (Qe_te_scan_electronscale - Q0e_baseline_electronscale) / (kte * step)
+                Qe_te_deriv_electronscale  =  (Qe_te_scan_electronscale - Q0e_baseline_electronscale) / (kpe * step)
                 Qe_n_deriv_electronscale   =  (Qe_n_scan_electronscale  - Q0e_baseline_electronscale) / (Ln * step)
             if engine.kinetic_ions_electronscale == False:
                 Qi_ti_deriv_electronscale  = 0*Qe_te_deriv_electronscale # Moose, is this reasonable?
@@ -763,13 +763,13 @@ class GX_Flux_Model():
         ### Setting the flux tube y0 value, hyperviscosity, and dt value, based on whether we are at ion or electron scales.
         if flux_tube_type == 'ionscale':
             mass_i = self.engine.collision_model.m_mp[0] # Get ion mass.
-            ft.set_fluxtube_scale(temp_i, mass_i, kti, y0model = 'CBC') ### Important: this can only be called for the first Trinity timestep. Otherwise, we cannot restart if y0 changes between Trinity timesteps for a given fluxtube.
+            ft.set_fluxtube_scale(temp_i, mass_i, kti, y0floor = 8.0, y0model = 'CBC') ### Important: this can only be called for the first Trinity timestep. Otherwise, we cannot restart if y0 changes between Trinity timesteps for a given fluxtube.
             ft.set_fluxtube_hyperviscosity(temp_i, mass_i,hyperviscousmodel = 'basic')
             ft.set_fluxtube_timescale(temp_i, mass_i, tmodel = 'basic')
 
         if flux_tube_type == 'electronscale':
             mass_e = self.engine.collision_model.m_mp[1] # Get electron mass.
-            ft.set_fluxtube_scale(temp_e, mass_e, kte, y0model = 'CBC') ### Important: this can only be called for the first Trinity timestep. Otherwise, we cannot restart if y0 changes between Trinity timesteps for a given fluxtube.
+            ft.set_fluxtube_scale(temp_e, mass_e, kte, y0floor = 0.3, y0model = 'CBC') ### Important: this can only be called for the first Trinity timestep. Otherwise, we cannot restart if y0 changes between Trinity timesteps for a given fluxtube.
             ft.set_fluxtube_hyperviscosity(temp_e, mass_e,hyperviscousmodel = 'basic')
             ft.set_fluxtube_timescale(temp_e, mass_e, tmodel = 'basic')
 

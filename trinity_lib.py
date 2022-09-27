@@ -436,7 +436,6 @@ class Trinity_Engine():
         else:
            self.kinetic_electrons_ionscale = False
 
-
         if self.kinetic_ions_electronscale == 'True':
            self.kinetic_ions_electronscale = True
         else:
@@ -446,11 +445,6 @@ class Trinity_Engine():
            self.kinetic_electrons_electronscale = True
         else:
            self.kinetic_electrons_electronscale = False
-
-        #if self.two_species == 'True':
-        #   self.two_species = True
-        #else:
-        #   self.two_species = False
 
         if self.ionscale_fluxtube == 'True':
            self.ionscale_fluxtube = True

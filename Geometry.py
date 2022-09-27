@@ -95,15 +95,21 @@ class FluxTube():
 
         # for single species ions ne=ni so dens is [1,1] for now
 
-    def set_fluxtube_scale(self, temp, mass, kts, y0model = 'CBC', y0ionscale = 10): 
+    def set_fluxtube_scale(self, temp, mass, kts, y0floor, y0model = 'CBC', y0ionscale = 10): 
         # Moose Set y0 for the fluxtube. See models.py for how this is set.
         gx = self.gx_input
         if y0model == 'CBC': # y0_GX = 4*tprim_GX sqrt(m_{sGX} T_{sGX})
             y0 = 4*kts*np.sqrt(mass*temp)
-            gx.inputs['Domain']['y0'] = y0
+            if y0 < y0floor: # We want a minimum y0, otherwise box too larger.
+                gx.inputs['Domain']['y0'] = y0floor
+            else:
+                gx.inputs['Domain']['y0'] = y0
         if y0model == 'basic': # y0_GX = y0_ionscale sqrt(m_{sGX} T_{sGX})
             y0 = y0ionscale*np.sqrt(mass*temp)
-            gx.inputs['Domain']['y0'] = y0
+            if y0 < y0floor: # We want a minimum y0, otherwise box too larger.
+                gx.inputs['Domain']['y0'] = y0floor
+            else:
+                gx.inputs['Domain']['y0'] = y0
 
     def set_fluxtube_hyperviscosity(self, temp, mass, hyperviscousmodel = 'basic',D_ionscale=0.1):
         # Moose Set hyperviscosity for the flux tube.
