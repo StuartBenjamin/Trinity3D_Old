@@ -1,13 +1,15 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import os
 
 from scipy.integrate import simps
 from scipy.constants import e, k as kB
 
-root = '/home/tqian/CODE/Trinity3D/'
+#root = '/home/tqian/CODE/Trinity3D/'
 # todo: make this path less hard-coded
 # possible to access absolute path to Trinity root directory?
-path = root + 'Fusion_cross_sections/'
+root = os.environ.get("TRINITY_PATH") 
+path = root + '/Fusion_cross_sections/'
 
 '''
 This library hosts the Xsec class, which calculates fusion cross-sections based on (n,T) profiles. 

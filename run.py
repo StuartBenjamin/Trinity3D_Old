@@ -9,6 +9,8 @@ import pdb
 import os, sys
 
 print("\nWelcome to Trinity3D")
+
+
 try:
     fin = sys.argv[1]
 except:
@@ -38,6 +40,9 @@ N_step_print = engine.N_steps // engine.N_prints   # how often to print
 #    "better to have functions than scripts"
 while (engine.t_idx < engine.N_steps):
 #while (engine.gx_idx < engine.N_steps):
+    '''
+    shift from counting time, to counting gx_calls?
+    '''
 
 
     engine.get_flux()
@@ -79,8 +84,10 @@ writer.export(engine.f_save)
 
 print('\nTRINITY Complete. Exiting normally')
 
-path = "~tqian/CODE/Trinity3D/"
-cmd = f"python {path}tools/profile-plot.py {engine.f_save}.npy"
+#path = "~tqian/CODE/Trinity3D/"
+#cmd = f"python {path}tools/profile-plot.py {engine.f_save}.npy"
+root = os.environ.get("TRINITY_PATH") 
+cmd = f"python {root}/tools/profile-plot.py {engine.f_save}.npy"
 print('Calling plot function:')
 print('  ',cmd)
 os.system(cmd)
