@@ -46,6 +46,7 @@ class Trinity_Engine():
 
     def __init__(self, trinity_input,
                        N_radial = 10, # number of radial points
+                       rho_edge = 0.8,
                        n_core = 4,
                        n_edge = 0.5,
                        Ti_core = 8,
@@ -59,7 +60,8 @@ class Trinity_Engine():
                        dtau  = 0.5,        # step size 
                        N_steps  = 1000,    # total Time = dtau * N_steps
                        N_prints = 10,
-                       rho_edge = 0.8,
+                       max_iter = 4,
+                       newton_threshold = 2.0,
                        Sn_height  = 0,  
                        Spe_height = 0,
                        Spi_height = 0, 
@@ -199,11 +201,22 @@ class Trinity_Engine():
         self.alpha    = alpha
         self.N_steps  = N_steps
         self.N_prints = N_prints
+        self.max_iter = max_iter
+
+        self.newton_threshold = newton_threshold
 
         self.rho_edge = rho_edge
         self.rho_inner = rho_inner
 
         self.f_save = f_save
+
+        # pre-compute the block identity matrix
+        N_block = self.N_radial - 1
+        I = np.identity(N_block)
+        Z = np.zeros_like(I)
+        self.I_mat = np.block([[I, Z, Z ],
+                               [Z, I, Z ],
+                               [Z, Z, I ]])
 
         ### will be from VMEC
         self.Ba      = Ba # average field on LCFS
@@ -908,9 +921,6 @@ class Trinity_Engine():
         M_pepi = self.psi_pepi.matrix[:-1, :-1] * (2./3)       
         M_pepe = self.psi_pepe.matrix[:-1, :-1] * (2./3)       
 
-        N_block = self.N_radial - 1
-        I = np.identity(N_block)
-        Z = I*0 # block of 0s
         
         ## build block-diagonal matrices
         M = np.block([
@@ -920,11 +930,7 @@ class Trinity_Engine():
                      ])
         self.psi_mat = M
 
-        I3 = np.block([[I, Z, Z ],
-                       [Z, I, Z ],
-                       [Z, Z, I ]])
-
-        Amat = I3 - self.dtau * self.alpha * M
+        Amat = self.I_mat - self.dtau * self.alpha * M
         return Amat
 
 
@@ -1082,8 +1088,11 @@ class Trinity_Engine():
 
     def calc_y_iter(self):
 
-        y1 = self.y_hist[-1]
-        #y0 = self.y_hist[-2]
+        ##### this 'shorts' out the iteration
+        #self.calc_y_next() # temp
+        #return
+
+        y1 = self.y_hist[-1] # this is y_p
         y0 = self.y_prev
 
         force_n  = self.force_n  
@@ -1100,36 +1109,27 @@ class Trinity_Engine():
 
         dt = self.dtau
         y_err = (y1/dt - F - S) - y0/dt # L - o (Barnes notes eq 107)
-        chi2 = np.sum(y_err**2)/2
+#        chi2 = np.sum(y_err**2)/2
 #        print(f"(t,p) = {self.t_idx}, {self.p_idx} : {chi2} (y1-y0)")
 
         ### get the matrix
         M = self.psi_mat 
+        I = self.I_mat
 
-        N_block = self.N_radial - 1
-        I = np.identity(N_block)
-        Z = I*0 # block of 0s
-        I3 = np.block([[I, Z, Z ],
-                       [Z, I, Z ],
-                       [Z, Z, I ]])
+        Jmat = I/dt - self.alpha * M # assumes alpha = 1, lambda = 0 (eq 110)
 
-        Jmat = I3/dt - self.alpha * M # assumes alpha = 1, lambda = 0 (eq 110)
-
-        dy = - np.linalg.inv(Jmat) @ y_err # this sign is arbitrary, it makes the equation positive
-        y2 = y1 + dy
+        dy = - np.linalg.inv(Jmat) @ y_err # sign is arbitrary, it makes the next equation positive
+        y2 = y1 + dy # this is y_{p+1}
 
         y_err = (y2/dt - F - S) - y0/dt # L - o (Barnes notes eq 107)
-        chi2 = np.sum(y_err**2)/2
+#        chi2 = np.sum(y_err**2)/2
 #        print(f"(t,p) = {self.t_idx}, {self.p_idx} : {chi2} (yn - y0)")
-
 
         # save 
         self.y_next = y2
         self.y_hist.append( y2 )
 
 
-        #####
-        #self.calc_y_next() # temp
 
     def update(self, threshold=0.9):
         '''
@@ -1208,7 +1208,7 @@ class Trinity_Engine():
         self.check_finite_difference()
 
 
-    def check_finite_difference(self, threshold=2):
+    def check_finite_difference(self):
 
         t = self.t_idx
         if t < 2:
@@ -1242,7 +1242,7 @@ class Trinity_Engine():
         print(f"(t,p) = {self.t_idx}, {self.p_idx} : {chi2}")
 
 
-        if chi2 < threshold:
+        if chi2 < self.newton_threshold:
             # error is sufficiently small, do not iterate
 
             # reset an iteration counter
@@ -1250,9 +1250,7 @@ class Trinity_Engine():
             self.newton_mode = False
             return
 
-        max_iter = 4
-
-        if self.p_idx >= max_iter:
+        if self.p_idx >= self.max_iter:
             # bound the number of newton iterations
 
             self.p_idx = 0

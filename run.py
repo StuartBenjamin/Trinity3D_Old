@@ -10,11 +10,11 @@ import os, sys
 
 print("\nWelcome to Trinity3D")
 
-# check for path # doesn't work yet
-#if os.environ.get("TRINITY_PATH") == None:
-#    print("\n  Environment Variable $TRINITY_PATH does not appear to be set")
-#    print("  Try running: source setup.sh")
-#    sys.exit()
+# check that path is set
+if os.environ.get("TRINITY_PATH") == None:
+    print("\n  Environment Variable $TRINITY_PATH does not appear to be set.")
+    print("  Try running (source setup.sh)\n")
+    sys.exit()
 
 
 try:
@@ -22,13 +22,6 @@ try:
 except:
     fin = 'trinity.in'
 print("\n  Loading input file:", fin, "\n")
-
-
-'''
-   ToDo: there should be a section where I set default values
-
-   I think it would be best to put this in the TrinityLib itself
-'''
 
 
 ### Run Trinity!
@@ -99,8 +92,6 @@ writer.export(engine.f_save)
 
 print('\nTRINITY Complete. Exiting normally')
 
-#path = "~tqian/CODE/Trinity3D/"
-#cmd = f"python {path}tools/profile-plot.py {engine.f_save}.npy"
 root = os.environ.get("TRINITY_PATH") 
 cmd = f"python {root}/tools/profile-plot.py {engine.f_save}.npy"
 print('Calling plot function:')
