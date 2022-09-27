@@ -228,9 +228,11 @@ class Trinity_Engine():
         # local variables
         self.time = 0
         self.t_idx = 0
+        self.p_idx = 0
         self.gx_idx = 0
         self.needs_new_flux = True
         self.needs_new_vmec = False
+        self.newton_mode = False
 
         # init normalizations
         self.norms = self.Normalizations(a_ref=a_minor)
@@ -1078,6 +1080,57 @@ class Trinity_Engine():
         self.y_next = y_next
         self.y_hist.append( y_next )
 
+    def calc_y_iter(self):
+
+        y1 = self.y_hist[-1]
+        #y0 = self.y_hist[-2]
+        y0 = self.y_prev
+
+        force_n  = self.force_n  
+        force_pi = self.force_pi 
+        force_pe = self.force_pe 
+
+        # load source terms
+        source_n  = self.source_n[:-1] 
+        source_pi = self.source_pi[:-1]
+        source_pe = self.source_pe[:-1]
+
+        F = np.concatenate( [force_n, force_pi, force_pe] ) # Note: F < 0
+        S = np.concatenate( [source_n, source_pi, source_pe] )
+
+        dt = self.dtau
+        y_err = (y1/dt - F - S) - y0/dt # L - o (Barnes notes eq 107)
+        chi2 = np.sum(y_err**2)/2
+#        print(f"(t,p) = {self.t_idx}, {self.p_idx} : {chi2} (y1-y0)")
+
+        ### get the matrix
+        M = self.psi_mat 
+
+        N_block = self.N_radial - 1
+        I = np.identity(N_block)
+        Z = I*0 # block of 0s
+        I3 = np.block([[I, Z, Z ],
+                       [Z, I, Z ],
+                       [Z, Z, I ]])
+
+        Jmat = I3/dt - self.alpha * M # assumes alpha = 1, lambda = 0 (eq 110)
+
+        dy = - np.linalg.inv(Jmat) @ y_err # this sign is arbitrary, it makes the equation positive
+        y2 = y1 + dy
+
+        y_err = (y2/dt - F - S) - y0/dt # L - o (Barnes notes eq 107)
+        chi2 = np.sum(y_err**2)/2
+#        print(f"(t,p) = {self.t_idx}, {self.p_idx} : {chi2} (yn - y0)")
+
+
+        # save 
+        self.y_next = y2
+        self.y_hist.append( y2 )
+
+
+        #####
+        #self.calc_y_next() # temp
+
     def update(self, threshold=0.9):
         '''
         Load the results from y = Ab, update profiles
@@ -1108,8 +1161,10 @@ class Trinity_Engine():
         self.pressure_e = Profile(pe, grad=True, half=True, full=True)
 
         # step time
-        self.time += self.dtau
-        self.t_idx += 1 # this is an integer index of all time steps
+        if not self.newton_mode:
+            # do not increment time, while Trinity iterates Newton method steps 
+            self.time += self.dtau
+            self.t_idx += 1 # integer index of all time steps
 
         ## record change
         delta_pi = profile_diff(pi, pi_prev) #np.std(pi - pi_prev)
@@ -1150,18 +1205,23 @@ class Trinity_Engine():
             self.vmec_pressure_old = p_SI # maybe move this elsewhere
 
 
+        self.check_finite_difference()
 
-        #self.check_finite_difference()
 
-    def check_finite_difference(self):
+    def check_finite_difference(self, threshold=2):
 
         t = self.t_idx
         if t < 2:
+            print(f"(t,p) = {self.t_idx}, {self.p_idx}")
             return
 
         # note: these arrays do NOT include the boundary point
         y1 = self.y_hist[-1]
-        y0 = self.y_hist[-2]
+
+        if self.newton_mode:
+            y0 = self.y_prev
+        else:
+            y0 = self.y_hist[-2]
 
         force_n  = self.force_n  
         force_pi = self.force_pi 
@@ -1177,31 +1237,37 @@ class Trinity_Engine():
 
         dt = self.dtau
         y_err = (y1/dt - F - S) - y0/dt
-        #y_err = y1/dt - (F + S + y0/dt)
         chi2 = np.sum(y_err**2)/2
 
-        print(f"t = {t}: {chi2}")
+        print(f"(t,p) = {self.t_idx}, {self.p_idx} : {chi2}")
 
-        # do matrix algebra
-        psi = self.psi_mat
-        N = len(psi)
-        I = np.identity(N)
 
-        J = I/dt + psi
+        if chi2 < threshold:
+            # error is sufficiently small, do not iterate
 
-        b_eff = - J.T @ y_err
-        lamb = 0
-        A_eff = J.T @ J + lamb * np.diag( J.T @ J )
+            # reset an iteration counter
+            self.p_idx = 0
+            self.newton_mode = False
+            return
 
-        y2 = np.linalg.inv(A_eff) @ b_eff  + y1 # iterate?
-        # write a compute_error(), and an iterator. 
-        # I need a function to recompute J(psi, F)L for each iteration for y
+        max_iter = 4
 
-        # check that things make sense?
+        if self.p_idx >= max_iter:
+            # bound the number of newton iterations
 
-        if t>10:
-            import pdb
-            pdb.set_trace()
+            self.p_idx = 0
+            self.newton_mode = False
+            return
+
+
+        ###
+        # else iterate
+
+        self.p_idx += 1
+        self.newton_mode = True
+
+        self.y_prev = y0 # this defines the anchor point for Newton iterations
+
 
 
     def reset_fluxtubes(self):

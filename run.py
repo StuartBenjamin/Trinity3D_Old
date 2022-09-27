@@ -68,7 +68,11 @@ while (engine.t_idx < engine.N_steps):
     engine.calc_psi_pe() 
 
     engine.calc_sources()
-    engine.calc_y_next()
+
+    if not engine.newton_mode:
+       engine.calc_y_next()
+    else:
+       engine.calc_y_iter()
 
     engine.update()
 
