@@ -1069,11 +1069,14 @@ class Trinity_Engine():
         bvec = self.time_step_RHS()
 
         Ainv = np.linalg.inv(Amat) 
-        self.y_next = Ainv @ bvec
+        y_next = Ainv @ bvec
         
         # for debugging the A matrix
         # plt.figure(); plt.imshow( np.log(np.abs(Amat))); plt.show()
     
+        # save 
+        self.y_next = y_next
+        self.y_hist.append( y_next )
 
     def update(self, threshold=0.9):
         '''
@@ -1147,8 +1150,6 @@ class Trinity_Engine():
             self.vmec_pressure_old = p_SI # maybe move this elsewhere
 
 
-        # save history
-        self.y_hist.append( y_next )
 
         #self.check_finite_difference()
 
@@ -1158,6 +1159,7 @@ class Trinity_Engine():
         if t < 2:
             return
 
+        # note: these arrays do NOT include the boundary point
         y1 = self.y_hist[-1]
         y0 = self.y_hist[-2]
 

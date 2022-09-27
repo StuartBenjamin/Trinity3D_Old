@@ -5,9 +5,6 @@ import os
 from scipy.integrate import simps
 from scipy.constants import e, k as kB
 
-#root = '/home/tqian/CODE/Trinity3D/'
-# todo: make this path less hard-coded
-# possible to access absolute path to Trinity root directory?
 root = os.environ.get("TRINITY_PATH") 
 path = root + '/Fusion_cross_sections/'
 

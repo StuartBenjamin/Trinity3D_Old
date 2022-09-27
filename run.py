@@ -10,6 +10,12 @@ import os, sys
 
 print("\nWelcome to Trinity3D")
 
+# check for path # doesn't work yet
+#if os.environ.get("TRINITY_PATH") == None:
+#    print("\n  Environment Variable $TRINITY_PATH does not appear to be set")
+#    print("  Try running: source setup.sh")
+#    sys.exit()
+
 
 try:
     fin = sys.argv[1]
@@ -42,6 +48,11 @@ while (engine.t_idx < engine.N_steps):
 #while (engine.gx_idx < engine.N_steps):
     '''
     shift from counting time, to counting gx_calls?
+
+    decison: not doing this later, it will change the nature of tests
+    and different run modes (electron scale) might use more GX calls than others
+
+    For now, I will just have the Newton method NOT increment this while loop (turtle 9/27)
     '''
 
 
