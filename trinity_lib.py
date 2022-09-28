@@ -434,12 +434,17 @@ class Trinity_Engine():
 
         if   (model == "GX"):
 
-            if self.needs_new_flux:
-                # calculates fluxes from GX
-                self.model_gx.prep_commands(self, self.gx_idx) 
-                self.gx_idx += 1
-#            else:
-#                print(" ENGAGE TRINITY SUBCYCLE ", f"t = {self.t_idx}")
+            self.model_gx.prep_commands(self)
+
+### this functionality subcycles trinity steps, without rerunning gx
+#      it was deemed unnecessary (and incorrect?)
+#            if self.needs_new_flux:
+#                # calculates fluxes from GX
+#                self.model_gx.prep_commands(self) 
+#                #self.model_gx.prep_commands(self, self.gx_idx) 
+#                self.gx_idx += 1
+##            else:
+##                print(" ENGAGE TRINITY SUBCYCLE ", f"t = {self.t_idx}")
 
         elif (model == "diffusive"):
             # test from MAB thesis (documented in models.py)

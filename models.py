@@ -257,7 +257,6 @@ class GX_Flux_Model():
 
 
     def make_fluxtubes(self):
-    #def init_geometry(self): # rename 8/15
 
         ### load flux tube geometry
         # these should come from Trinity input file
@@ -267,7 +266,6 @@ class GX_Flux_Model():
 
             # else launch flux tubes from VMEC
             f_geo     = self.f_geo
-            #f_geo     = 'gx-geometry-sample.ing' # sample input file, to be part of repo ## 7/21 can delete
             geo_path  = self.gx_root  # this says where the convert executable lives, and where to find the sample .ing file
             out_path  = self.path
             vmec_path = self.vmec_path
@@ -320,6 +318,8 @@ class GX_Flux_Model():
             os.mkdir(restart_dir)
 
 
+    # is this being used? 9/28
+    # I think the functionality got implemented somewhere else
     def create_geometry_from_vmec(self,wout):
 
         # load sample geometry file
@@ -341,12 +341,12 @@ class GX_Flux_Model():
 
 
     def prep_commands(self, engine, # pointer to pull profiles from trinity engine
-                            t_id,   # integer time index in trinity
+                            #t_id,   # integer time index in trinity
                             step = 0.1, # absolute step size for perturbing gradients
                      ):
 
-        self.t_id = t_id
         self.time = engine.time
+        self.t_id = engine.t_idx
 
         # preparing dimensionless (tprim = L_ref/LT) for GX
         Ln  = - engine.density.grad_log   .profile  # a / L_n
@@ -464,22 +464,27 @@ class GX_Flux_Model():
         #kti = kpi - kn
         #kte = kpe - kn
 
-        t_id = self.t_id # time integer
+        #t_id = self.t_id # time integer
+        t_id = self.engine.t_idx # time integer
+        p_id = self.engine.p_idx # Newton iteration number
+
+#        self.engine.gx_idx += 1 
 
         #.format(t_id, r_id, time, rho, s, kti, kn), file=f)
         ft = self.flux_tubes[r_id] 
         ft.set_gradients(kn, kti, kte)
         ft.set_dens_temp(temp_i, temp_e)
-        '''
-        TODO also need to update temp and dens
-
-        normalize to species 1
-        '''
         
         # to be specified by Trinity input file, or by time stamp
         #root = 'gx-files/'
         path = self.path
-        tag  = 't{:02}-r{:}-{:}'.format(t_id, r_id, job_id)
+        tag  = f"t{t_id:02}-p{p_id}-r{r_id}-{job_id}"
+        #tag  = 't{:02}-r{:}-{:}'.format(t_id, r_id, job_id)
+        '''
+        job_id needs a better name
+        It currently refers to {base, pi, pe, n} perturbations
+        It can also refer to ion scale or electron scale flux tubes
+        '''
 
         fout  = tag + '.in'
         fsave = tag + '-restart.nc'
@@ -505,6 +510,8 @@ class GX_Flux_Model():
 
 
 #  old conventions (these restart all types 0-3 from a single node
+#   can be deleted 9/28
+#
 #        ### Decide whether to load restart
 #        if (t_id == 0): 
 #            # first time step
@@ -557,9 +564,9 @@ class GX_Flux_Model():
                 print('   running:', tag)
                 p = subprocess.Popen(cmd, stdout=fp)
                 self.processes.append(p)
-                #self.wait() # temp, debug
-#            print('slurm gx completed')
- #           print_time()
+
+            # tally completed GX run
+            self.engine.gx_idx += 1 
 
         else:
             print('  gx output {:} already exists'.format(tag) )
@@ -588,17 +595,15 @@ class GX_Flux_Model():
 def print_time():
 
     dt = datetime.now()
+    print('  time:', dt)
     #ts = datetime.timestamp(dt)
     #print('  time', ts)
-    print('  time:', dt)
 
-# double the inside point (no flux tube run there)
-### unused
-#def array_cat(arr):
-#    return np.concatenate( [ [arr[0]] , arr ] )
 
-# read a GX netCDF output file, returns flux
+## is this being used? 9/28
+#  if so, it should be replaced by GX_Output class in GX_io.py
 def read_gx(f_nc):
+    # read a GX netCDF output file, returns flux
     try:
         qflux = gx_io.read_GX_output( f_nc )
         if ( np.isnan(qflux).any() ):
