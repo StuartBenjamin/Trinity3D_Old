@@ -93,18 +93,18 @@ writer.export(engine.f_save)
 end_time = time.time()
 delta_t = end_time - start_time
 def print_time(dt):
-    m = int(dt // 60)
-    s = dt - 60*m
-    print(f"  Total time: {m:d}m {s:.1f}s")
+    h = int(dt // 3600)
+    m = int( (dt-3600*h) // 60 )
+    s = dt - 3600*h - 60*m
+    print(f"  Total time: {h:d}h {m:d}m {s:.1f}s")
 
 print('\nTRINITY Complete. Exiting normally')
 print(f"  Total gx calls: {engine.gx_idx}")
-#print(f"  Total time: {delta_t:.1f} s (~ {delta_t//60} min)")
 print_time(delta_t)
 
 root = os.environ.get("TRINITY_PATH") 
 cmd = f"python {root}/tools/profile-plot.py {engine.f_save}.npy"
-print('Calling plot function:')
+print('\nCalling plot function:')
 print('  ',cmd)
 os.system(cmd)
 

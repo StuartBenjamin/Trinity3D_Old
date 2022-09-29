@@ -1223,14 +1223,21 @@ class Trinity_Engine():
             self.needs_new_vmec = True
             self.vmec_pressure_old = p_SI # maybe move this elsewhere
 
-
         self.check_finite_difference()
+
+#        # step time
+#        if not self.newton_mode:
+#            # do not increment time, while Trinity iterates Newton method steps 
+#            self.time += self.dtau
+#            self.t_idx += 1 # integer index of all time steps
+
 
 
     def check_finite_difference(self):
 
         t = self.t_idx
         if t < 2:
+        #if t < 1:  # what should this be? if 1st order, can go with 0th time step and compare with initial condition?
             print(f"(t,p) = {self.t_idx}, {self.p_idx}")
             return
 
