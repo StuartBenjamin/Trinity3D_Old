@@ -81,6 +81,165 @@ class FluxTube():
         # for adiatibatic electrons ne=ni so dens is [1,1] for now
 
 
+class Vmec():
+    """
+    This Class reads a vmec wout file.
+
+    It computes geometric quantities such as surface area
+    """
+
+    def __init__(self,fin):
+
+        f = Dataset(fin, mode='r')
+        def get(f,key):
+            return f.variables[key][:]
+
+        # 0D array
+        self.nfp         = get(f,'nfp')
+        self.ns          = get(f,'ns')
+        self.mnmax       = get(f,'mnmax')
+        self.aminor      = get(f,'Aminor_p')
+        self.Rmajor      = get(f,'Rmajor_p')
+        self.volume      = get(f,'volume_p')
+
+        # 1D array
+        self.xm          = get(f,'xm')
+        self.xn          = get(f,'xn')
+        self.xm_nyq      = get(f,'xm_nyq')
+        self.xn_nyq      = get(f,'xn_nyq')
+
+        self.iotaf       = get(f,'iotaf')
+        self.presf       = get(f,'presf')
+
+        # 2D array
+        self.rmnc        = get(f,'rmnc')
+        self.zmns        = get(f,'zmns')
+        self.lmns        = get(f,'lmns')
+        self.bmnc        = get(f,'bmnc')
+        self.bsupumnc    = get(f,'bsupumnc')
+        self.bsupvmnc    = get(f,'bsupvmnc')
+
+        # save
+        self.data = f
+        self.N_modes = len(self.xm)
+        self.filename = fin
+
+
+    def fourier2space(self, Cmn, tax, pax, s_idx=48, sine=True):
+        """
+        Taking Fourier modes CMN, selects for flux surface s_idx
+        select sine or cosine for array
+        input toroidal and poloidal angle axis (tax, pax)
+        outputs 2D array Z(p,t)
+        """
+    
+        arr = []
+        for j in np.arange(self.N_modes):
+    
+            m = int( self.xm[j] )
+            n = int( self.xn[j] )
+    
+            c = Cmn[s_idx,j]
+    
+            if (sine):
+                A = [[ c * np.sin( m*p - n*t )  for t in tax] for p in pax ]
+            else:
+                A = [[ c * np.cos( m*p - n*t )  for t in tax] for p in pax ]
+    
+            arr.append(A)
+    
+        return np.sum(arr, axis=0)
+
+    # actually, this gets a poloidal cross section (at const toroidal angle phi)
+    #def get_surface(self, N, phi=0, s=-1):
+    def get_xsection(self, N, phi=0, s=-1):
+        '''
+        Gets a poloidal cross section at const toroidal angle phi
+        '''
+
+        pax = np.linspace(0,np.pi*2,N) # poloidal
+        tax = np.array([phi])          # toroidal
+
+        # positions
+        R2d = self.fourier2space(self.rmnc, tax,pax, sine=False, s_idx=s)
+        Z2d = self.fourier2space(self.zmns, tax,pax, sine=True,  s_idx=s)
+
+        # cartisian coordinates for flux surface
+        R = R2d[:,0]
+        Z = Z2d[:,0]
+
+        return R,Z
+
+    def get_surface(self, surface, N_zeta=20, N_theta=8):
+        '''
+        Compute area on a single flux surface
+        
+        using finite difference area elements
+        with resolution (N_zeta, N_theta).
+        '''
+
+        # get points
+        r_arr = []
+        for p in np.linspace(0,np.pi*2,N_zeta):
+            r,z = self.get_xsection(N_theta,phi=p,s=surface)
+
+            x = r*np.cos(p)
+            y = r*np.sin(p)
+
+            r_arr.append(np.transpose([x,y,z]))
+
+        r_arr = np.transpose(r_arr)
+
+        # get displacements
+        def uv_space(X_arr,Y_arr,Z_arr):
+        
+            dXdu = np.roll(X_arr,-1,axis=0) - X_arr
+            dYdu = np.roll(Y_arr,-1,axis=0) - Y_arr
+            dZdu = np.roll(Z_arr,-1,axis=0) - Z_arr
+        
+            dXdv = np.roll(X_arr,-1,axis=1) - X_arr
+            dYdv = np.roll(Y_arr,-1,axis=1) - Y_arr
+            dZdv = np.roll(Z_arr,-1,axis=1) - Z_arr
+        
+            return dXdu, dYdu, dZdu, dXdv, dYdv, dZdv
+
+        X_arr, Y_arr, Z_arr = r_arr
+        dXdu, dYdu, dZdu, dXdv, dYdv, dZdv = uv_space(X_arr,Y_arr,Z_arr)
+
+        # get area
+        dRdu = np.array([dXdu, dYdu, dZdu])
+        dRdv = np.array([dXdv, dYdv, dZdv])
+        # compute cross product and take norm
+        dArea = np.linalg.norm( np.cross(dRdu, dRdv,axis=0),axis=0)
+
+        return np.sum(dArea)
+
+    def compute_surface_areas(self, N_zeta=20, N_theta=8):
+
+        sax = np.arange(self.ns)
+
+        A = [self.get_surface(s, N_zeta=N_zeta, N_theta=N_theta) for s in sax]
+        self.surface_areas = np.array(A)
+
+        print(f"  Computed {len(sax)} surfaces, with resolution")
+        print(f"    N_zeta, N_theta = ({N_zeta}, {N_theta})")
+#        return A
+
+    def save_areas(self):
+
+        # strip the path
+        fname = self.filename.split('/')[-1] 
+
+        # assume vmec file has the form wout_[tag].nc
+        tag = fname[5:-3]
+
+        # save
+        fout = f"area_psi_{tag}.npy"
+        np.save(fout, self.surface_areas)
+        print(f"  Save surface areas to: {fout}")
+
+
+
 class VmecRunner():
 
     def __init__(self, input_file, engine):
@@ -119,7 +278,6 @@ class VmecRunner():
         print(f"  moving VMEC files to {path}")
         cmd = f"mv *{tag}* {path}"
         os.system(cmd)
-
 
 
 
