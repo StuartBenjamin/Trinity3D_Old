@@ -4,6 +4,14 @@ import numpy as np
 from netCDF4 import Dataset
 import sys
 
+"""
+28 Sept 2022
+
+This functionality has been absorbed into the Vmec class in Geometry.py
+I think this function can be deleted from tools/
+"""
+
+
 SCALE = 1 #2.90 # hard coded for JET
 _plot = True
 
@@ -20,11 +28,10 @@ def get(f,key):
 # input toroidal and poloidal angle axis (tax, pax)
 # outputs 2D array Z(p,t)
 ### used by VMEC class
-def fourier2space(Cmn, tax,pax, xm,xn, s_idx=48, N_modes=61, sine=True):
+def fourier2space(Cmn, tax,pax, xm,xn, s_idx=48, sine=True):
 
     arr = []
 
-    #global xm,xn
     N_modes = len(xm)
     for j in np.arange(N_modes):
 

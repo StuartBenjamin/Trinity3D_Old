@@ -5,10 +5,15 @@ import trinity_lib as trl
 import diagnostics as dgn
 import models      as mf
 
-import pdb
-import os, sys
+import os, sys, time
 
 print("\nWelcome to Trinity3D")
+
+# check that path is set
+if os.environ.get("TRINITY_PATH") == None:
+    print("\n  Environment Variable $TRINITY_PATH does not appear to be set.")
+    print("  Try running (source setup.sh)\n")
+    sys.exit()
 
 
 try:
@@ -18,14 +23,8 @@ except:
 print("\n  Loading input file:", fin, "\n")
 
 
-'''
-   ToDo: there should be a section where I set default values
-
-   I think it would be best to put this in the TrinityLib itself
-'''
-
-
 ### Run Trinity!
+start_time = time.time()
 
 engine = trl.Trinity_Engine(fin)
 
@@ -42,6 +41,11 @@ while (engine.t_idx < engine.N_steps):
 #while (engine.gx_idx < engine.N_steps):
     '''
     shift from counting time, to counting gx_calls?
+
+    decison: not doing this later, it will change the nature of tests
+    and different run modes (electron scale) might use more GX calls than others
+
+    For now, I will just have the Newton method NOT increment this while loop (turtle 9/27)
     '''
 
 
@@ -57,7 +61,11 @@ while (engine.t_idx < engine.N_steps):
     engine.calc_psi_pe() 
 
     engine.calc_sources()
-    engine.calc_y_next()
+
+    if not engine.newton_mode:
+       engine.calc_y_next()
+    else:
+       engine.calc_y_iter()
 
     engine.update()
 
@@ -82,13 +90,21 @@ while (engine.t_idx < engine.N_steps):
 writer.store_system(engine)
 writer.export(engine.f_save)
 
-print('\nTRINITY Complete. Exiting normally')
+end_time = time.time()
+delta_t = end_time - start_time
+def print_time(dt):
+    h = int(dt // 3600)
+    m = int( (dt-3600*h) // 60 )
+    s = dt - 3600*h - 60*m
+    print(f"  Total time: {h:d}h {m:d}m {s:.1f}s")
 
-#path = "~tqian/CODE/Trinity3D/"
-#cmd = f"python {path}tools/profile-plot.py {engine.f_save}.npy"
+print('\nTRINITY Complete. Exiting normally')
+print(f"  Total gx calls: {engine.gx_idx}")
+print_time(delta_t)
+
 root = os.environ.get("TRINITY_PATH") 
 cmd = f"python {root}/tools/profile-plot.py {engine.f_save}.npy"
-print('Calling plot function:')
+print('\nCalling plot function:')
 print('  ',cmd)
 os.system(cmd)
 

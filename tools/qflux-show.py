@@ -58,6 +58,11 @@ print(flux)
 #plt.yscale('log')
 plt.ylabel('qflux')
 plt.xlabel('time')
-plt.legend()
 plt.grid()
+
+N_files = len(data)
+if N_files < 20:
+    plt.legend()
+else:
+    plt.title(f"Showing {N_files} GX runs")
 plt.show()
