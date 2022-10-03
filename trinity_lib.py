@@ -31,10 +31,9 @@ class Trinity_Engine():
     ### read inputs
     def load(self,default,string):
 
-        # this implements TOML find or
-
+        # implements TOML find or
         try:
-            tr3d = self.inputs # the "string" expects tr3d to be defined
+            tr3d = self.inputs # "string" expects tr3d to be defined
             x = eval(string)
         except:
             x = default
@@ -46,12 +45,12 @@ class Trinity_Engine():
             or maybe I can strip it from the input string (get the last [], then take whats inside single quotes)
             '''
 
-        # check for booleans
+        # check for boolean 
+        if x == 'True': # could add other variations 'T' 'true'
+            return True
+
         if x == 'False':
             return False
-
-        if x == 'True':
-            return True
 
         return x
 
@@ -90,11 +89,6 @@ class Trinity_Engine():
                        bremstrahlung      = True,
                        update_equilibrium = True,
                        turbulent_exchange = False,
-#                       collisions         = "True",
-#                       alpha_heating      = "True",
-#                       bremstrahlung      = "True",
-#                       update_equilibrium = "True",
-#                       turbulent_exchange = "False",
                        gx_inputs   = 'gx-files/',
                        gx_outputs  = 'gx-files/run-dir/',
                        vmec_path  = './',
@@ -144,9 +138,6 @@ class Trinity_Engine():
         
         ext_source_file = self.load( ext_source_file, "tr3d.inputs['sources']['ext_source_file']" )
 
-        # boolean as string
-        #    TODO 9/7, right now the string 'False' evaluates to bool True
-        #    so the code work around is to evaluate flag == 'false' as a string, could be improved
         collisions = self.load( collisions, "tr3d.inputs['debug']['collisions']" ) 
         alpha_heating = self.load( alpha_heating, "tr3d.inputs['debug']['alpha_heating']" )
         bremstrahlung = self.load( bremstrahlung, "tr3d.inputs['debug']['bremstrahlung']" )
@@ -393,7 +384,7 @@ class Trinity_Engine():
 
 
         # Print Global Geometry information
-        print("  Global Geometry Information")
+        print("\n  Global Geometry Information")
         print(f"    R_major: {self.R_major:.2f} m")
         print(f"    a_minor: {self.a_minor:.2f} m")
         print(f"    Ba     : {self.Ba:.2f} T average on LCFS \n")
@@ -1150,7 +1141,7 @@ class Trinity_Engine():
 
 
 
-    def update(self, threshold=0.9):
+    def update(self, threshold=10):
         '''
         Load the results from y = Ab, update profiles
         '''

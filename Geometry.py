@@ -150,8 +150,6 @@ class Vmec():
     
         return np.sum(arr, axis=0)
 
-    # actually, this gets a poloidal cross section (at const toroidal angle phi)
-    #def get_surface(self, N, phi=0, s=-1):
     def get_xsection(self, N, phi=0, s=-1):
         '''
         Gets a poloidal cross section at const toroidal angle phi
@@ -179,8 +177,9 @@ class Vmec():
         '''
 
         # get points
+        nfp = self.nfp # ah, there is a bug - the last surface doesn't close anymore
         r_arr = []
-        for p in np.linspace(0,np.pi*2,N_zeta):
+        for p in np.linspace(0,np.pi*2/nfp,N_zeta):
             r,z = self.get_xsection(N_theta,phi=p,s=surface)
 
             x = r*np.cos(p)
@@ -191,15 +190,30 @@ class Vmec():
         r_arr = np.transpose(r_arr)
 
         # get displacements
+#        def uv_space(X_arr,Y_arr,Z_arr):
+#        
+#            dXdu = np.roll(X_arr,-1,axis=0) - X_arr
+#            dYdu = np.roll(Y_arr,-1,axis=0) - Y_arr
+#            dZdu = np.roll(Z_arr,-1,axis=0) - Z_arr
+#        
+#            dXdv = np.roll(X_arr,-1,axis=1) - X_arr
+#            dYdv = np.roll(Y_arr,-1,axis=1) - Y_arr
+#            dZdv = np.roll(Z_arr,-1,axis=1) - Z_arr
+#        
+#            return dXdu, dYdu, dZdu, dXdv, dYdv, dZdv
         def uv_space(X_arr,Y_arr,Z_arr):
+            # modifying the code such that toroidal (and poloidal) directions need not be closed
+            # this enables area computation on a field period for stellarators
+            # if this is correct, the previous algoirthm had an (n-1) edge error
+            #    yes, I believe that is the case. The previous implementation double counted the edge [0,1]
         
-            dXdu = np.roll(X_arr,-1,axis=0) - X_arr
-            dYdu = np.roll(Y_arr,-1,axis=0) - Y_arr
-            dZdu = np.roll(Z_arr,-1,axis=0) - Z_arr
+            dXdu = X_arr[1:,:-1] - X_arr[:-1,:-1] 
+            dYdu = Y_arr[1:,:-1] - Y_arr[:-1,:-1] 
+            dZdu = Z_arr[1:,:-1] - Z_arr[:-1,:-1] 
         
-            dXdv = np.roll(X_arr,-1,axis=1) - X_arr
-            dYdv = np.roll(Y_arr,-1,axis=1) - Y_arr
-            dZdv = np.roll(Z_arr,-1,axis=1) - Z_arr
+            dXdv = X_arr[:-1,1:] - X_arr[:-1,:-1] 
+            dYdv = Y_arr[:-1,1:] - Y_arr[:-1,:-1] 
+            dZdv = Z_arr[:-1,1:] - Z_arr[:-1,:-1] 
         
             return dXdu, dYdu, dZdu, dXdv, dYdv, dZdv
 
@@ -209,10 +223,10 @@ class Vmec():
         # get area
         dRdu = np.array([dXdu, dYdu, dZdu])
         dRdv = np.array([dXdv, dYdv, dZdv])
+
         # compute cross product and take norm
         dArea = np.linalg.norm( np.cross(dRdu, dRdv,axis=0),axis=0)
-
-        return np.sum(dArea)
+        return np.sum(dArea) * nfp
 
     def compute_surface_areas(self, N_zeta=20, N_theta=8):
 
@@ -238,7 +252,28 @@ class Vmec():
         np.save(fout, self.surface_areas)
         print(f"  Save surface areas to: {fout}")
 
+    def calc_dV(self, radial_grid, N_fine=100):
 
+        from scipy.interpolate import interp1d
+        psi_axis = np.linspace(0,1, self.ns)
+        areas = self.surface_areas
+        
+        # switching to radial grid (linear) is easier to interpolate line than psi (sqrt)
+        rho_axis = np.sqrt(psi_axis)
+        a_of_r = interp1d(rho_axis, areas, kind='cubic')  
+
+        # make a fine grid
+        fine_grid = np.linspace(0,1,N_fine)
+        midpoints = (fine_grid[1:] + fine_grid[:-1]) / 2
+        dr = self.aminor / len(midpoints)
+        dV_fine = a_of_r(midpoints) * dr
+
+        # get nearest grid index for each trinity point
+        args = [ np.argmin( np.abs(midpoints - r) ) for r in radial_grid ]  
+        
+        # split dV_fine based on the args, then recombine into dV on a coarse grid
+        dV = [ np.sum(segment) for segment in np.split(dV_fine, args) ]
+        return np.array(dV)
 
 class VmecRunner():
 
