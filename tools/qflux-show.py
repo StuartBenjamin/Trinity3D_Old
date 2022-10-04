@@ -30,7 +30,7 @@ for fname in sys.argv[1:]:
 
 
 
-plt.figure()
+plt.figure(figsize=(12,8))
 cols = ['C0','C1','C2','C3','C4','C5','C6','C7']
 
 j = 0
