@@ -74,15 +74,15 @@ all_zonal_scalars = false
 all_zonal = false
 
 [Wspectra]
-species          = false
-hermite          = false
-laguerre         = false
+species          = true
+hermite          = true
+laguerre         = true
 hermite_laguerre = false
-kx               = false
-ky               = false
+kx               = true
+ky               = true
 kxky             = false
-kperp            = false
-z                = false
+kperp            = true
+z                = true
 
 [Pspectra]
 species          = false
