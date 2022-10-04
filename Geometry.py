@@ -168,7 +168,7 @@ class Vmec():
 
         return R,Z
 
-    def get_surface(self, surface, N_zeta=20, N_theta=8):
+    def get_surface(self, surface, N_zeta=20, N_theta=8, save_cloud=False):
         '''
         Compute area on a single flux surface
         
@@ -177,7 +177,7 @@ class Vmec():
         '''
 
         # get points
-        nfp = self.nfp # ah, there is a bug - the last surface doesn't close anymore
+        nfp = self.nfp 
         r_arr = []
         for p in np.linspace(0,np.pi*2/nfp,N_zeta):
             r,z = self.get_xsection(N_theta,phi=p,s=surface)
@@ -188,19 +188,10 @@ class Vmec():
             r_arr.append(np.transpose([x,y,z]))
 
         r_arr = np.transpose(r_arr)
+        if save_cloud:
+            self.r_cloud.append(r_arr)
 
         # get displacements
-#        def uv_space(X_arr,Y_arr,Z_arr):
-#        
-#            dXdu = np.roll(X_arr,-1,axis=0) - X_arr
-#            dYdu = np.roll(Y_arr,-1,axis=0) - Y_arr
-#            dZdu = np.roll(Z_arr,-1,axis=0) - Z_arr
-#        
-#            dXdv = np.roll(X_arr,-1,axis=1) - X_arr
-#            dYdv = np.roll(Y_arr,-1,axis=1) - Y_arr
-#            dZdv = np.roll(Z_arr,-1,axis=1) - Z_arr
-#        
-#            return dXdu, dYdu, dZdu, dXdv, dYdv, dZdv
         def uv_space(X_arr,Y_arr,Z_arr):
             # modifying the code such that toroidal (and poloidal) directions need not be closed
             # this enables area computation on a field period for stellarators
@@ -226,31 +217,21 @@ class Vmec():
 
         # compute cross product and take norm
         dArea = np.linalg.norm( np.cross(dRdu, dRdv,axis=0),axis=0)
+        if save_cloud:
+            self.A_cloud.append(dArea)
+
         return np.sum(dArea) * nfp
 
-    def compute_surface_areas(self, N_zeta=20, N_theta=8):
-
-        sax = np.arange(self.ns)
-
-        A = [self.get_surface(s, N_zeta=N_zeta, N_theta=N_theta) for s in sax]
-        self.surface_areas = np.array(A)
-
-        print(f"  Computed {len(sax)} surfaces, with resolution")
-        print(f"    N_zeta, N_theta = ({N_zeta}, {N_theta})")
-#        return A
-
-    def save_areas(self):
-
-        # strip the path
-        fname = self.filename.split('/')[-1] 
-
-        # assume vmec file has the form wout_[tag].nc
-        tag = fname[5:-3]
-
-        # save
-        fout = f"area_psi_{tag}.npy"
-        np.save(fout, self.surface_areas)
-        print(f"  Save surface areas to: {fout}")
+#    def compute_surface_areas(self, N_zeta=20, N_theta=8):
+#        # to be retired 10/3
+#
+#        sax = np.arange(self.ns)
+#
+#        A = [self.get_surface(s, N_zeta=N_zeta, N_theta=N_theta) for s in sax]
+#        self.surface_areas = np.array(A)
+#
+#        print(f"  Computed {len(sax)} surfaces, with resolution")
+#        print(f"    N_zeta, N_theta = ({N_zeta}, {N_theta})")
 
     def calc_dV(self, radial_grid, N_fine=100):
 
@@ -274,6 +255,58 @@ class Vmec():
         # split dV_fine based on the args, then recombine into dV on a coarse grid
         dV = [ np.sum(segment) for segment in np.split(dV_fine, args) ]
         return np.array(dV)
+
+    def calc_geometry(self,s_axis):
+        '''
+        Compute area and < | grad rho | >
+        the surface area, of the absolute value, of 3D gradient of rho
+
+        s_axis is an INT array that indexes the VMEC flux surfaces (psi axis)
+        '''
+        self.r_cloud = []
+        self.A_cloud = []
+
+        N_points = len(s_axis)
+        r3 = [ self.get_surface(s, save_cloud=True) for s in s_axis ]
+        
+        r_cloud = np.array(self.r_cloud)
+        a_cloud = np.array(self.A_cloud)
+        
+        # compute < | grad rho | >
+        dr = np.reshape( (r_cloud[1:] - r_cloud[:-1])[:,:,:-1,:-1], (N_points-1,3,-1) )
+        dx = np.linalg.norm( dr, axis=1)
+        
+        rho_axis = np.sqrt( s_axis / self.ns )
+        drho = rho_axis[1:] - rho_axis[:-1]
+        #drho = 1 / N_points
+        #abs_grad_rho = drho/dx
+        abs_grad_rho = drho[:,np.newaxis] / dx
+        dA = np.reshape(0.5*(a_cloud[1:] + a_cloud[:-1]), (N_points-1,-1))
+        
+        avg_abs_grad_rho = np.sum(abs_grad_rho*dA,axis=1)/ np.sum(dA,axis=1) # this is actually grad psi, since using sax
+        areas = np.sum(dA,axis=1)
+
+        # save
+        self.avg_abs_grad_rho = avg_abs_grad_rho
+        self.midpoint_surface_areas = areas * self.nfp
+
+        # (unused) for completeness
+        da = np.reshape(a_cloud, (N_points,-1) )
+        self.surface_areas = np.sum(da,axis=1) * self.nfp
+
+    def save_areas(self):
+
+        # strip the path
+        fname = self.filename.split('/')[-1] 
+
+        # assume vmec file has the form wout_[tag].nc
+        tag = fname[5:-3]
+
+        # save
+        fout = f"area_psi_{tag}.npy"
+        np.save(fout, self.surface_areas)
+        print(f"  Save surface areas to: {fout}")
+
 
 class VmecRunner():
 
