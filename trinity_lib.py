@@ -241,10 +241,11 @@ class Trinity_Engine():
             self.desc = desc
 
         # local variables
-        self.time = 0
-        self.t_idx = 0
-        self.p_idx = 0
+        self.time   = 0
+        self.t_idx  = 0
         self.gx_idx = 0
+        self.p_idx  = 0
+        self.prev_p_id = 0
         self.needs_new_flux = True
         self.needs_new_vmec = False
         self.newton_mode = False
@@ -1170,11 +1171,11 @@ class Trinity_Engine():
         self.pressure_i = Profile(pi, grad=True, half=True, full=True)
         self.pressure_e = Profile(pe, grad=True, half=True, full=True)
 
-        # step time
-        if not self.newton_mode:
-            # do not increment time, while Trinity iterates Newton method steps 
-            self.time += self.dtau
-            self.t_idx += 1 # integer index of all time steps
+#        # step time
+#        if not self.newton_mode:
+#            # do not increment time, while Trinity iterates Newton method steps 
+#            self.time += self.dtau
+#            self.t_idx += 1 # integer index of all time steps
 
         ## record change
         delta_pi = profile_diff(pi, pi_prev) #np.std(pi - pi_prev)
@@ -1216,19 +1217,20 @@ class Trinity_Engine():
 
         self.check_finite_difference()
 
-#        # step time
-#        if not self.newton_mode:
-#            # do not increment time, while Trinity iterates Newton method steps 
-#            self.time += self.dtau
-#            self.t_idx += 1 # integer index of all time steps
+        # step time
+        if not self.newton_mode:
+            # do not increment time, while Trinity iterates Newton method steps 
+            self.time += self.dtau
+            self.t_idx += 1 # integer index of all time steps
 
 
 
     def check_finite_difference(self):
 
         t = self.t_idx
-        if t < 2:
-        #if t < 1:  # what should this be? if 1st order, can go with 0th time step and compare with initial condition?
+        #if t < 2:
+        # what should this be? if 1st order, can go with 0th time step and compare with initial condition?
+        if t == 0:  
             print(f"(t,p) = {self.t_idx}, {self.p_idx}")
             return
 
@@ -1259,36 +1261,42 @@ class Trinity_Engine():
         print(f"(t,p) = {self.t_idx}, {self.p_idx} : {chi2}")
 
 
+        ### decide whether to iterate
+        iterate = True
+
         if chi2 < self.newton_threshold:
             # error is sufficiently small, do not iterate
-
-            # reset an iteration counter
-            self.p_idx = 0
-            self.newton_mode = False
-            return
+            iterate = False
 
         if self.p_idx >= self.max_iter:
-            # bound the number of newton iterations
+            # max number of newton iterations exceeded, do not iterate
+            
+            iterate = False
 
+        ### execute iteration logic
+        if iterate:
+
+            self.p_idx += 1
+        
+            # define reference profile for Newton iterations
+            self.y_prev = y0 
+
+            # don't increment time?
+
+        else: 
+
+            # reset an iteration counter
+            self.prev_p_id = self.p_idx 
             self.p_idx = 0
-            self.newton_mode = False
-            return
 
-
-        ###
-        # else iterate
-
-        self.p_idx += 1
-        self.newton_mode = True
-
-        self.y_prev = y0 # this defines the anchor point for Newton iterations
-
+        # save state for Trinity engine
+        self.newton_mode = iterate
+        print(f"(t,p) = {self.t_idx}, {self.p_idx}, {self.prev_p_id}, {self.newton_mode}")
 
 
     def reset_fluxtubes(self):
 
         if not self.update_equilibrium:
-        #if self.update_equilibrium == 'False':
 
             #print("  debug option triggered: skipping equilibrium update")
             return
@@ -1320,32 +1328,31 @@ class Trinity_Engine():
         p_vmec_rho = p_trin(ams_rho) # not used by Trinity
         p_vmec_psi = p_trin(ams)
 
-
-        debug = False
-        if debug:
-
-   
-           plt.subplot(1,2,1); 
-           plt.plot( ams_rho,amf,'.-', label='prev vmec'); 
-           plt.plot(p_trinity_rho, p_trinity_f, 'o-', label='trinity now');  
-           plt.plot( ams_rho, p_vmec_rho, '*-', label='next vmec'); 
-           plt.title('Trinity rho')
-           plt.legend()
-
-           plt.subplot(1,2,2); 
-           plt.plot( ams,amf,'.-'); 
-           plt.plot(p_trinity_rho**2, p_trinity_f, 'o-');  
-           plt.plot( ams, p_vmec_rho, '*-'); 
-           plt.title('Vmec psi')
-           plt.suptitle(f"t = {self.t_idx}")
-           plt.show()
-
-           import pdb
-           pdb.set_trace()
+# retired 10/6
+#        debug = False
+#        if debug:
+#
+#   
+#           plt.subplot(1,2,1); 
+#           plt.plot( ams_rho,amf,'.-', label='prev vmec'); 
+#           plt.plot(p_trinity_rho, p_trinity_f, 'o-', label='trinity now');  
+#           plt.plot( ams_rho, p_vmec_rho, '*-', label='next vmec'); 
+#           plt.title('Trinity rho')
+#           plt.legend()
+#
+#           plt.subplot(1,2,2); 
+#           plt.plot( ams,amf,'.-'); 
+#           plt.plot(p_trinity_rho**2, p_trinity_f, 'o-');  
+#           plt.plot( ams, p_vmec_rho, '*-'); 
+#           plt.title('Vmec psi')
+#           plt.suptitle(f"t = {self.t_idx}")
+#           plt.show()
+#
+#           import pdb
+#           pdb.set_trace()
 
         # update pressure profile for vmec input
         vmec.data['indata']['am_aux_f'] = p_vmec_rho.tolist()
-        #vmec.data['indata']['am_aux_f'] = p_vmec_psi.tolist()  # was bug
 
         # run VMEC (wait)
         tag = f"vmec-t{self.t_idx:02d}" 

@@ -32,7 +32,14 @@ writer = dgn.ProfileSaver()
 
 
 ### Set up time controls
-N_step_print = engine.N_steps // engine.N_prints   # how often to print 
+N_prints = engine.N_prints
+N_steps  = engine.N_steps
+#N_step_print = engine.N_steps // engine.N_prints   # how often to print 
+if N_prints > N_steps:
+    N_step_print = N_steps
+    # guard against a bug, when more prints are demanded than steps, int-division gives 0
+else:
+    N_step_print = N_steps // N_prints   # how often to print 
 
 
 # Put this into "Trinity Runner" class

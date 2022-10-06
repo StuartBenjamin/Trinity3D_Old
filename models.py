@@ -287,15 +287,9 @@ class GX_Flux_Model():
                 f_geometry = geo_template.init_radius(rho,j) 
                 geo_files.append(out_path + f_geometry)
 
-            # kludgy fix, if the inner most flux tube is too small for VMEC resolution
-            #     just copy the second inner most flux tube
-            #     the gradients will be different (and correct) even though the geometries are faked
-            #if len(geo_files) < len(self.midpoints):
-            #    geo_files = np.concatenate( [[geo_files[0]], geo_files] )
-            # one solution could be to constrain trinity to rho > 0.3 (psi ~ 0.1)
-
         else:
             # load default files (assumed to be existing)
+            # 10/6 we should delete this soon, use nested circles as default instead
             print('  no VMEC wout given, loading default files')
             geo_files = [ 'gx-files/gx_wout_gonzalez-2021_psiN_0.102_gds21_nt_36_geo.nc',
                           'gx-files/gx_wout_gonzalez-2021_psiN_0.295_gds21_nt_38_geo.nc',  
@@ -303,7 +297,6 @@ class GX_Flux_Model():
                           'gx-files/gx_wout_gonzalez-2021_psiN_0.704_gds21_nt_42_geo.nc',
                           'gx-files/gx_wout_gonzalez-2021_psiN_0.897_gds21_nt_42_geo.nc']
 
-        #print(' Found these flux tubes', geo_files) # removed 8/14
         print("")
 
         ### store flux tubes in a list
@@ -467,6 +460,7 @@ class GX_Flux_Model():
         #t_id = self.t_id # time integer
         t_id = self.engine.t_idx # time integer
         p_id = self.engine.p_idx # Newton iteration number
+        prev_p_id = self.engine.prev_p_id # Newton iteration number
 
 #        self.engine.gx_idx += 1 
 
@@ -479,7 +473,6 @@ class GX_Flux_Model():
         #root = 'gx-files/'
         path = self.path
         tag  = f"t{t_id:02}-p{p_id}-r{r_id}-{job_id}"
-        #tag  = 't{:02}-r{:}-{:}'.format(t_id, r_id, job_id)
         '''
         job_id needs a better name
         It currently refers to {base, pi, pe, n} perturbations
@@ -496,8 +489,8 @@ class GX_Flux_Model():
 
         else:
             ft.gx_input.inputs['Restart']['restart'] = 'true'
-            fload = f"restarts/t{t_id-1}-r{r_id}-{job_id}save.nc"
-            #fload = 'restarts/t{:}-r{:}-{:}save.nc'.format(t_id-1, r_id, job_id)
+            fload = f"restarts/saved-t{t_id-1}-p{prev_p_id}-r{r_id}-{job_id}.nc" 
+            #fload = f"restarts/saved-t{t_id-1:02d}-p{prev_p_id}-r{r_id}-{job_id}.nc" 
             ft.gx_input.inputs['Restart']['restart_from_file'] = '"{:}"'.format(path + fload)
             ft.gx_input.inputs['Controls']['init_amp'] = '0.0'
             # restart from the same file (prev time step), to ensure parallelizability
@@ -505,37 +498,11 @@ class GX_Flux_Model():
         
         #### save restart file (always)
         ft.gx_input.inputs['Restart']['save_for_restart'] = 'true'
-        fsave = 'restarts/t{:}-r{:}-{:}save.nc'.format(t_id, r_id, job_id)
+        fsave = f"restarts/saved-t{t_id}-p{p_id}-r{r_id}-{job_id}.nc"
+        #fsave = f"restarts/saved-t{t_id:02d}-p{p_id}-r{r_id}-{job_id}.nc"
         ft.gx_input.inputs['Restart']['restart_to_file'] = '"{:}"'.format(path + fsave)
 
 
-#  old conventions (these restart all types 0-3 from a single node
-#   can be deleted 9/28
-#
-#        ### Decide whether to load restart
-#        if (t_id == 0): 
-#            # first time step
-#            ft.gx_input.inputs['Restart']['restart'] = 'false'
-#
-#        else:
-#            ft.gx_input.inputs['Restart']['restart'] = 'true'
-#            fload = 't{:}-r{:}-restart.nc'.format(t_id-1, r_id)
-#            ft.gx_input.inputs['Restart']['restart_from_file'] = '"{:}"'.format(path + fload)
-#            ft.gx_input.inputs['Controls']['init_amp'] = '0.0'
-#            # restart from the same file (prev time step), to ensure parallelizability
-#
-#        ### Decide whether to save restart
-#        if (job_id == '0'):
-#            # save basepoint
-#            ft.gx_input.inputs['Restart']['save_for_restart'] = 'true'
-#            fsave = 't{:}-r{:}-restart.nc'.format(t_id, r_id)
-#            ft.gx_input.inputs['Restart']['restart_to_file'] = '"{:}"'.format(path + fsave)
-#
-#        else:
-#            # perturb gradients
-#            ft.gx_input.inputs['Restart']['save_for_restart'] = 'false' 
-#            # make sure I don't redundantly rewrite the restart file here
-#
         ### execute
         ft.gx_input.write(path + fout)
         qflux = self.run_gx(tag, path) # this returns a file name
