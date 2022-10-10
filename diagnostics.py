@@ -12,7 +12,7 @@ class ProfileSaver:
     def __init__(self):
 
         # saves TRINITY data as a nested dictionary
-        log = {}
+        log = {} # note: log IS the saved object in .npy output
 
         # init profiles
         log['time']  = []
@@ -31,6 +31,8 @@ class ProfileSaver:
         log['P_fusion_Wm3'] = [] 
         log['P_brems_Wm3']  = [] 
         log['nu_ei_Hz']     = [] 
+        log['E_crit_keV']     = [] 
+        log['alpha_ion_heating_fraction']     = [] 
 
         # power balance
         log['power balance'] = {}
@@ -50,9 +52,19 @@ class ProfileSaver:
         pb['aux_source_pi'] = []
         pb['aux_source_pe'] = []
 
+        # counters
+        log['t_idx']  = []
+        log['p_idx']  = []
+
         self.log = log
 
     def save(self,engine):
+        '''
+        This function is called periodically in the time loop.
+
+        I would like to change that, so it is called every step
+        but then an index system marks the interesting times
+        '''
 
         # version
         self.log['version'] = engine.version
@@ -83,6 +95,9 @@ class ProfileSaver:
         self.log['Qi'].append(Qi)
         self.log['Qe'].append(Qe)
 
+        self.log['t_idx'].append(engine.t_idx)
+        self.log['p_idx'].append(engine.p_idx)
+
         self.log['aLn'] .append(aLn)
         self.log['aLpi'].append(aLpi)
         self.log['aLpe'].append(aLpe)
@@ -91,6 +106,8 @@ class ProfileSaver:
         self.log['P_fusion_Wm3'].append( engine.P_fusion_Wm3 ) 
         self.log['P_brems_Wm3'] .append( engine.P_brems_Wm3 ) 
         self.log['nu_ei_Hz'].append( engine.nu_ei )
+        self.log['E_crit_keV'].append( engine.E_crit_profile_keV )
+        self.log['alpha_ion_heating_fraction'].append( engine.alpha_ion_fraction)
 
         # store power balance
         pb = self.log['power balance']
@@ -113,7 +130,10 @@ class ProfileSaver:
 
 
     def store_system(self,engine):
-    # saves settings for reproducing runs
+        '''
+        saves settings for reproducing runs
+        '''
+        # turtle: has this all been set by t=0?
 
         # time step info lives here
         time_settings = {}

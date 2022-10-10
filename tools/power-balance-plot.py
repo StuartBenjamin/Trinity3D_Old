@@ -24,6 +24,9 @@ n     =      np.array( data['n'     ] )
 pi    =      np.array( data['pi'    ] ) 
 pe    =      np.array( data['pe'    ] ) 
 
+#t_idx  =      np.array( data['t_idx'] ) 
+#p_idx  =      np.array( data['p_idx'] ) 
+
 Ti = pi/n
 Te = pe/n
 
@@ -99,6 +102,7 @@ def plot_power_balance(t=0):
     axs[1,1].plot(axis, pi[t] , '.-')
     axs[1,2].plot(axis, pe[t] , '.-')
 
+    #plt.suptitle(f"(t,p) = {t_idx[t]}, {p_idx[t]} :: t = {time[t]:.3f}")
     plt.suptitle('t = {:.3f}'.format(time[t]))
 
 ## plot

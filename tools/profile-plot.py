@@ -119,8 +119,8 @@ for t in np.arange(N):
     axs[0,4].plot(mid_axis,Qi[t] ,'x:', color=warm_map[t])
     axs[0,5].plot(mid_axis,Gamma[t] ,'x-', color=green_map[t])
 
-    axs[1,4].plot( aLpi[t] - aLn[t], Qi[t] ,'.:', color=warm_map[t])
-    axs[1,4].plot( aLpe[t] - aLn[t], Qe[t] ,'.-', color=cool_map[t])
+    axs[1,4].plot( aLpi[t] - aLn[t], Qi[t] ,'.', color=warm_map[t])
+    axs[1,4].plot( aLpe[t] - aLn[t], Qe[t] ,'.', color=cool_map[t])
     axs[1,5].plot( aLn[t],Gamma[t] ,'.-', color=green_map[t])
 
  #   axs[1,0].plot(axis, fusion_rate[t], '.-', color=purple_map[t])
@@ -136,7 +136,8 @@ axs[0,3].plot(axis, source_n , 'C2.-', label = '$S_{n}$')
 axs[1,3].plot(axis, source_pe / p_source_scale * 1e-6, 'C0.-', label = '$S_{p_e}$')
 axs[1,3].plot(axis, source_pi / p_source_scale * 1e-6, 'C1.:', label = '$S_{p_i}$')
 
-#axs[0,0].set_ylim( bottom=0 )
+nmax = np.max(n)
+axs[0,0].set_ylim( bottom=0, top = 1.5*nmax )
 #axs[1,0].set_ylim( bottom=0 )
 #axs[2,0].set_ylim( bottom=0 )
 

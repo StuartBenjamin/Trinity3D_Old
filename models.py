@@ -480,7 +480,7 @@ class GX_Flux_Model():
         '''
 
         fout  = tag + '.in'
-        fsave = tag + '-restart.nc'
+        f_save = tag + '-restart.nc'
 
         ### Decide whether to load restart
         if (t_id == 0): 
@@ -489,18 +489,16 @@ class GX_Flux_Model():
 
         else:
             ft.gx_input.inputs['Restart']['restart'] = 'true'
-            fload = f"restarts/saved-t{t_id-1}-p{prev_p_id}-r{r_id}-{job_id}.nc" 
-            #fload = f"restarts/saved-t{t_id-1:02d}-p{prev_p_id}-r{r_id}-{job_id}.nc" 
-            ft.gx_input.inputs['Restart']['restart_from_file'] = '"{:}"'.format(path + fload)
+            f_load = f"restarts/saved-t{t_id-1:02d}-p{prev_p_id}-r{r_id}-{job_id}.nc" 
+            ft.gx_input.inputs['Restart']['restart_from_file'] = '"{:}"'.format(path + f_load)
             ft.gx_input.inputs['Controls']['init_amp'] = '0.0'
             # restart from the same file (prev time step), to ensure parallelizability
 
         
         #### save restart file (always)
         ft.gx_input.inputs['Restart']['save_for_restart'] = 'true'
-        fsave = f"restarts/saved-t{t_id}-p{p_id}-r{r_id}-{job_id}.nc"
-        #fsave = f"restarts/saved-t{t_id:02d}-p{p_id}-r{r_id}-{job_id}.nc"
-        ft.gx_input.inputs['Restart']['restart_to_file'] = '"{:}"'.format(path + fsave)
+        f_save = f"restarts/saved-t{t_id:02d}-p{p_id}-r{r_id}-{job_id}.nc"
+        ft.gx_input.inputs['Restart']['restart_to_file'] = '"{:}"'.format(path + f_save)
 
 
         ### execute
