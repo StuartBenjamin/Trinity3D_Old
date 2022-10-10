@@ -70,7 +70,7 @@ class Trinity_Engine():
                        dtau  = 0.5,        # step size 
                        N_steps  = 1000,    # total Time = dtau * N_steps
                        N_prints = 10,
-                       max_iter = 4,
+                       max_newton_iter = 4,
                        newton_threshold = 2.0,
                        Sn_height  = 0,  
                        Spe_height = 0,
@@ -112,9 +112,15 @@ class Trinity_Engine():
 
         N_radial = self.load( N_radial, "int(tr3d.inputs['grid']['N_radial'])" )
         rho_edge = float ( tr3d.inputs['grid']['rho_edge'] )
-        dtau     = float ( tr3d.inputs['grid']['dtau'    ] )
         alpha    = float ( tr3d.inputs['grid']['alpha'   ] )
+        dtau     = float ( tr3d.inputs['grid']['dtau'    ] )
         N_steps  = int   ( tr3d.inputs['grid']['N_steps' ] )
+
+        max_newton_iter = self.load( max_newton_iter, "int( tr3d.inputs['time']['max_newton_iter'] )" )
+        # these "time" settings succeed the "grid" settings above, keeping both now for backwards compatibility
+        alpha = self.load( alpha, "float( tr3d.inputs['time']['alpha'] )" )
+        dtau = self.load( alpha, "int( tr3d.inputs['time']['dtau'] )" )
+        N_steps = self.load( alpha, "int( tr3d.inputs['time']['N_steps'] )" )
         
         model    = tr3d.inputs['model']['model']
         D_neo    = float ( tr3d.inputs['model']['D_neo'] )
@@ -203,7 +209,7 @@ class Trinity_Engine():
         self.alpha    = alpha
         self.N_steps  = N_steps
         self.N_prints = N_prints
-        self.max_iter = max_iter
+        self.max_iter = max_newton_iter
 
         self.newton_threshold = newton_threshold
 
@@ -227,7 +233,7 @@ class Trinity_Engine():
 
         rerun_vmec = False # old, this is now self.update_equilibrium
         if rerun_vmec:
-            vmec_input = "jet-files/input.JET-256"
+            vmec_input = "jet-inputs/input.JET-256"
             self.vmec = VmecRunner(vmec_input, self)
         self.path = './'
 

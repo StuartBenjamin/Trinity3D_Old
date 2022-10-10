@@ -1,0 +1,61 @@
+[grid]
+  N_radial = 5
+  rho_edge = 0.85
+  dtau     = 2e-2
+  N_steps  = 5
+  alpha    = 1
+
+[time]
+  max_newton_iter = 2
+  dtau     = 2e-2
+  N_steps  = 5
+
+[log]
+  N_prints = 5
+  f_save   = log_trinity
+
+[path]
+  gx_inputs  = gx-files/
+  gx_outputs = gx-files/jet-temp/
+  vmec_path  = jet-inputs/
+
+[model]
+  #model = ReLU-particle-only ! Qian test 1
+  #model = ReLU         ! Qian test 2
+  #model = zero-flux   ! zero
+  #model = diffusive   ! Barnes test 2
+  model = GX          ! use slurm to call 
+  D_neo  = 0.01
+
+[profiles] ! rename this to say initial conditions
+  n_core  = 0.46
+  n_edge  = 0.44
+  Ti_core = 4.5
+  Ti_edge = 1.6
+  Te_core = 5.3
+  Te_edge = 2
+
+[sources]
+  Sn_height   = 20
+  Spi_height  = 100
+  Spe_height  = 50
+  Sn_width    = 0.2
+  Spi_width   = 0.2
+  Spe_width   = 0.2
+  Sn_center   = 0.3
+  Spi_center  = 0.5
+  Spe_center  = 0.5
+  ext_source_file  = jet-inputs/jet-42982-sources.txt
+
+[geometry]
+  Ba        = 4
+  R_major   = 2.95
+  a_minor   = 0.95
+  vmec_wout = wout_JET-4T.nc
+
+[debug]
+  no_collisions = False
+  alpha_heating = True
+  bremstrahlung = True
+  update_equilibrium = False
+
