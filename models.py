@@ -520,6 +520,8 @@ class GX_Flux_Model():
             if system == 'traverse':
                 # traverse does not recognize path/to/gx as an executable
                 cmd = ['srun', '-N', '1', '-t', '2:00:00', '--ntasks=1', '--gpus-per-task=1', 'gx', path+tag+'.in'] # traverse
+            if system == 'satori':
+                cmd = ['srun', '-N', '1', '-t', '2:00:00', '--ntasks=1', '--gres=gpu:1', path+'gx', path+tag+'.in'] # satori
     
             print('Calling', tag)
             print_time()

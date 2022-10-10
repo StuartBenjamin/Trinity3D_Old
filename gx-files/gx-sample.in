@@ -48,13 +48,13 @@
 
 [Geometry]
  beta = 0.0
- igeo = 2
+ geo_option = "nc"
  eps = 0.18
  shat = 0.8
  Rmaj = 1.0
  shift = 0.0
  qinp = 1.4
- geofile = "gx_wout_gonzalez-2021_psiN_0.122_gds21_nt_36_geo.nc"
+ geo_file = "gx_wout_gonzalez-2021_psiN_0.122_gds21_nt_36_geo.nc"
 
  slab = false
  const_curv = false
