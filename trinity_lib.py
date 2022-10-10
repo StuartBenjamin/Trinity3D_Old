@@ -251,7 +251,7 @@ class Trinity_Engine():
         self.newton_mode = False
 
         # init normalizations
-        self.norms = self.Normalizations(a_ref=a_minor)
+        self.norms = self.Normalizations(a_meters=a_minor)
 
         # TODO: need to implement <|grad rho|>, by reading surface area from VMEC
         grho = 1
@@ -282,6 +282,10 @@ class Trinity_Engine():
         self.density_init     = self.density     
         self.pressure_i_init  = self.pressure_i  
         self.pressure_e_init  = self.pressure_e  
+
+        # init alpha heating
+        self.alpha_ion_fraction = np.zeros_like(n)
+        self.E_crit_profile_keV = np.zeros_like(n)
 
         # init collision model
         svec = Collision_Model()
@@ -959,17 +963,20 @@ class Trinity_Engine():
 
         # compute fusion power
         if self.alpha_heating:
-        #if (self.alpha_heating == "True"):
             Ti_profile_eV = Ti_profile_keV * 1e3
             P_fusion_Wm3, fusion_rate  \
                     = fus.alpha_heating_DT( n_profile_m3, Ti_profile_eV )
+
         else:
             P_fusion_Wm3 = 0 * n_profile_m3
             fusion_rate = 0 * n_profile_m3
 
+        # compute alpha ion heating fraction from slowing down distribution
+        self.calc_alpha_ion_heating_fraction()
+        alpha_ion_frac = self.alpha_ion_fraction
+
         # compute bremstrahlung radiation
         if self.bremstrahlung:
-        #if (self.bremstrahlung == "True"):
             P_brems_Wm3 = fus.radiation_bremstrahlung(n_profile_m3/1e20, Te_profile_keV) 
         else:
             P_brems_Wm3 = 0 * n_profile_m3
@@ -987,8 +994,38 @@ class Trinity_Engine():
         self.fusion_rate  = fusion_rate
 
         self.source_n  = aux_source_n
-        self.source_pi = aux_source_pi
-        self.source_pe = aux_source_pe + P_fusion - P_brems
+        self.source_pi = aux_source_pi + P_fusion*alpha_ion_frac
+        self.source_pe = aux_source_pe + P_fusion*(1-alpha_ion_frac) - P_brems
+
+    # put this into fusion_lib later?
+    def calc_alpha_ion_heating_fraction(self):
+
+        '''
+        for each ion, get (Z,A,n)
+        compute sum [ Z^2/A * (ni/ne) ]^(2/3)
+        
+        for now, ni = ne, assume (Z=1,A=2) for Deuterium (is this done elsewhere?)
+
+        14.8 is a magic number, 3/4 sqrt( pi/Ae )
+        here A_s = m_s/m_p is a dimensionless mass in proton units
+        '''
+        C = (1/2)**(2/3)
+        A_beam = 4
+
+        Te_profile_keV = self.pressure_e.profile / self.density.profile 
+
+        # one for each radial point
+        E_crit_keV = 14.8 * A_beam * Te_profile_keV
+        E_beam_keV  = 3.5e3 # 3.5 MeV alphas
+
+        q = E_beam_keV / E_crit_keV
+
+        # ion heating fraction (one for each radial point)
+        f = (1/3) * ( np.log( (1+q**3)/(1+q)**3 ) \
+                     + 2*np.sqrt(3) * np.arctan2( np.sqrt(3), 2*q - 1) )
+
+        self.E_crit_profile_keV = E_crit_keV
+        self.alpha_ion_fraction = f
 
 
     ### Calculate the A Matrix
@@ -1371,36 +1408,37 @@ class Trinity_Engine():
         def __init__(self, n_ref = 1e20,     # m3
                            T_ref = 1e3,      # eV
                            B_ref = 1,        # T
-                           m_ref = 1.67e-27, # kg, proton mass
-                           a_ref = 1,        # minor radius, in m (!) this is a device-specific scale, not a unit - unlike the above
+                           m_ref = 1.67e-27, # kg, proton mass 
+                           a_meters = 1,      # minor radius, in m 
                           ):
 
             # could get these constants from scipy
             self.e = 1.602e-19  # Colulomb
             self.c = 2.99e8     # m/s
 
-
-            # this is a reference length scale
-            #   it is the (v_T,ref / Omega_ref) the distance thermal particle travels in cyclotron time
-            #   v_T = sqrt(2T/m_ref)
-            #   Omega_ref = e B_ref / m_ref c
-            #   m_ref is the proton mass.
+            '''
+            This is a reference length scale
+               it is the (v_T,ref / Omega_ref) the distance thermal particle travels in cyclotron time
+               v_T = sqrt(2T/m_ref)
+               Omega_ref = e B_ref / m_ref c
+               m_ref is the proton mass.
+            '''
             self.rho_ref = 4.57e-3 # m
 
             vT_ref = np.sqrt(2 * (T_ref*self.e) / m_ref)
-            # (!!) m_ref is H, what about D and T?
        
 
-            # this block current lives in calc_sources()
-            #   it could simplify code to do it here
-            #   but how to get a_minor out of the parent class?
+            a_ref = a_meters
             t_ref = a_ref / vT_ref
             p_ref = n_ref * T_ref * self.e
             gyro_scale = a_ref / self.rho_ref
+
+            # multiply trinity time (tau) by this to get SI (seconds)
+            t_scale = t_ref * gyro_scale**2
             
-            # converts from SI (W/m3)
-            pressure_source_scale = t_ref / p_ref * gyro_scale**2 
-            particle_source_scale = t_ref / n_ref * gyro_scale**2 
+            # multiply SI (W/m3) by this to get Trinity units
+            pressure_source_scale = t_scale / p_ref 
+            particle_source_scale = t_scale / n_ref 
 
             ### save
             self.n_ref = n_ref
@@ -1414,6 +1452,7 @@ class Trinity_Engine():
             self.gyro_scale = gyro_scale
             self.pressure_source_scale = pressure_source_scale
             self.particle_source_scale = particle_source_scale
+            self.t_trinity_to_SI = t_scale # unused
 
 
 def profile_diff(arr, old):
