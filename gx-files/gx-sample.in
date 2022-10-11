@@ -23,6 +23,8 @@
 [Time]
  dt = 0.05
  nstep  = 10000
+ nwrite = 50
+ nsave  = 10000000
  scheme = "sspx3"       # use SSPx3 timestepping scheme
  cfl = 1.0
 

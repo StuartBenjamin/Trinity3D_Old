@@ -3,7 +3,7 @@
   rho_edge = 0.85
 
 [time]
-  max_newton_iter = 2
+  max_newton_iter = 4
   dtau     = 2e-2
   N_steps  = 5
   alpha    = 1
