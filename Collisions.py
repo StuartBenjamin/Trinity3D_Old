@@ -160,7 +160,13 @@ class Collision_Model():
 
 
     def energy_collisions_nrl(self, s, u):
-        #    assume [n] = cc, [T] = eV, [m] = g, [Z] = n charge
+        '''
+        Computes pair wise energy collision rate
+            note: this is NOT the collision frequency
+        
+        assuming the following input units
+        [n] = cc, [T] = eV, [m] = g, [Z] = n charge
+        '''
 
         m = np.array( self.m_mp ) * m_proton_cgs  # proton mass -> grams
         n = np.array( self.n_cc )
@@ -171,7 +177,7 @@ class Collision_Model():
                    * self.logLambda_nrl(s,u) \
                    / ( m[s] * T[u] + m[u] * T[s] )**1.5
     
-        return nu
+        return nu # Hz
 
     ## These member functions compute elements N x N matrix using the existing profiles
     def logLambda_nrl(self, s, u):
@@ -213,6 +219,9 @@ class Collision_Model():
 
 
     def compute_nu_ei(self):
+        '''
+           Gets ion-electron energy collision rate [Hz]
+        '''
 
         nu_ei = self.energy_collisions_nrl(0,1)
 
