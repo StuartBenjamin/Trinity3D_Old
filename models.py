@@ -491,7 +491,7 @@ class GX_Flux_Model():
             ft.gx_input.inputs['Restart']['restart'] = 'true'
             f_load = f"restarts/saved-t{t_id-1:02d}-p{prev_p_id}-r{r_id}-{job_id}.nc" 
             ft.gx_input.inputs['Restart']['restart_from_file'] = '"{:}"'.format(path + f_load)
-            ft.gx_input.inputs['Controls']['init_amp'] = '0.0'
+            ft.gx_input.inputs['Initialization']['init_amp'] = '0.0'
             # restart from the same file (prev time step), to ensure parallelizability
 
         
@@ -516,7 +516,7 @@ class GX_Flux_Model():
             # attempt to call
             system = os.environ['GK_SYSTEM']
 
-            cmd = ['srun', '-N', '1', '-t', '2:00:00', '--ntasks=1', '--gpus-per-task=1', path+'gx', path+tag+'.in'] # stellar
+            cmd = ['srun', '-N', '1', '-t', '2:00:00', '--ntasks=1', '--gpus-per-task=1', '--exclusive', path+'gx', path+tag+'.in'] # stellar
             if system == 'traverse':
                 # traverse does not recognize path/to/gx as an executable
                 cmd = ['srun', '-N', '1', '-t', '2:00:00', '--ntasks=1', '--gpus-per-task=1', 'gx', path+tag+'.in'] # traverse

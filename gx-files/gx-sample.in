@@ -1,32 +1,8 @@
 
  debug = false
 
-[Controls]
- scheme = "sspx3"
- closure_model = "none"
- nonlinear_mode = true
- cfl = 1.0
- kpar_init = 0.0
- init_field = "density"
- init_single = false
- init_amp = 1.0e-3
- hypercollisions = true
- nu_hyper_m = 0.5
- p_hyper_m = 6
- nu_hyper_l = 0.0
- p_hyper_l = 4
-  hyper            =  true
-  D_hyper          =  0.1
-  nu_hyper         =  2
- 
-[Restart]
- restart = false
- restart_from_file = "none.nc"
- save_for_restart = true
- restart_to_file = "restart.nc"
-
 [Dimensions]
- ntheta = 36
+ ntheta = 24
  nperiod = 1
  ny = 32
  nx = 32
@@ -40,14 +16,22 @@
  y0 = 10.0
  boundary = "linked"
 
+[Physics]
+ beta = 0.0
+ nonlinear_mode = true
+
 [Time]
  dt = 0.05
  nstep  = 10000
- nwrite = 50
- nsave  = 10000000
+ scheme = "sspx3"       # use SSPx3 timestepping scheme
+ cfl = 1.0
+
+[Initialization]
+ ikpar_init = 0                  # parallel wavenumber of initial perturbation
+ init_field = "density"          # initial condition set in density
+ init_amp = 1.0e-3               # amplitude of initial condition
 
 [Geometry]
- beta = 0.0
  geo_option = "nc"
  eps = 0.18
  shat = 0.8
@@ -56,22 +40,35 @@
  qinp = 1.4
  geo_file = "gx_wout_gonzalez-2021_psiN_0.122_gds21_nt_36_geo.nc"
 
- slab = false
- const_curv = false
-
-
 [Boltzmann]
  add_Boltzmann_species = true
  Boltzmann_type = "electrons"
  tau_fac = 1.0
 
-[Diagnostics]
+[Dissipation]
+ closure_model = "none"          # no closure assumptions (just truncation)
+ hypercollisions = true          # use hypercollision model
+ nu_hyper_m = 0.1                # coefficient of hermite hypercollisions
+ p_hyper_m = 6                   # exponent of hermite hypercollisions
+ nu_hyper_l = 0.1                # coefficient of laguerre hypercollisions
+ p_hyper_l = 6                   # exponent of laguerre hypercollisions
 
-fluxes = true
-omega  = false
-free_energy = false
-all_zonal_scalars = false
-all_zonal = false
+ hyper = true                    # use hyperdiffusion
+ D_hyper = 0.1                  # coefficient of hyperdiffusion
+ p_hyper = 2                     # exponent of hyperdiffusion is 2*p_hyper = 4
+
+[Restart]
+ restart = false
+ save_for_restart = true
+ nsave  = 10000000
+
+[Diagnostics]
+ nwrite = 50
+ fluxes = true
+ omega  = false
+ free_energy = false
+ all_zonal_scalars = false
+ all_zonal = false
 
 [Wspectra]
 species          = true

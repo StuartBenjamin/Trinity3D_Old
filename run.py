@@ -41,8 +41,6 @@ if N_prints > N_steps:
 else:
     N_step_print = N_steps // N_prints   # how often to print 
 
-#writer.store_system(engine) # 10/9
-
 # Put this into "Trinity Runner" class
 #    "better to have functions than scripts"
 while (engine.t_idx < engine.N_steps):
@@ -83,12 +81,10 @@ while (engine.t_idx < engine.N_steps):
 #        print(f"  Saving: t = {engine.t_idx}")
 #        writer.save(engine)
     writer.save(engine)
+    writer.store_system(engine) # 10/9
     writer.export(engine.f_save)
 
     engine.reset_fluxtubes()
-
-writer.store_system(engine) # 10/9
-writer.export(engine.f_save)
 
 end_time = time.time()
 delta_t = end_time - start_time

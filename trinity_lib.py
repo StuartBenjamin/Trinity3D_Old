@@ -112,15 +112,15 @@ class Trinity_Engine():
 
         N_radial = self.load( N_radial, "int(tr3d.inputs['grid']['N_radial'])" )
         rho_edge = float ( tr3d.inputs['grid']['rho_edge'] )
-        alpha    = float ( tr3d.inputs['grid']['alpha'   ] )
-        dtau     = float ( tr3d.inputs['grid']['dtau'    ] )
-        N_steps  = int   ( tr3d.inputs['grid']['N_steps' ] )
+        alpha = self.load( alpha, "float( tr3d.inputs['grid']['alpha'] )" )
+        dtau = self.load( dtau, "float( tr3d.inputs['grid']['dtau'] )" )
+        N_steps = self.load( N_steps, "int( tr3d.inputs['grid']['N_steps'] )" )
 
         max_newton_iter = self.load( max_newton_iter, "int( tr3d.inputs['time']['max_newton_iter'] )" )
         # these "time" settings succeed the "grid" settings above, keeping both now for backwards compatibility
         alpha = self.load( alpha, "float( tr3d.inputs['time']['alpha'] )" )
-        dtau = self.load( alpha, "int( tr3d.inputs['time']['dtau'] )" )
-        N_steps = self.load( alpha, "int( tr3d.inputs['time']['N_steps'] )" )
+        dtau = self.load( dtau, "float( tr3d.inputs['time']['dtau'] )" )
+        N_steps = self.load( N_steps, "int( tr3d.inputs['time']['N_steps'] )" )
         
         model    = tr3d.inputs['model']['model']
         D_neo    = float ( tr3d.inputs['model']['D_neo'] )
