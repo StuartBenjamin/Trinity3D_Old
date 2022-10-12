@@ -55,7 +55,7 @@ class FluxTube():
 
         # modify flux tube specific data
         gx.inputs['Dimensions']['ntheta'] = self.ntheta
-        gx.inputs['Geometry']['geofile']  = '"{:}"'.format(self.f_geo)
+        gx.inputs['Geometry']['geo_file']  = '"{:}"'.format(self.f_geo)
         gx.inputs['Geometry']['shat']     = self.shat
 
         # save

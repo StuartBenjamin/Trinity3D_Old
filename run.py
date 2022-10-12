@@ -32,13 +32,20 @@ writer = dgn.ProfileSaver()
 
 
 ### Set up time controls
-N_step_print = engine.N_steps // engine.N_prints   # how often to print 
-
+N_prints = engine.N_prints
+N_steps  = engine.N_steps
+#N_step_print = engine.N_steps // engine.N_prints   # how often to print 
+if N_prints > N_steps:
+    N_step_print = N_steps
+    # guard against a bug, when more prints are demanded than steps, int-division gives 0
+else:
+    N_step_print = N_steps // N_prints   # how often to print 
 
 # Put this into "Trinity Runner" class
 #    "better to have functions than scripts"
 while (engine.t_idx < engine.N_steps):
 #while (engine.gx_idx < engine.N_steps):
+
     '''
     shift from counting time, to counting gx_calls?
 
@@ -47,7 +54,6 @@ while (engine.t_idx < engine.N_steps):
 
     For now, I will just have the Newton method NOT increment this while loop (turtle 9/27)
     '''
-
 
     engine.get_flux()
     engine.normalize_fluxes()
@@ -69,26 +75,16 @@ while (engine.t_idx < engine.N_steps):
 
     engine.update()
 
-    if not ( engine.t_idx % N_step_print):
-        
-        # load
-        density    = engine.density
-        pressure_i = engine.pressure_i
-        pressure_e = engine.pressure_e
-        Fn         = engine.Fn
-        Fpi        = engine.Fpi
-        Fpe        = engine.Fpe
-        Gamma      = engine.Gamma
-        Q_i        = engine.Qi
-        Q_e        = engine.Qe
-
-        print(f"  Saving: t = {engine.t_idx}")
-        writer.save(engine)
+###  turtle: why not save every step? Its not expensive to write. Is it expensive to read?
+#    if not ( engine.t_idx % N_step_print):
+#        
+#        print(f"  Saving: t = {engine.t_idx}")
+#        writer.save(engine)
+    writer.save(engine)
+    writer.store_system(engine) # 10/9
+    writer.export(engine.f_save)
 
     engine.reset_fluxtubes()
-
-writer.store_system(engine)
-writer.export(engine.f_save)
 
 end_time = time.time()
 delta_t = end_time - start_time

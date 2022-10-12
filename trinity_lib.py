@@ -70,7 +70,7 @@ class Trinity_Engine():
                        dtau  = 0.5,        # step size 
                        N_steps  = 1000,    # total Time = dtau * N_steps
                        N_prints = 10,
-                       max_iter = 4,
+                       max_newton_iter = 4,
                        newton_threshold = 2.0,
                        Sn_height  = 0,  
                        Spe_height = 0,
@@ -112,9 +112,15 @@ class Trinity_Engine():
 
         N_radial = self.load( N_radial, "int(tr3d.inputs['grid']['N_radial'])" )
         rho_edge = float ( tr3d.inputs['grid']['rho_edge'] )
-        dtau     = float ( tr3d.inputs['grid']['dtau'    ] )
-        alpha    = float ( tr3d.inputs['grid']['alpha'   ] )
-        N_steps  = int   ( tr3d.inputs['grid']['N_steps' ] )
+        alpha = self.load( alpha, "float( tr3d.inputs['grid']['alpha'] )" )
+        dtau = self.load( dtau, "float( tr3d.inputs['grid']['dtau'] )" )
+        N_steps = self.load( N_steps, "int( tr3d.inputs['grid']['N_steps'] )" )
+
+        max_newton_iter = self.load( max_newton_iter, "int( tr3d.inputs['time']['max_newton_iter'] )" )
+        # these "time" settings succeed the "grid" settings above, keeping both now for backwards compatibility
+        alpha = self.load( alpha, "float( tr3d.inputs['time']['alpha'] )" )
+        dtau = self.load( dtau, "float( tr3d.inputs['time']['dtau'] )" )
+        N_steps = self.load( N_steps, "int( tr3d.inputs['time']['N_steps'] )" )
         
         model    = tr3d.inputs['model']['model']
         D_neo    = float ( tr3d.inputs['model']['D_neo'] )
@@ -203,7 +209,7 @@ class Trinity_Engine():
         self.alpha    = alpha
         self.N_steps  = N_steps
         self.N_prints = N_prints
-        self.max_iter = max_iter
+        self.max_iter = max_newton_iter
 
         self.newton_threshold = newton_threshold
 
@@ -227,7 +233,7 @@ class Trinity_Engine():
 
         rerun_vmec = False # old, this is now self.update_equilibrium
         if rerun_vmec:
-            vmec_input = "jet-files/input.JET-256"
+            vmec_input = "jet-inputs/input.JET-256"
             self.vmec = VmecRunner(vmec_input, self)
         self.path = './'
 
@@ -241,16 +247,17 @@ class Trinity_Engine():
             self.desc = desc
 
         # local variables
-        self.time = 0
-        self.t_idx = 0
-        self.p_idx = 0
+        self.time   = 0
+        self.t_idx  = 0
         self.gx_idx = 0
+        self.p_idx  = 0
+        self.prev_p_id = 0
         self.needs_new_flux = True
         self.needs_new_vmec = False
         self.newton_mode = False
 
         # init normalizations
-        self.norms = self.Normalizations(a_ref=a_minor)
+        self.norms = self.Normalizations(a_meters=a_minor)
 
         # TODO: need to implement <|grad rho|>, by reading surface area from VMEC
         grho = 1
@@ -281,6 +288,10 @@ class Trinity_Engine():
         self.density_init     = self.density     
         self.pressure_i_init  = self.pressure_i  
         self.pressure_e_init  = self.pressure_e  
+
+        # init alpha heating
+        self.alpha_ion_fraction = np.zeros_like(n)
+        self.E_crit_profile_keV = np.zeros_like(n)
 
         # init collision model
         svec = Collision_Model()
@@ -695,10 +706,9 @@ class Trinity_Engine():
         self.Ee = Ee
         
         if not self.collisions:  
-        #if self.collisions == "False":  
             # could write this to skip the function and return instead
-            self.Ei = Ei*0
-            self.Ee = Ei*0
+            self.Ei = np.zeros_like(Ei)
+            self.Ee = np.zeros_like(Ei)
 
 
     def calc_psi_n(self):
@@ -958,17 +968,20 @@ class Trinity_Engine():
 
         # compute fusion power
         if self.alpha_heating:
-        #if (self.alpha_heating == "True"):
             Ti_profile_eV = Ti_profile_keV * 1e3
             P_fusion_Wm3, fusion_rate  \
                     = fus.alpha_heating_DT( n_profile_m3, Ti_profile_eV )
+
         else:
             P_fusion_Wm3 = 0 * n_profile_m3
             fusion_rate = 0 * n_profile_m3
 
+        # compute alpha ion heating fraction from slowing down distribution
+        self.calc_alpha_ion_heating_fraction()
+        alpha_ion_frac = self.alpha_ion_fraction
+
         # compute bremstrahlung radiation
         if self.bremstrahlung:
-        #if (self.bremstrahlung == "True"):
             P_brems_Wm3 = fus.radiation_bremstrahlung(n_profile_m3/1e20, Te_profile_keV) 
         else:
             P_brems_Wm3 = 0 * n_profile_m3
@@ -986,8 +999,40 @@ class Trinity_Engine():
         self.fusion_rate  = fusion_rate
 
         self.source_n  = aux_source_n
-        self.source_pi = aux_source_pi
-        self.source_pe = aux_source_pe + P_fusion - P_brems
+        self.source_pi = aux_source_pi + P_fusion*alpha_ion_frac
+        self.source_pe = aux_source_pe + P_fusion*(1-alpha_ion_frac) - P_brems
+
+        # bug? P_fusion is added to Pe
+
+    # put this into fusion_lib later?
+    def calc_alpha_ion_heating_fraction(self):
+
+        '''
+        for each ion, get (Z,A,n)
+        compute sum [ Z^2/A * (ni/ne) ]^(2/3)
+        
+        for now, ni = ne, assume (Z=1,A=2) for Deuterium (is this done elsewhere?)
+
+        14.8 is a magic number, 3/4 sqrt( pi/Ae )
+        here A_s = m_s/m_p is a dimensionless mass in proton units
+        '''
+        C = (1/2)**(2/3)
+        A_beam = 4
+
+        Te_profile_keV = self.pressure_e.profile / self.density.profile 
+
+        # one for each radial point
+        E_crit_keV = 14.8 * A_beam * Te_profile_keV
+        E_beam_keV  = 3.5e3 # 3.5 MeV alphas
+
+        q = E_beam_keV / E_crit_keV
+
+        # ion heating fraction (one for each radial point)
+        f = (1/3) * ( np.log( (1+q**3)/(1+q)**3 ) \
+                     + 2*np.sqrt(3) * np.arctan2( np.sqrt(3), 2*q - 1) )
+
+        self.E_crit_profile_keV = E_crit_keV
+        self.alpha_ion_fraction = f
 
 
     ### Calculate the A Matrix
@@ -1119,6 +1164,8 @@ class Trinity_Engine():
 
         dt = self.dtau
         y_err = (y1/dt - F - S) - y0/dt # L - o (Barnes notes eq 107)
+
+        # unused debug print statements 10/12
 #        chi2 = np.sum(y_err**2)/2
 #        print(f"(t,p) = {self.t_idx}, {self.p_idx} : {chi2} (y1-y0)")
 
@@ -1132,6 +1179,7 @@ class Trinity_Engine():
         y2 = y1 + dy # this is y_{p+1}
 
         y_err = (y2/dt - F - S) - y0/dt # L - o (Barnes notes eq 107)
+        # unused debug print statements 10/12
 #        chi2 = np.sum(y_err**2)/2
 #        print(f"(t,p) = {self.t_idx}, {self.p_idx} : {chi2} (yn - y0)")
 
@@ -1170,11 +1218,11 @@ class Trinity_Engine():
         self.pressure_i = Profile(pi, grad=True, half=True, full=True)
         self.pressure_e = Profile(pe, grad=True, half=True, full=True)
 
-        # step time
-        if not self.newton_mode:
-            # do not increment time, while Trinity iterates Newton method steps 
-            self.time += self.dtau
-            self.t_idx += 1 # integer index of all time steps
+#        # step time
+#        if not self.newton_mode:
+#            # do not increment time, while Trinity iterates Newton method steps 
+#            self.time += self.dtau
+#            self.t_idx += 1 # integer index of all time steps
 
         ## record change
         delta_pi = profile_diff(pi, pi_prev) #np.std(pi - pi_prev)
@@ -1216,23 +1264,22 @@ class Trinity_Engine():
 
         self.check_finite_difference()
 
-#        # step time
-#        if not self.newton_mode:
-#            # do not increment time, while Trinity iterates Newton method steps 
-#            self.time += self.dtau
-#            self.t_idx += 1 # integer index of all time steps
+        # step time
+        if not self.newton_mode:
+            # do not increment time, while Trinity iterates Newton method steps 
+            self.time += self.dtau
+            self.t_idx += 1 # integer index of all time steps
 
 
 
     def check_finite_difference(self):
 
         t = self.t_idx
-        if t < 2:
-        #if t < 1:  # what should this be? if 1st order, can go with 0th time step and compare with initial condition?
+        if t == 0:  
             print(f"(t,p) = {self.t_idx}, {self.p_idx}")
             return
 
-        # note: these arrays do NOT include the boundary point
+        # note: these arrays do NOT include the edge boundary point
         y1 = self.y_hist[-1]
 
         if self.newton_mode:
@@ -1240,11 +1287,11 @@ class Trinity_Engine():
         else:
             y0 = self.y_hist[-2]
 
+        # load pre-computed force and source terms from Trinity
         force_n  = self.force_n  
         force_pi = self.force_pi 
         force_pe = self.force_pe 
 
-        # load source terms
         source_n  = self.source_n[:-1] 
         source_pi = self.source_pi[:-1]
         source_pe = self.source_pe[:-1]
@@ -1252,43 +1299,58 @@ class Trinity_Engine():
         F = np.concatenate( [force_n, force_pi, force_pe] ) # Note: F < 0
         S = np.concatenate( [source_n, source_pi, source_pe] )
 
+        # compute chi2 error
         dt = self.dtau
         y_err = (y1/dt - F - S) - y0/dt
-        chi2 = np.sum(y_err**2)/2
 
-        print(f"(t,p) = {self.t_idx}, {self.p_idx} : {chi2}")
+        chi2 = np.max( np.abs(y_err) )
+        #chi2 = np.sum(y_err**2)/2    # Barnes Note Eq (107)
+        #chi2 = np.std(y_err)
 
+        # turtle: todo save y_err as output array
+
+        out_string = f"(t,p : p_prev, err, iterate) = {self.t_idx}, {self.p_idx}"
+        #print(f"(t,p) = {self.t_idx}, {self.p_idx} : {chi2}")
+
+        ### decide whether to iterate
+        iterate = True
 
         if chi2 < self.newton_threshold:
             # error is sufficiently small, do not iterate
-
-            # reset an iteration counter
-            self.p_idx = 0
-            self.newton_mode = False
-            return
+            iterate = False
 
         if self.p_idx >= self.max_iter:
-            # bound the number of newton iterations
+            # max number of newton iterations exceeded, do not iterate
+            
+            iterate = False
 
+        ### execute iteration logic
+        if iterate:
+
+            self.p_idx += 1
+        
+            # define reference profile for Newton iterations
+            self.y_prev = y0 
+
+        else: 
+
+            # reset an iteration counter
+            self.prev_p_id = self.p_idx 
             self.p_idx = 0
-            self.newton_mode = False
-            return
 
+        # save state for Trinity engine
+        self.newton_mode = iterate
 
-        ###
-        # else iterate
+        out_string += f" : {self.prev_p_id} {chi2:.3e} {self.newton_mode}"
+        print(out_string)
 
-        self.p_idx += 1
-        self.newton_mode = True
-
-        self.y_prev = y0 # this defines the anchor point for Newton iterations
-
+        if not iterate:
+            print("")
 
 
     def reset_fluxtubes(self):
 
         if not self.update_equilibrium:
-        #if self.update_equilibrium == 'False':
 
             #print("  debug option triggered: skipping equilibrium update")
             return
@@ -1320,32 +1382,31 @@ class Trinity_Engine():
         p_vmec_rho = p_trin(ams_rho) # not used by Trinity
         p_vmec_psi = p_trin(ams)
 
-
-        debug = False
-        if debug:
-
-   
-           plt.subplot(1,2,1); 
-           plt.plot( ams_rho,amf,'.-', label='prev vmec'); 
-           plt.plot(p_trinity_rho, p_trinity_f, 'o-', label='trinity now');  
-           plt.plot( ams_rho, p_vmec_rho, '*-', label='next vmec'); 
-           plt.title('Trinity rho')
-           plt.legend()
-
-           plt.subplot(1,2,2); 
-           plt.plot( ams,amf,'.-'); 
-           plt.plot(p_trinity_rho**2, p_trinity_f, 'o-');  
-           plt.plot( ams, p_vmec_rho, '*-'); 
-           plt.title('Vmec psi')
-           plt.suptitle(f"t = {self.t_idx}")
-           plt.show()
-
-           import pdb
-           pdb.set_trace()
+# retired 10/6
+#        debug = False
+#        if debug:
+#
+#   
+#           plt.subplot(1,2,1); 
+#           plt.plot( ams_rho,amf,'.-', label='prev vmec'); 
+#           plt.plot(p_trinity_rho, p_trinity_f, 'o-', label='trinity now');  
+#           plt.plot( ams_rho, p_vmec_rho, '*-', label='next vmec'); 
+#           plt.title('Trinity rho')
+#           plt.legend()
+#
+#           plt.subplot(1,2,2); 
+#           plt.plot( ams,amf,'.-'); 
+#           plt.plot(p_trinity_rho**2, p_trinity_f, 'o-');  
+#           plt.plot( ams, p_vmec_rho, '*-'); 
+#           plt.title('Vmec psi')
+#           plt.suptitle(f"t = {self.t_idx}")
+#           plt.show()
+#
+#           import pdb
+#           pdb.set_trace()
 
         # update pressure profile for vmec input
         vmec.data['indata']['am_aux_f'] = p_vmec_rho.tolist()
-        #vmec.data['indata']['am_aux_f'] = p_vmec_psi.tolist()  # was bug
 
         # run VMEC (wait)
         tag = f"vmec-t{self.t_idx:02d}" 
@@ -1364,36 +1425,37 @@ class Trinity_Engine():
         def __init__(self, n_ref = 1e20,     # m3
                            T_ref = 1e3,      # eV
                            B_ref = 1,        # T
-                           m_ref = 1.67e-27, # kg, proton mass
-                           a_ref = 1,        # minor radius, in m (!) this is a device-specific scale, not a unit - unlike the above
+                           m_ref = 1.67e-27, # kg, proton mass 
+                           a_meters = 1,      # minor radius, in m 
                           ):
 
             # could get these constants from scipy
             self.e = 1.602e-19  # Colulomb
             self.c = 2.99e8     # m/s
 
-
-            # this is a reference length scale
-            #   it is the (v_T,ref / Omega_ref) the distance thermal particle travels in cyclotron time
-            #   v_T = sqrt(2T/m_ref)
-            #   Omega_ref = e B_ref / m_ref c
-            #   m_ref is the proton mass.
+            '''
+            This is a reference length scale
+               it is the (v_T,ref / Omega_ref) the distance thermal particle travels in cyclotron time
+               v_T = sqrt(2T/m_ref)
+               Omega_ref = e B_ref / m_ref c
+               m_ref is the proton mass.
+            '''
             self.rho_ref = 4.57e-3 # m
 
             vT_ref = np.sqrt(2 * (T_ref*self.e) / m_ref)
-            # (!!) m_ref is H, what about D and T?
        
 
-            # this block current lives in calc_sources()
-            #   it could simplify code to do it here
-            #   but how to get a_minor out of the parent class?
+            a_ref = a_meters
             t_ref = a_ref / vT_ref
             p_ref = n_ref * T_ref * self.e
             gyro_scale = a_ref / self.rho_ref
+
+            # multiply trinity time (tau) by this to get SI (seconds)
+            t_scale = t_ref * gyro_scale**2
             
-            # converts from SI (W/m3)
-            pressure_source_scale = t_ref / p_ref * gyro_scale**2 
-            particle_source_scale = t_ref / n_ref * gyro_scale**2 
+            # multiply SI (W/m3) by this to get Trinity units
+            pressure_source_scale = t_scale / p_ref 
+            particle_source_scale = t_scale / n_ref 
 
             ### save
             self.n_ref = n_ref
@@ -1407,6 +1469,7 @@ class Trinity_Engine():
             self.gyro_scale = gyro_scale
             self.pressure_source_scale = pressure_source_scale
             self.particle_source_scale = particle_source_scale
+            self.t_trinity_to_SI = t_scale # unused
 
 
 def profile_diff(arr, old):

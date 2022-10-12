@@ -61,7 +61,7 @@ plt.xlabel('time')
 plt.grid()
 
 N_files = len(data)
-if N_files < 20:
+if N_files < 28:
     plt.legend()
 else:
     plt.title(f"Showing {N_files} GX runs")

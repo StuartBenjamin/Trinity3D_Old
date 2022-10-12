@@ -22,9 +22,10 @@ class GX_Runner():
         header = ''
         for line in data:
 
-            # skip comments
+            # strip comments
             if line.find('#') > -1:
-                continue
+                end = line.find('#')
+                line = line[:end]
 
             # parse headers
             if line.find('[') == 0:

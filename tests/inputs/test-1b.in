@@ -3,7 +3,7 @@
   rho_edge = 0.85
   dtau     = 2e-3
   N_steps  = 200
-  alpha    = 0
+  alpha    = 1
 
 [path]
   vmec_path = gx-geometry/
