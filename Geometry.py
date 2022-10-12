@@ -81,7 +81,7 @@ class FluxTube():
         # for adiatibatic electrons ne=ni so dens is [1,1] for now
 
 
-class Vmec():
+class VmecReader():
     """
     This Class reads a vmec wout file.
 
@@ -101,6 +101,7 @@ class Vmec():
         self.aminor      = get(f,'Aminor_p')
         self.Rmajor      = get(f,'Rmajor_p')
         self.volume      = get(f,'volume_p')
+        self.volavgB     = get(f,'volavgB')
 
         # 1D array
         self.xm          = get(f,'xm')

@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import profiles as pf # needed for setting pf.rho_axis
 from profiles import Profile, Flux_profile, Flux_coefficients, Psi_profiles, init_profile
 
+from Geometry import VmecReader
 from Geometry import VmecRunner
 #from Geometry import DescRunner
 from Trinity_io import Trinity_Input
@@ -218,34 +219,6 @@ class Trinity_Engine():
 
         self.f_save = f_save
 
-        # pre-compute the block identity matrix
-        N_block = self.N_radial - 1
-        I = np.identity(N_block)
-        Z = np.zeros_like(I)
-        self.I_mat = np.block([[I, Z, Z ],
-                               [Z, I, Z ],
-                               [Z, Z, I ]])
-
-        ### will be from VMEC
-        self.Ba      = Ba # average field on LCFS
-        self.R_major = R_major # meter
-        self.a_minor = a_minor # meter
-
-        rerun_vmec = False # old, this is now self.update_equilibrium
-        if rerun_vmec:
-            vmec_input = "jet-inputs/input.JET-256"
-            self.vmec = VmecRunner(vmec_input, self)
-        self.path = './'
-
-
-        self.eq_model = eq_model
-        if eq_model == "DESC":
-            print("using DESC")
-
-            desc_input = "desc-examples/DSHAPE_output.h5"
-            desc = DescRunner(desc_input, self)
-            self.desc = desc
-
         # local variables
         self.time   = 0
         self.t_idx  = 0
@@ -259,15 +232,49 @@ class Trinity_Engine():
         # init normalizations
         self.norms = self.Normalizations(a_meters=a_minor)
 
+
+        # pre-compute the block identity matrix
+        N_block = self.N_radial - 1
+        I = np.identity(N_block)
+        Z = np.zeros_like(I)
+        self.I_mat = np.block([[I, Z, Z ],
+                               [Z, I, Z ],
+                               [Z, Z, I ]])
+
+        ### will be from VMEC
+        self.Ba      = Ba # average field on LCFS
+        self.R_major = R_major # meter
+        self.a_minor = a_minor # meter
+
+
+        # delete this 10/12
+#        rerun_vmec = False # old, this is now self.update_equilibrium
+#        if rerun_vmec:
+#            vmec_input = "jet-inputs/input.JET-256"
+#            self.vmec = VmecRunner(vmec_input, self)
+        self.path = './'
+
+
+        self.eq_model = eq_model
+        if eq_model == "DESC":
+            print("using DESC")
+
+            desc_input = "desc-examples/DSHAPE_output.h5"
+            desc = DescRunner(desc_input, self)
+            self.desc = desc
+
+
         # TODO: need to implement <|grad rho|>, by reading surface area from VMEC
-        grho = 1
-        drho       = (rho_edge - rho_inner) / (N_radial - 1) # always const?
-        area       = Profile(np.linspace(0.01,a_minor,N_radial), half=True) # parabolic area, simple torus
-        # (bug) this looks problematic. The area model should follow the rho_axis, or it should come from VMEC
-        self.grho  = grho
-        self.drho  = drho
-        self.area  = area
-        self.geometry_factor = - grho / (drho * area.profile)
+##        grho = 1
+#        area       = Profile(np.linspace(0.01,a_minor,N_radial), half=True) # parabolic area, simple torus
+#        # (bug) this looks problematic. The area model should follow the rho_axis, or it should come from VMEC
+#        # wow this was totally wrong.
+#        self.grho  = grho
+#        self.area  = area
+
+
+        self.drho  = (rho_edge - rho_inner) / (N_radial - 1) # always const?
+        #self.geometry_factor = - grho / (drho * area.profile) # moved
 
         ### init profiles
         #     temporary profiles, later init from VMEC
@@ -299,6 +306,16 @@ class Trinity_Engine():
         svec.add_species( n, pe, mass_p=1/1800, charge_p=-1, ion=False, name='electrons')
         self.collision_model = svec
 
+        # init history
+        n_prev  = self.density.profile    [:-1]
+        pi_prev = self.pressure_i.profile [:-1]
+        pe_prev = self.pressure_e.profile [:-1]
+
+        y_init = np.concatenate( [n_prev, pi_prev, pe_prev] )
+        self.y_hist = []
+        self.y_hist.append(y_init)
+
+
         # read VMEC
         self.read_VMEC( vmec_wout, path=vmec_path )
 
@@ -314,9 +331,6 @@ class Trinity_Engine():
                                   midpoints = mid_axis
                                   )
             self.vmec_wout = vmec_wout
-
-#            # read VMEC
-#            self.read_VMEC( vmec_wout, path=vmec_path )
 
             gx.make_fluxtubes()
             self.model_gx = gx
@@ -400,34 +414,64 @@ class Trinity_Engine():
         print(f"    a_minor: {self.a_minor:.2f} m")
         print(f"    Ba     : {self.Ba:.2f} T average on LCFS \n")
 
-        # init history
-        n_prev  = self.density.profile    [:-1]
-        pi_prev = self.pressure_i.profile [:-1]
-        pe_prev = self.pressure_e.profile [:-1]
-
-        y_init = np.concatenate( [n_prev, pi_prev, pe_prev] )
-        self.y_hist = []
-        self.y_hist.append(y_init)
 
     ##### End of __init__ function
 
 
-    def read_VMEC(self, wout, path='gx-geometry/'):
-    # read a WOUT from vmec
+    def read_VMEC(self, wout, path='gx-geometry/', run_fast=False):
+        """
+        Loads VMEC wout file into Trinity
+        """
 
         self.vmec_wout = wout
 
         if wout == '':
             print('  Trinity Lib: no vmec file given, using default flux tubes for GX')
+            # TQ: does this failure path actually work? 10/12
             return
 
-        # load global geometry from VMEC
-        vmec = Dataset( path+wout, mode='r')
-        self.R_major = vmec.variables['Rmajor_p'][:]
-        self.a_minor = vmec.variables['Aminor_p'][:]
-        self.Ba      = vmec.variables['volavgB'][:]
+        else:
+            print(f"  Loading VMEC geometry: {path+wout}")
 
-        self.vmec_data = vmec # data heavy?
+        # load global geometry from VMEC
+        vmec = VmecReader(path+wout)
+        self.R_major = vmec.Rmajor
+        self.a_minor = vmec.aminor
+        self.Ba      = vmec.volavgB
+
+        if run_fast:
+            grho = 1
+            self.grho  = grho
+            area       = np.linspace(0.01,self.a_minor,self.N_radial) # parabolic area, simple torus
+
+        else:
+            print("    post-processing for surface areas")
+            s_idx = np.array([ np.rint(r) for r in self.rho_axis * vmec.ns ], int)
+            vmec.calc_geometry(s_idx)
+            #print("    grad rho:", vmec.avg_abs_grad_rho)
+            #print("    surface areas:", vmec.midpoint_surface_areas)
+            grho_array = vmec.avg_abs_grad_rho
+            area = vmec.surface_areas
+            grho = np.mean(grho_array)
+            #area = vmec.midpoint_surface_areas
+
+        self.grho = grho
+        import pdb
+        pdb.set_trace()
+        self.area = Profile(area, half=True)
+        self.geometry_factor = - grho / (self.drho * area) 
+        '''
+        under development, there is something strange happening on the edge
+        check carefully everywhere (grho,area) is used
+        see whether trinity grid or GX midpoints are needed
+        '''
+
+# REPLACED 10/12
+#        vmec = Dataset( path+wout, mode='r')
+#        self.R_major = vmec.variables['Rmajor_p'][:]
+#        self.a_minor = vmec.variables['Aminor_p'][:]
+#        self.Ba      = vmec.variables['volavgB'][:]
+#        self.vmec_data = vmec # data heavy?
 
 
     def get_flux(self):
