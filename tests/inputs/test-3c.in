@@ -1,27 +1,29 @@
 [grid]
   N_radial = 10
   rho_edge = 0.85
-  dtau     = 2e-3
-  N_steps  = 200
-  alpha    = 0
+  dtau     = 0.005
+  N_steps  = 10
+  alpha    = 1
 
 [path]
+  gx_path   = gx-files/run-dir/
   vmec_path = gx-geometry/
 
 [model]
-  #model = ReLU         ! default
-  model = ReLU-particle-only ! Qian test 1
-  #model = diffusive   ! Barnes test 2
-  #model = GX          ! use slurm to call GX
-  D_neo = 0
+  #model = 'ReLU-particle-only' ! Qian test 1
+  model = 'ReLU'         ! Qian test 2
+  #model = 'zero-flux'   ! zero
+  #model = 'diffusive'   ! Barnes test 2
+  #model = 'GX'          ! use slurm to call 
+  D_neo  = 0.01
 
-[profiles]
+[profiles] ! rename this to say initial conditions
   n_core  = 5
-  n_edge  = 2
+  n_edge  = 3
   Ti_core = 5
-  Ti_edge = 5
-  Te_core = 5
-  Te_edge = 5
+  Ti_edge = 3
+  Te_core = 4
+  Te_edge = 3
 
 [sources]
   Sn_height   = 0
@@ -42,12 +44,12 @@
   use_vmec  = False ! (B,R,a) can be overwritten from vmec
 
 [debug]
-  collisions = False
-  alpha_heating      = False
-  bremstrahlung      = False
+  collisions         = True
+  alpha_heating      = True
+  bremstrahlung      = True
   update_equilibrium = False
   turbulent_exchange = False
 
 [log]
-  N_prints = 12
+  N_prints = 10
   f_save   = log_trinity

@@ -706,10 +706,9 @@ class Trinity_Engine():
         self.Ee = Ee
         
         if not self.collisions:  
-        #if self.collisions == "False":  
             # could write this to skip the function and return instead
-            self.Ei = Ei*0
-            self.Ee = Ei*0
+            self.Ei = np.zeros_like(Ei)
+            self.Ee = np.zeros_like(Ei)
 
 
     def calc_psi_n(self):
@@ -1003,6 +1002,8 @@ class Trinity_Engine():
         self.source_pi = aux_source_pi + P_fusion*alpha_ion_frac
         self.source_pe = aux_source_pe + P_fusion*(1-alpha_ion_frac) - P_brems
 
+        # bug? P_fusion is added to Pe
+
     # put this into fusion_lib later?
     def calc_alpha_ion_heating_fraction(self):
 
@@ -1163,6 +1164,8 @@ class Trinity_Engine():
 
         dt = self.dtau
         y_err = (y1/dt - F - S) - y0/dt # L - o (Barnes notes eq 107)
+
+        # unused debug print statements 10/12
 #        chi2 = np.sum(y_err**2)/2
 #        print(f"(t,p) = {self.t_idx}, {self.p_idx} : {chi2} (y1-y0)")
 
@@ -1176,6 +1179,7 @@ class Trinity_Engine():
         y2 = y1 + dy # this is y_{p+1}
 
         y_err = (y2/dt - F - S) - y0/dt # L - o (Barnes notes eq 107)
+        # unused debug print statements 10/12
 #        chi2 = np.sum(y_err**2)/2
 #        print(f"(t,p) = {self.t_idx}, {self.p_idx} : {chi2} (yn - y0)")
 

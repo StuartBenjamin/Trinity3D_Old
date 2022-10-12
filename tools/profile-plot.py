@@ -41,6 +41,8 @@ nu_ei_Hz = np.array( data['nu_ei_Hz'] )
 Ti = pi / n
 Te = pe / n
 
+
+
 settings = data['system']
 profile_data = data['profiles']
 N_rho    = profile_data['N_radial']
@@ -54,9 +56,12 @@ mid_axis    = (axis[1:] + axis[:-1])/2
 pf.rho_axis = axis
 
 # sources
+Ei     =      np.array( data['power balance']['Ei' ] ) 
+Ee     =      np.array( data['power balance']['Ee' ] ) 
+
 source_n  = profile_data['source_n' ] 
-source_pi = profile_data['source_pi']
-source_pe = profile_data['source_pe']
+source_pi = profile_data['source_pi'] + Ei[-1]
+source_pe = profile_data['source_pe'] + Ee[-1]
 
 p_source_scale = data['norms']['pressure_source_scale']
 
@@ -134,6 +139,7 @@ for t in np.arange(N):
     axs[1,1].plot(axis, P_brems_Wm3[t]/1e6, '.-', color=purple_map[t])
     axs[1,2].plot(axis, nu_ei_Hz[t], '.-', color=cool_map[t])
 
+
 axs[0,5].plot(axis, source_pe, 'C0.-', label = '$S_{p_e}$')
 axs[0,5].plot(axis, source_pi, 'C1.:', label = '$S_{p_i}$')
 axs[0,5].plot(axis, source_n , 'C2.-', label = '$S_{n}$')
@@ -142,10 +148,12 @@ axs[0,5].plot(axis, source_n , 'C2.-', label = '$S_{n}$')
 axs[1,5].plot(axis, source_pe / p_source_scale * 1e-6, 'C0.-', label = '$S_{p_e}$')
 axs[1,5].plot(axis, source_pi / p_source_scale * 1e-6, 'C1.:', label = '$S_{p_i}$')
 
+# adjust ylimits
 nmax = np.max(n)
 axs[0,0].set_ylim( bottom=0, top = 1.5*nmax )
-#axs[1,0].set_ylim( bottom=0 )
-#axs[2,0].set_ylim( bottom=0 )
+
+Emax = np.max(nu_ei_Hz)
+axs[1,2].set_ylim( bottom=0, top = 1.5*Emax )
 
 axs[0,0].set_xlabel('$r/a$')
 axs[0,1].set_xlabel('$r/a$')
@@ -156,9 +164,9 @@ axs[0,5].set_xlabel('$r/a$')
 axs[1,0].set_xlabel('$r/a$')
 axs[1,1].set_xlabel('$r/a$')
 axs[1,2].set_xlabel('$r/a$')
-axs[1,3].set_xlabel('$r/a$')
-axs[1,4].set_xlabel('$a/L_{{T_i}}$')
-axs[1,5].set_xlabel('$a/L_n$')
+axs[1,3].set_xlabel('$a/L_{{T_i}}$')
+axs[1,4].set_xlabel('$a/L_n$')
+axs[1,5].set_xlabel('$r/a$')
 
 
 axs[0,0].set_title(r'density [10$^{20}$ m$^{-3}$]')
