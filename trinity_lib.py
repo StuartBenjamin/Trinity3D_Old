@@ -1271,13 +1271,11 @@ class Trinity_Engine():
     def check_finite_difference(self):
 
         t = self.t_idx
-        #if t < 2:
-        # what should this be? if 1st order, can go with 0th time step and compare with initial condition?
         if t == 0:  
             print(f"(t,p) = {self.t_idx}, {self.p_idx}")
             return
 
-        # note: these arrays do NOT include the boundary point
+        # note: these arrays do NOT include the edge boundary point
         y1 = self.y_hist[-1]
 
         if self.newton_mode:
@@ -1285,11 +1283,11 @@ class Trinity_Engine():
         else:
             y0 = self.y_hist[-2]
 
+        # load pre-computed force and source terms from Trinity
         force_n  = self.force_n  
         force_pi = self.force_pi 
         force_pe = self.force_pe 
 
-        # load source terms
         source_n  = self.source_n[:-1] 
         source_pi = self.source_pi[:-1]
         source_pe = self.source_pe[:-1]
@@ -1297,12 +1295,18 @@ class Trinity_Engine():
         F = np.concatenate( [force_n, force_pi, force_pe] ) # Note: F < 0
         S = np.concatenate( [source_n, source_pi, source_pe] )
 
+        # compute chi2 error
         dt = self.dtau
         y_err = (y1/dt - F - S) - y0/dt
-        chi2 = np.sum(y_err**2)/2
 
-        print(f"(t,p) = {self.t_idx}, {self.p_idx} : {chi2}")
+        chi2 = np.max( np.abs(y_err) )
+        #chi2 = np.sum(y_err**2)/2    # Barnes Note Eq (107)
+        #chi2 = np.std(y_err)
 
+        # turtle: todo save y_err as output array
+
+        out_string = f"(t,p : p_prev, err, iterate) = {self.t_idx}, {self.p_idx}"
+        #print(f"(t,p) = {self.t_idx}, {self.p_idx} : {chi2}")
 
         ### decide whether to iterate
         iterate = True
@@ -1324,8 +1328,6 @@ class Trinity_Engine():
             # define reference profile for Newton iterations
             self.y_prev = y0 
 
-            # don't increment time?
-
         else: 
 
             # reset an iteration counter
@@ -1334,7 +1336,12 @@ class Trinity_Engine():
 
         # save state for Trinity engine
         self.newton_mode = iterate
-        print(f"(t,p) = {self.t_idx}, {self.p_idx}, {self.prev_p_id}, {self.newton_mode}")
+
+        out_string += f" : {self.prev_p_id} {chi2:.3e} {self.newton_mode}"
+        print(out_string)
+
+        if not iterate:
+            print("")
 
 
     def reset_fluxtubes(self):
