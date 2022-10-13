@@ -42,8 +42,14 @@ for j in np.arange(N_profiles):
 
 # labels
 max_iter = data['system']['max_newton_iter']
-for j in np.arange(max_iter):
+for j in np.arange(max_iter+1):
     plt.plot([],[], f'C{j}o', label=f'iter {j}')
+
+#plt.yscale('log')
+
+plt.xlabel('time index')
+plt.ylabel('chi( y error )')
+plt.title(f"Trinity Convergence: {fin}")
 
 plt.legend()
 plt.grid()
