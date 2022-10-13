@@ -209,7 +209,7 @@ class Trinity_Engine():
         self.alpha    = alpha
         self.N_steps  = N_steps
         self.N_prints = N_prints
-        self.max_iter = max_newton_iter
+        self.max_newton_iter = max_newton_iter
 
         self.newton_threshold = newton_threshold
 
@@ -408,6 +408,8 @@ class Trinity_Engine():
         y_init = np.concatenate( [n_prev, pi_prev, pe_prev] )
         self.y_hist = []
         self.y_hist.append(y_init)
+        self.y_error = np.zeros_like(y_init)
+        self.chi_error = 0
 
     ##### End of __init__ function
 
@@ -1319,7 +1321,7 @@ class Trinity_Engine():
             # error is sufficiently small, do not iterate
             iterate = False
 
-        if self.p_idx >= self.max_iter:
+        if self.p_idx >= self.max_newton_iter:
             # max number of newton iterations exceeded, do not iterate
             
             iterate = False
@@ -1340,12 +1342,15 @@ class Trinity_Engine():
 
         # save state for Trinity engine
         self.newton_mode = iterate
+        self.y_error = y_err
+        self.chi_error = chi2
 
         out_string += f" : {self.prev_p_id} {chi2:.3e} {self.newton_mode}"
         print(out_string)
 
         if not iterate:
             print("")
+
 
 
     def reset_fluxtubes(self):
