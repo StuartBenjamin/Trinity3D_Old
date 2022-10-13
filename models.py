@@ -289,7 +289,7 @@ class GX_Flux_Model():
 
         else:
             # load default files (assumed to be existing)
-            # 10/6 we should delete this soon, use nested circles as default instead
+            # 10/6 we should delete this soon, use nested circles (or even a fresh wout) as default instead
             print('  no VMEC wout given, loading default files')
             geo_files = [ 'gx-files/gx_wout_gonzalez-2021_psiN_0.102_gds21_nt_36_geo.nc',
                           'gx-files/gx_wout_gonzalez-2021_psiN_0.295_gds21_nt_38_geo.nc',  
@@ -354,6 +354,8 @@ class GX_Flux_Model():
         Ti = pi/n
         Te = pe/n
 
+## this is one way to do it, using reference temperatures
+#  would it be more clear to just have keV values in absolute?
         Tref = Ti # hard-coded convention
         gx_Ti = Ti/Tref
         gx_Te = Te/Tref
@@ -382,13 +384,10 @@ class GX_Flux_Model():
             kti = kpi - kn
             kte = kpe - kn
 
-            temp_i = gx_Ti[j]
-            temp_e = gx_Te[j]
-
             # writes the GX input file and calls the slurm 
             scale = 1 + step
-            f0 [j] = self.gx_command(j, rho, kn      , kti       , kte        , '0', temp_e = temp_e )
-            fpi[j] = self.gx_command(j, rho, kn      , kti*scale , kte        , '2', temp_e = temp_e )
+            f0 [j] = self.gx_command(j, rho, kn      , kti       , kte        , '0', temp_i=gx_Ti[j], temp_e = gx_Te[j] )
+            fpi[j] = self.gx_command(j, rho, kn      , kti*scale , kte        , '2', temp_i=gx_Ti[j], temp_e = gx_Te[j] )
             #fn [j] = self.gx_command(j, rho, kn*scale , kpi        , kpe        , '1' )
             #fpe[j] = self.gx_command(j, rho, kn      , kpi        , kpe*scale , '3' )
 
@@ -466,8 +465,9 @@ class GX_Flux_Model():
 
         #.format(t_id, r_id, time, rho, s, kti, kn), file=f)
         ft = self.flux_tubes[r_id] 
+        ft.set_profiles(temp_i, temp_e)
+        #ft.set_dens_temp(temp_i, temp_e)
         ft.set_gradients(kn, kti, kte)
-        ft.set_dens_temp(temp_i, temp_e)
         
         # to be specified by Trinity input file, or by time stamp
         #root = 'gx-files/'

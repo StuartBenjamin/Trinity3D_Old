@@ -71,7 +71,8 @@ class FluxTube():
         fprim = '[ {:.2f},       {:.2f}     ]'.format(kn, kn)
         gx.inputs['species']['fprim'] = fprim
 
-    def set_dens_temp(self, temp_i, temp_e):
+    def set_profiles(self, temp_i, temp_e):
+    #def set_dens_temp(self, temp_i, temp_e): # renamed 10/13
 
         gx = self.gx_input
 
@@ -79,6 +80,10 @@ class FluxTube():
         gx.inputs['species']['temp'] = temp
 
         # for adiatibatic electrons ne=ni so dens is [1,1] for now
+
+        # set tau = Te/Ti ratio
+        tau = temp_e/temp_i
+        gx.inputs['Boltzmann']['tau_fac'] = tau
 
 
 class Vmec():
