@@ -223,16 +223,6 @@ class VmecReader():
 
         return np.sum(dArea) * nfp
 
-#    def compute_surface_areas(self, N_zeta=20, N_theta=8):
-#        # to be retired 10/3
-#
-#        sax = np.arange(self.ns)
-#
-#        A = [self.get_surface(s, N_zeta=N_zeta, N_theta=N_theta) for s in sax]
-#        self.surface_areas = np.array(A)
-#
-#        print(f"  Computed {len(sax)} surfaces, with resolution")
-#        print(f"    N_zeta, N_theta = ({N_zeta}, {N_theta})")
 
     def calc_dV(self, radial_grid, N_fine=100):
 
@@ -270,6 +260,8 @@ class VmecReader():
         s_list = []
 
         sax = np.linspace(0,1,self.ns)
+        N_points = len(r_axis)
+        print(f"  geo: computing {N_points} radial points")
         for r in r_axis:
 
             ### get s_index just above and below
@@ -290,7 +282,6 @@ class VmecReader():
         drho = r1 - r0
 
         ### compute < | grad rho | >
-        N_points = len(r_axis)
         # drop the last theta and zeta points, in order to match the area array downstream
         dr = np.reshape( (r_cloud[1::2] - r_cloud[0::2])[:,:,:-1,:-1], (N_points,3,-1) )
         dx = np.linalg.norm( dr, axis=1)
@@ -314,7 +305,7 @@ class VmecReader():
 
 
     def calc_geometry(self,s_axis, N_zeta=20, N_theta=8,):
-        # old 10/13
+        # 10/13 to be retired
         '''
         Compute area and < | grad rho | >
         the surface area, of the absolute value, of 3D gradient of rho
@@ -367,6 +358,27 @@ class VmecReader():
         np.save(fout, self.surface_areas)
         print(f"  Save surface areas to: {fout}")
 
+
+    def overwrite_simple_torus(self, R=6, a=2):
+        '''
+        Overwrites VMEC file with concentric circle geometry.
+
+        This is used for testing.
+        '''
+
+        sax = np.linspace(0,1,self.ns)
+        rax = a * np.sqrt(sax)
+        
+        # overwrite with simple torus
+        self.N_modes = 2
+        self.xn = np.array([0,0])
+        self.xm = np.array([0,1])
+
+        self.rmnc = np.array( [ [R,r] for r in rax ] )
+        self.zmns = np.array( [ [0,r] for r in rax ] )
+        
+        self.Rmajor = R
+        self.aminor = a
 
 class VmecRunner():
 
