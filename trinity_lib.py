@@ -446,20 +446,27 @@ class Trinity_Engine():
 
         else:
             print("    post-processing for surface areas")
-            s_idx = np.array([ np.rint(r) for r in self.rho_axis * vmec.ns ], int)
+            s_idx = np.array([ np.rint(r) for r in self.rho_axis**2 * vmec.ns ], int)
+            if s_idx[0] == 0:
+                s_idx[0] += 1
+
+
             vmec.calc_geometry(s_idx)
             #print("    grad rho:", vmec.avg_abs_grad_rho)
             #print("    surface areas:", vmec.midpoint_surface_areas)
             grho_array = vmec.avg_abs_grad_rho
             area = vmec.surface_areas
             grho = np.mean(grho_array)
-            #area = vmec.midpoint_surface_areas
+            #grho = grho_array
+            midpoint_area = vmec.midpoint_surface_areas
 
         self.grho = grho
-        import pdb
-        pdb.set_trace()
+        self.grho = 1 # this works! but its clearly wrong, so there is probably a partner bug elsewhere
         self.area = Profile(area, half=True)
         self.geometry_factor = - grho / (self.drho * area) 
+        # debug
+#        plt.plot(self.rho_axis,area,'.-'); plt.plot(self.mid_axis,midpoint_area,'.-'); plt.plot(self.rho_axis,self.area.profile,'.:'); 
+# plt.plot(self.rho_axis,self.area.plus.profile,'.-'); plt.plot(self.rho_axis,self.area.minus.profile,'.-'); plt.grid(); plt.show()
         '''
         under development, there is something strange happening on the edge
         check carefully everywhere (grho,area) is used
@@ -1094,7 +1101,6 @@ class Trinity_Engine():
         Fem     = self.Fpe.minus.profile  [:-1]
         Ei      = self.Ei                 [:-1]
         Ee      = self.Ee                 [:-1]
-        area    = self.area.profile       [:-1]
         rax     = self.rho_axis           [:-1]
         drho    = self.drho
         alpha   = self.alpha
@@ -1117,11 +1123,14 @@ class Trinity_Engine():
         psi_pepe = self.psi_pepe.matrix
 
         # compute forces (for alpha = 0, explicit mode)   
-        grho = self.grho
-        g = - grho/area
-        force_n  = g * (Fnp - Fnm) / drho
-        force_pi = g * (Fip - Fim) / drho
-        force_pe = g * (Fep - Fem) / drho
+        # turtle!
+        #grho = self.grho
+        #g = - grho/area
+        #area    = self.area.profile       [:-1]
+        g = self.geometry_factor [:-1]
+        force_n  = g * (Fnp - Fnm) # / drho
+        force_pi = g * (Fip - Fim) # / drho
+        force_pe = g * (Fep - Fem) # / drho
 
         # save for power balance 
         self.force_n  = force_n 

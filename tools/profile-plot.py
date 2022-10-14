@@ -132,7 +132,7 @@ for t in np.arange(N):
 
     axs[1,3].plot( aLpi[t] - aLn[t], Qi[t] ,'.', color=warm_map[t])
     axs[1,3].plot( aLpe[t] - aLn[t], Qe[t] ,'.', color=cool_map[t])
-    axs[1,4].plot( aLn[t],Gamma[t] ,'.-', color=green_map[t])
+    axs[1,4].plot( aLn[t],Gamma[t] ,'.', color=green_map[t])
 
  #   axs[1,0].plot(axis, fusion_rate[t], '.-', color=purple_map[t])
     axs[1,0].plot(axis, P_fusion_Wm3[t]/1e6, '.-', color=purple_map[t])

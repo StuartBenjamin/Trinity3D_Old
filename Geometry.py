@@ -348,6 +348,7 @@ class VmecReader():
         # save
         self.avg_abs_grad_rho = avg_abs_grad_rho
         self.midpoint_surface_areas = areas * self.nfp
+        # interpolate grad rho, to get on grid?
 
         # (unused) for completeness
         da = np.reshape(a_cloud, (N_points,-1) )
