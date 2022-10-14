@@ -29,6 +29,7 @@ start_time = time.time()
 engine = trl.Trinity_Engine(fin)
 
 writer = dgn.ProfileSaver()
+#writer.store_system(engine) # 10/14
 
 
 ### Set up time controls

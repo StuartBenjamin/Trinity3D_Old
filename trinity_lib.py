@@ -210,7 +210,7 @@ class Trinity_Engine():
         self.alpha    = alpha
         self.N_steps  = N_steps
         self.N_prints = N_prints
-        self.max_iter = max_newton_iter
+        self.max_newton_iter = max_newton_iter
 
         self.newton_threshold = newton_threshold
 
@@ -272,9 +272,9 @@ class Trinity_Engine():
 #        self.grho  = grho
 #        self.area  = area
 
-
-        self.drho  = (rho_edge - rho_inner) / (N_radial - 1) # always const?
-        #self.geometry_factor = - grho / (drho * area.profile) # moved
+        
+        # TODO: consider case where this is non-constant
+        self.drho  = (rho_edge - rho_inner) / (N_radial - 1) 
 
         ### init profiles
         #     temporary profiles, later init from VMEC
@@ -314,6 +314,8 @@ class Trinity_Engine():
         y_init = np.concatenate( [n_prev, pi_prev, pe_prev] )
         self.y_hist = []
         self.y_hist.append(y_init)
+        self.y_error = np.zeros_like(y_init)
+        self.chi_error = 0
 
 
         # read VMEC
@@ -440,8 +442,6 @@ class Trinity_Engine():
         self.Ba      = vmec.volavgB
 
         if run_fast:
-            #grho = 1  # need to fix this to make it a profile
-            #self.grho  = grho
             grho = np.ones(self.N_radial)
             area = np.linspace(0.01,self.a_minor,self.N_radial) # parabolic area, simple torus
 
@@ -454,9 +454,13 @@ class Trinity_Engine():
 
             vmec.calc_gradrho_area(self.rho_axis)
             area = vmec.surface_areas
+            #area = vmec.surface_areas / vmec.aminor**2  # debugging attempt, was irrelevant, can delete
             grho = vmec.avg_abs_grad_rho
 
-        #self.grho = 1 # this works! but its clearly wrong, so there is probably a partner bug elsewhere
+        # this works! but its clearly wrong, so there is probably a partner bug elsewhere
+        #self.grho = 1 
+        #grho = np.ones(self.N_radial)
+
         self.area = Profile(area, half=True)
         self.grho = Profile(grho, half=True)
         self.geometry_factor = - grho / (self.drho * area) 
@@ -565,7 +569,6 @@ class Trinity_Engine():
         area  = self.area.midpoints 
         grho  = self.grho.midpoints
         Ba    = self.Ba
-        #grho  = self.grho # turtle: should I be getting midpoints for this?
         a     = self.a_minor
 
         aLn  = - self.density.grad_log   .profile  # a / L_n
@@ -1113,14 +1116,10 @@ class Trinity_Engine():
         psi_pepe = self.psi_pepe.matrix
 
         # compute forces (for alpha = 0, explicit mode)   
-        # turtle!
-        #grho = self.grho
-        #g = - grho/area
-        #area    = self.area.profile       [:-1]
         g = self.geometry_factor [:-1]
-        force_n  = g * (Fnp - Fnm) # / drho
-        force_pi = g * (Fip - Fim) # / drho
-        force_pe = g * (Fep - Fem) # / drho
+        force_n  = g * (Fnp - Fnm) 
+        force_pi = g * (Fip - Fim) 
+        force_pe = g * (Fep - Fem) 
 
         # save for power balance 
         self.force_n  = force_n 
@@ -1352,8 +1351,8 @@ class Trinity_Engine():
 
         # turtle: todo save y_err as output array
 
-        out_string = f"(t,p : p_prev, err, iterate) = {self.t_idx}, {self.p_idx}"
-        #print(f"(t,p) = {self.t_idx}, {self.p_idx} : {chi2}")
+        out_string = f"(t,p) = {self.t_idx}, {self.p_idx} :: (p_prev, err, iterate) = "
+        #out_string = f"(t,p : p_prev, err, iterate) = {self.t_idx}, {self.p_idx}"
 
         ### decide whether to iterate
         iterate = True
@@ -1362,7 +1361,7 @@ class Trinity_Engine():
             # error is sufficiently small, do not iterate
             iterate = False
 
-        if self.p_idx >= self.max_iter:
+        if self.p_idx >= self.max_newton_iter:
             # max number of newton iterations exceeded, do not iterate
             
             iterate = False
@@ -1383,12 +1382,15 @@ class Trinity_Engine():
 
         # save state for Trinity engine
         self.newton_mode = iterate
+        self.y_error = y_err
+        self.chi_error = chi2
 
-        out_string += f" : {self.prev_p_id} {chi2:.3e} {self.newton_mode}"
+        out_string += f"{self.prev_p_id} {chi2:.3e} {self.newton_mode}"
         print(out_string)
 
         if not iterate:
             print("")
+
 
 
     def reset_fluxtubes(self):

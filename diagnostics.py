@@ -53,8 +53,10 @@ class ProfileSaver:
         pb['aux_source_pe'] = []
 
         # counters
-        log['t_idx']  = []
-        log['p_idx']  = []
+        log['t_idx']  = [0] # kludge fix for edge case?
+        log['p_idx']  = [0]
+        log['y_error'] = []
+        log['chi_error'] = []
 
         self.log = log
 
@@ -97,6 +99,8 @@ class ProfileSaver:
 
         self.log['t_idx'].append(engine.t_idx)
         self.log['p_idx'].append(engine.p_idx)
+        self.log['y_error'].append(engine.y_error)
+        self.log['chi_error'].append(engine.chi_error)
 
         self.log['aLn'] .append(aLn)
         self.log['aLpi'].append(aLpi)
@@ -128,6 +132,10 @@ class ProfileSaver:
         pb['aux_source_pe'].append( en.aux_source_pe )
 
 
+        # record history
+        self.log['y_hist'] = engine.y_hist
+
+
 
     def store_system(self,engine):
         '''
@@ -142,6 +150,7 @@ class ProfileSaver:
         time_settings['N_steps']  = engine.N_steps
         time_settings['N_prints'] = engine.N_prints
         time_settings['model']    = engine.model
+        time_settings['max_newton_iter']    = engine.max_newton_iter
         self.log['system'] = time_settings
 
         # profile info lives here
@@ -150,9 +159,9 @@ class ProfileSaver:
         profile_settings['rho_edge']   = engine.rho_edge
         profile_settings['rho_inner']  = engine.rho_inner
         profile_settings['rho_axis']   = engine.rho_axis
-        profile_settings['grho']       = engine.grho
         profile_settings['drho']       = engine.drho
         profile_settings['area']       = engine.area.profile
+        profile_settings['grho']       = engine.grho.profile
         profile_settings['n_core']     = engine.n_core  
         profile_settings['n_edge']     = engine.n_edge 
         profile_settings['pi_core']    = engine.pi_core
