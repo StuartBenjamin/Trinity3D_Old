@@ -257,7 +257,64 @@ class VmecReader():
         dV = [ np.sum(segment) for segment in np.split(dV_fine, args) ]
         return np.array(dV)
 
-    def calc_geometry(self,s_axis):
+    def calc_gradrho_area(self,r_axis, N_zeta=20, N_theta=8,):
+        '''
+        Compute area and < | grad rho | >
+        the surface area, of the absolute value, of 3D gradient of rho
+
+        r_axis is a list of (rho = r/a) Trinity grid points
+        '''
+
+        self.r_cloud = []
+        self.A_cloud = []
+        s_list = []
+
+        sax = np.linspace(0,1,self.ns)
+        for r in r_axis:
+
+            ### get s_index just above and below
+            s = r**2
+            
+            s1,s2 = np.argsort( np.abs(sax - s) )[:2]
+            self.get_surface(s1, N_zeta=N_zeta, N_theta=N_theta, save_cloud=True) 
+            self.get_surface(s2, N_zeta=N_zeta, N_theta=N_theta, save_cloud=True) 
+            s_list.append( sax[s1] )
+            s_list.append( sax[s2] )
+
+        r_cloud = np.array(self.r_cloud)
+        a_cloud = np.array(self.A_cloud)
+        r_list = np.sqrt(s_list)
+ 
+        r1 = r_list[1::2] 
+        r0 = r_list[0::2]
+        drho = r1 - r0
+
+        ### compute < | grad rho | >
+        N_points = len(r_axis)
+        # drop the last theta and zeta points, in order to match the area array downstream
+        dr = np.reshape( (r_cloud[1::2] - r_cloud[0::2])[:,:,:-1,:-1], (N_points,3,-1) )
+        dx = np.linalg.norm( dr, axis=1)
+        abs_grad_rho = np.abs(drho)[:,np.newaxis] / dx
+
+        
+        ### compute area
+        a1 = a_cloud[1::2] 
+        a0 = a_cloud[0::2]
+        nax = np.newaxis
+        w_list = (r_axis - r0) / (r1 - r0) + 1e-8
+        weight = w_list[:,nax,nax]
+        dA = np.reshape( a0*(1-weight) + a1*weight, (N_points,-1))
+
+        avg_abs_grad_rho = np.sum(abs_grad_rho*dA,axis=1)/ np.sum(dA,axis=1) 
+        areas = np.sum( np.abs(dA),axis=1)
+
+        ### save
+        self.avg_abs_grad_rho = avg_abs_grad_rho
+        self.surface_areas = areas * self.nfp
+
+
+    def calc_geometry(self,s_axis, N_zeta=20, N_theta=8,):
+        # old 10/13
         '''
         Compute area and < | grad rho | >
         the surface area, of the absolute value, of 3D gradient of rho
@@ -268,7 +325,8 @@ class VmecReader():
         self.A_cloud = []
 
         N_points = len(s_axis)
-        r3 = [ self.get_surface(s, save_cloud=True) for s in s_axis ]
+        r3 = [ self.get_surface(s, N_zeta=N_zeta, 
+                     N_theta=N_theta, save_cloud=True) for s in s_axis ]
         
         r_cloud = np.array(self.r_cloud)
         a_cloud = np.array(self.A_cloud)
