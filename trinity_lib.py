@@ -440,29 +440,25 @@ class Trinity_Engine():
         self.Ba      = vmec.volavgB
 
         if run_fast:
-            grho = 1
-            self.grho  = grho
-            area       = np.linspace(0.01,self.a_minor,self.N_radial) # parabolic area, simple torus
+            #grho = 1  # need to fix this to make it a profile
+            #self.grho  = grho
+            grho = np.ones(self.N_radial)
+            area = np.linspace(0.01,self.a_minor,self.N_radial) # parabolic area, simple torus
 
         else:
             print("    post-processing for surface areas")
-            s_idx = np.array([ np.rint(r) for r in self.rho_axis**2 * vmec.ns ], int)
-            if s_idx[0] == 0:
-                s_idx[0] += 1
+            #vmec.calc_geometry(s_idx)
+            #s_idx = np.array([ np.rint(r) for r in self.rho_axis**2 * vmec.ns ], int)
+            #if s_idx[0] == 0:
+            #    s_idx[0] += 1
 
-
-            vmec.calc_geometry(s_idx)
-            #print("    grad rho:", vmec.avg_abs_grad_rho)
-            #print("    surface areas:", vmec.midpoint_surface_areas)
-            grho_array = vmec.avg_abs_grad_rho
+            vmec.calc_gradrho_area(self.rho_axis)
             area = vmec.surface_areas
-            grho = np.mean(grho_array)
-            #grho = grho_array
-            midpoint_area = vmec.midpoint_surface_areas
+            grho = vmec.avg_abs_grad_rho
 
-        self.grho = grho
-        self.grho = 1 # this works! but its clearly wrong, so there is probably a partner bug elsewhere
+        #self.grho = 1 # this works! but its clearly wrong, so there is probably a partner bug elsewhere
         self.area = Profile(area, half=True)
+        self.grho = Profile(grho, half=True)
         self.geometry_factor = - grho / (self.drho * area) 
         # debug
 #        plt.plot(self.rho_axis,area,'.-'); plt.plot(self.mid_axis,midpoint_area,'.-'); plt.plot(self.rho_axis,self.area.profile,'.:'); 
@@ -472,13 +468,6 @@ class Trinity_Engine():
         check carefully everywhere (grho,area) is used
         see whether trinity grid or GX midpoints are needed
         '''
-
-# REPLACED 10/12
-#        vmec = Dataset( path+wout, mode='r')
-#        self.R_major = vmec.variables['Rmajor_p'][:]
-#        self.a_minor = vmec.variables['Aminor_p'][:]
-#        self.Ba      = vmec.variables['volavgB'][:]
-#        self.vmec_data = vmec # data heavy?
 
 
     def get_flux(self):
@@ -573,9 +562,10 @@ class Trinity_Engine():
         Qe    = self.Qe.profile
 
 
-        area  = self.area.midpoints # this should be defined properly for fluxtubes
+        area  = self.area.midpoints 
+        grho  = self.grho.midpoints
         Ba    = self.Ba
-        grho  = self.grho
+        #grho  = self.grho # turtle: should I be getting midpoints for this?
         a     = self.a_minor
 
         aLn  = - self.density.grad_log   .profile  # a / L_n

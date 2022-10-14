@@ -247,7 +247,7 @@ class VmecReader():
         dV = [ np.sum(segment) for segment in np.split(dV_fine, args) ]
         return np.array(dV)
 
-    def calc_gradrho_area(self,r_axis, N_zeta=20, N_theta=8,):
+    def calc_gradrho_area(self,r_axis, N_zeta=16, N_theta=8,):
         '''
         Compute area and < | grad rho | >
         the surface area, of the absolute value, of 3D gradient of rho
