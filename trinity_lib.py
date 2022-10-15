@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import profiles as pf # needed for setting pf.rho_axis
 from profiles import Profile, Flux_profile, Flux_coefficients, Psi_profiles, init_profile
 
+from Geometry import VmecReader
 from Geometry import VmecRunner
 #from Geometry import DescRunner
 from Trinity_io import Trinity_Input
@@ -89,6 +90,7 @@ class Trinity_Engine():
                        bremstrahlung      = True,
                        update_equilibrium = True,
                        turbulent_exchange = False,
+                       compute_surface_areas = True,
                        gx_inputs   = 'gx-files/',
                        gx_outputs  = 'gx-files/run-dir/',
                        vmec_path  = './',
@@ -149,6 +151,7 @@ class Trinity_Engine():
         bremstrahlung = self.load( bremstrahlung, "tr3d.inputs['debug']['bremstrahlung']" )
         update_equilibrium = self.load( update_equilibrium, "tr3d.inputs['debug']['update_equilibrium']" )
         turbulent_exchange = self.load( turbulent_exchange, "tr3d.inputs['debug']['turbulent_exchange']" )
+        compute_surface_areas = self.load( compute_surface_areas, "tr3d.inputs['debug']['compute_surface_areas']" ) 
        
         gx_inputs  = self.load( gx_inputs, "tr3d.inputs['path']['gx_inputs']")
         gx_outputs = self.load( gx_outputs, "tr3d.inputs['path']['gx_outputs']")
@@ -183,11 +186,13 @@ class Trinity_Engine():
 
         self.model    = model
 
+        # feature settings
         self.collisions = collisions
         self.alpha_heating = alpha_heating
         self.bremstrahlung = bremstrahlung
         self.update_equilibrium = update_equilibrium
         self.turbulent_exchange = turbulent_exchange
+        self.compute_surface_areas = compute_surface_areas
 
         rho_inner = rho_edge / (2*N_radial - 1)
         rho_axis = np.linspace(rho_inner, rho_edge, N_radial) # radial axis, N points
@@ -218,6 +223,21 @@ class Trinity_Engine():
 
         self.f_save = f_save
 
+        # local variables
+        self.time   = 0
+        self.t_idx  = 0
+        self.gx_idx = 0
+        self.p_idx  = 0
+        self.prev_p_id = 0
+        
+        self.needs_new_flux = True
+        self.needs_new_vmec = False
+        self.newton_mode = False
+
+        # init normalizations
+        self.norms = self.Normalizations(a_meters=a_minor)
+
+
         # pre-compute the block identity matrix
         N_block = self.N_radial - 1
         I = np.identity(N_block)
@@ -231,12 +251,7 @@ class Trinity_Engine():
         self.R_major = R_major # meter
         self.a_minor = a_minor # meter
 
-        rerun_vmec = False # old, this is now self.update_equilibrium
-        if rerun_vmec:
-            vmec_input = "jet-inputs/input.JET-256"
-            self.vmec = VmecRunner(vmec_input, self)
         self.path = './'
-
 
         self.eq_model = eq_model
         if eq_model == "DESC":
@@ -246,28 +261,9 @@ class Trinity_Engine():
             desc = DescRunner(desc_input, self)
             self.desc = desc
 
-        # local variables
-        self.time   = 0
-        self.t_idx  = 0
-        self.gx_idx = 0
-        self.p_idx  = 0
-        self.prev_p_id = 0
-        self.needs_new_flux = True
-        self.needs_new_vmec = False
-        self.newton_mode = False
-
-        # init normalizations
-        self.norms = self.Normalizations(a_meters=a_minor)
-
-        # TODO: need to implement <|grad rho|>, by reading surface area from VMEC
-        grho = 1
-        drho       = (rho_edge - rho_inner) / (N_radial - 1) # always const?
-        area       = Profile(np.linspace(0.01,a_minor,N_radial), half=True) # parabolic area, simple torus
-        # (bug) this looks problematic. The area model should follow the rho_axis, or it should come from VMEC
-        self.grho  = grho
-        self.drho  = drho
-        self.area  = area
-        self.geometry_factor = - grho / (drho * area.profile)
+        
+        # TODO: consider case where this is non-constant
+        self.drho  = (rho_edge - rho_inner) / (N_radial - 1) 
 
         ### init profiles
         #     temporary profiles, later init from VMEC
@@ -299,6 +295,18 @@ class Trinity_Engine():
         svec.add_species( n, pe, mass_p=1/1800, charge_p=-1, ion=False, name='electrons')
         self.collision_model = svec
 
+        # init history
+        n_prev  = self.density.profile    [:-1]
+        pi_prev = self.pressure_i.profile [:-1]
+        pe_prev = self.pressure_e.profile [:-1]
+
+        y_init = np.concatenate( [n_prev, pi_prev, pe_prev] )
+        self.y_hist = []
+        self.y_hist.append(y_init)
+        self.y_error = np.zeros_like(y_init)
+        self.chi_error = 0
+
+
         # read VMEC
         self.read_VMEC( vmec_wout, path=vmec_path )
 
@@ -314,9 +322,6 @@ class Trinity_Engine():
                                   midpoints = mid_axis
                                   )
             self.vmec_wout = vmec_wout
-
-#            # read VMEC
-#            self.read_VMEC( vmec_wout, path=vmec_path )
 
             gx.make_fluxtubes()
             self.model_gx = gx
@@ -400,36 +405,54 @@ class Trinity_Engine():
         print(f"    a_minor: {self.a_minor:.2f} m")
         print(f"    Ba     : {self.Ba:.2f} T average on LCFS \n")
 
-        # init history
-        n_prev  = self.density.profile    [:-1]
-        pi_prev = self.pressure_i.profile [:-1]
-        pe_prev = self.pressure_e.profile [:-1]
-
-        y_init = np.concatenate( [n_prev, pi_prev, pe_prev] )
-        self.y_hist = []
-        self.y_hist.append(y_init)
-        self.y_error = np.zeros_like(y_init)
-        self.chi_error = 0
 
     ##### End of __init__ function
 
 
     def read_VMEC(self, wout, path='gx-geometry/'):
-    # read a WOUT from vmec
+        """
+        Loads VMEC wout file into Trinity
+        """
 
         self.vmec_wout = wout
 
         if wout == '':
             print('  Trinity Lib: no vmec file given, using default flux tubes for GX')
+            # TQ: does this failure path actually work? 10/12
             return
 
-        # load global geometry from VMEC
-        vmec = Dataset( path+wout, mode='r')
-        self.R_major = vmec.variables['Rmajor_p'][:]
-        self.a_minor = vmec.variables['Aminor_p'][:]
-        self.Ba      = vmec.variables['volavgB'][:]
+        else:
+            print(f"  Loading VMEC geometry: {path+wout}")
 
-        self.vmec_data = vmec # data heavy?
+        # load global geometry from VMEC
+        vmec = VmecReader(path+wout)
+        self.R_major = vmec.Rmajor
+        self.a_minor = vmec.aminor
+        #self.Ba      = vmec.volavgB # replaced 10/15
+        self.Ba      = vmec.B_GX
+
+        if self.compute_surface_areas:
+
+            print("    post-processing for surface areas")
+            vmec.calc_gradrho_area(self.rho_axis)
+            area = vmec.surface_areas
+            grho = vmec.avg_abs_grad_rho
+            # Note: Michael's thesis normalizes AN = A / a^2
+            # this actually makes no difference to the code,
+            # because A and 1/A appear in pairs around the divergence.
+            # even though one is trinity grid and the other is GX midpoint grid.
+            #area = vmec.surface_areas / vmec.aminor**2 
+
+        else:
+
+            print("    skipping surface area calculation")
+            # parabolic area, simple torus
+            area = np.linspace(0.01,self.a_minor,self.N_radial) 
+            grho = np.ones(self.N_radial)
+
+        self.area = Profile(area, half=True)
+        self.grho = Profile(grho, half=True)
+        self.geometry_factor = - grho / (self.drho * area) 
 
 
     def get_flux(self):
@@ -524,9 +547,9 @@ class Trinity_Engine():
         Qe    = self.Qe.profile
 
 
-        area  = self.area.midpoints # this should be defined properly for fluxtubes
+        area  = self.area.midpoints 
+        grho  = self.grho.midpoints
         Ba    = self.Ba
-        grho  = self.grho
         a     = self.a_minor
 
         aLn  = - self.density.grad_log   .profile  # a / L_n
@@ -1052,7 +1075,6 @@ class Trinity_Engine():
         Fem     = self.Fpe.minus.profile  [:-1]
         Ei      = self.Ei                 [:-1]
         Ee      = self.Ee                 [:-1]
-        area    = self.area.profile       [:-1]
         rax     = self.rho_axis           [:-1]
         drho    = self.drho
         alpha   = self.alpha
@@ -1075,11 +1097,10 @@ class Trinity_Engine():
         psi_pepe = self.psi_pepe.matrix
 
         # compute forces (for alpha = 0, explicit mode)   
-        grho = self.grho
-        g = - grho/area
-        force_n  = g * (Fnp - Fnm) / drho
-        force_pi = g * (Fip - Fim) / drho
-        force_pe = g * (Fep - Fem) / drho
+        g = self.geometry_factor [:-1]
+        force_n  = g * (Fnp - Fnm) 
+        force_pi = g * (Fip - Fim) 
+        force_pe = g * (Fep - Fem) 
 
         # save for power balance 
         self.force_n  = force_n 
@@ -1311,8 +1332,8 @@ class Trinity_Engine():
 
         # turtle: todo save y_err as output array
 
-        out_string = f"(t,p : p_prev, err, iterate) = {self.t_idx}, {self.p_idx}"
-        #print(f"(t,p) = {self.t_idx}, {self.p_idx} : {chi2}")
+        out_string = f"(t,p) = {self.t_idx}, {self.p_idx} :: (p_prev, err, iterate) = "
+        #out_string = f"(t,p : p_prev, err, iterate) = {self.t_idx}, {self.p_idx}"
 
         ### decide whether to iterate
         iterate = True
@@ -1345,7 +1366,7 @@ class Trinity_Engine():
         self.y_error = y_err
         self.chi_error = chi2
 
-        out_string += f" : {self.prev_p_id} {chi2:.3e} {self.newton_mode}"
+        out_string += f"{self.prev_p_id} {chi2:.3e} {self.newton_mode}"
         print(out_string)
 
         if not iterate:

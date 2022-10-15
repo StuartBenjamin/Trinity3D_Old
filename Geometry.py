@@ -24,12 +24,6 @@ class FluxTube():
     
     def load_GX_geometry(self, f_geo):
         # loads a single GX flux tube
-        #   e.g. gx_wout_gonzalez-2021_psiN_0.102_gds21_nt_36_geo.nc
-        #        gx_wout_name_geo.nc
-        #   there is potentially useful info about radial location and ntheta
-        #   but I would prefer to load this from the data within, 
-        #   instead of file string
-        #   What does gds21 signify? Is this a choice?
        
         print('  Reading GX Flux Tube:', f_geo)
         gf = Dataset(f_geo, mode='r')
@@ -86,7 +80,7 @@ class FluxTube():
         gx.inputs['Boltzmann']['tau_fac'] = tau
 
 
-class Vmec():
+class VmecReader():
     """
     This Class reads a vmec wout file.
 
@@ -107,6 +101,7 @@ class Vmec():
         self.Rmajor      = get(f,'Rmajor_p')
         self.volume      = get(f,'volume_p')
 
+
         # 1D array
         self.xm          = get(f,'xm')
         self.xn          = get(f,'xn')
@@ -123,6 +118,12 @@ class Vmec():
         self.bmnc        = get(f,'bmnc')
         self.bsupumnc    = get(f,'bsupumnc')
         self.bsupvmnc    = get(f,'bsupvmnc')
+        
+        # Get B field
+        self.phi  = get(f,'phi') # toroidal flux in SI webers (signed)
+        phiedge   = self.phi[-1]
+        B_norm = phiedge / (np.pi * self.aminor**2) # GX normalizes B_ref = phi/ pi a2
+        self.B_GX = np.abs(B_norm) 
 
         # save
         self.data = f
@@ -227,16 +228,6 @@ class Vmec():
 
         return np.sum(dArea) * nfp
 
-#    def compute_surface_areas(self, N_zeta=20, N_theta=8):
-#        # to be retired 10/3
-#
-#        sax = np.arange(self.ns)
-#
-#        A = [self.get_surface(s, N_zeta=N_zeta, N_theta=N_theta) for s in sax]
-#        self.surface_areas = np.array(A)
-#
-#        print(f"  Computed {len(sax)} surfaces, with resolution")
-#        print(f"    N_zeta, N_theta = ({N_zeta}, {N_theta})")
 
     def calc_dV(self, radial_grid, N_fine=100):
 
@@ -261,43 +252,61 @@ class Vmec():
         dV = [ np.sum(segment) for segment in np.split(dV_fine, args) ]
         return np.array(dV)
 
-    def calc_geometry(self,s_axis):
+    def calc_gradrho_area(self,r_axis, N_zeta=16, N_theta=8,):
         '''
         Compute area and < | grad rho | >
         the surface area, of the absolute value, of 3D gradient of rho
 
-        s_axis is an INT array that indexes the VMEC flux surfaces (psi axis)
+        r_axis is a list of (rho = r/a) Trinity grid points
         '''
+
         self.r_cloud = []
         self.A_cloud = []
+        s_list = []
 
-        N_points = len(s_axis)
-        r3 = [ self.get_surface(s, save_cloud=True) for s in s_axis ]
-        
+        sax = np.linspace(0,1,self.ns)
+        N_points = len(r_axis)
+        print(f"    geo: computing {N_points} radial points")
+        for r in r_axis:
+
+            ### get s_index just above and below
+            s = r**2
+            
+            s1,s2 = np.argsort( np.abs(sax - s) )[:2]
+            self.get_surface(s1, N_zeta=N_zeta, N_theta=N_theta, save_cloud=True) 
+            self.get_surface(s2, N_zeta=N_zeta, N_theta=N_theta, save_cloud=True) 
+            s_list.append( sax[s1] )
+            s_list.append( sax[s2] )
+
         r_cloud = np.array(self.r_cloud)
         a_cloud = np.array(self.A_cloud)
-        
-        # compute < | grad rho | >
-        dr = np.reshape( (r_cloud[1:] - r_cloud[:-1])[:,:,:-1,:-1], (N_points-1,3,-1) )
+        r_list = np.sqrt(s_list)
+ 
+        r1 = r_list[1::2] 
+        r0 = r_list[0::2]
+        drho = r1 - r0
+
+        ### compute < | grad rho | >
+        # drop the last theta and zeta points, in order to match the area array downstream
+        dr = np.reshape( (r_cloud[1::2] - r_cloud[0::2])[:,:,:-1,:-1], (N_points,3,-1) )
         dx = np.linalg.norm( dr, axis=1)
-        
-        rho_axis = np.sqrt( s_axis / self.ns )
-        drho = rho_axis[1:] - rho_axis[:-1]
-        #drho = 1 / N_points
-        #abs_grad_rho = drho/dx
-        abs_grad_rho = drho[:,np.newaxis] / dx
-        dA = np.reshape(0.5*(a_cloud[1:] + a_cloud[:-1]), (N_points-1,-1))
-        
-        avg_abs_grad_rho = np.sum(abs_grad_rho*dA,axis=1)/ np.sum(dA,axis=1) # this is actually grad psi, since using sax
-        areas = np.sum(dA,axis=1)
+        abs_grad_rho = np.abs(drho)[:,np.newaxis] / dx
 
-        # save
+        
+        ### compute area
+        a1 = a_cloud[1::2] 
+        a0 = a_cloud[0::2]
+        nax = np.newaxis
+        w_list = (r_axis - r0) / (r1 - r0) + 1e-8
+        weight = w_list[:,nax,nax]
+        dA = np.reshape( a0*(1-weight) + a1*weight, (N_points,-1))
+
+        avg_abs_grad_rho = np.sum(abs_grad_rho*dA,axis=1)/ np.sum(dA,axis=1) 
+        areas = np.sum( np.abs(dA),axis=1)
+
+        ### save
         self.avg_abs_grad_rho = avg_abs_grad_rho
-        self.midpoint_surface_areas = areas * self.nfp
-
-        # (unused) for completeness
-        da = np.reshape(a_cloud, (N_points,-1) )
-        self.surface_areas = np.sum(da,axis=1) * self.nfp
+        self.surface_areas = areas * self.nfp
 
     def save_areas(self):
 
@@ -312,6 +321,27 @@ class Vmec():
         np.save(fout, self.surface_areas)
         print(f"  Save surface areas to: {fout}")
 
+
+    def overwrite_simple_torus(self, R=6, a=2):
+        '''
+        Overwrites VMEC file with concentric circle geometry.
+
+        This is used for testing.
+        '''
+
+        sax = np.linspace(0,1,self.ns)
+        rax = a * np.sqrt(sax)
+        
+        # overwrite with simple torus
+        self.N_modes = 2
+        self.xn = np.array([0,0])
+        self.xm = np.array([0,1])
+
+        self.rmnc = np.array( [ [R,r] for r in rax ] )
+        self.zmns = np.array( [ [0,r] for r in rax ] )
+        
+        self.Rmajor = R
+        self.aminor = a
 
 class VmecRunner():
 

@@ -53,8 +53,8 @@ class ProfileSaver:
         pb['aux_source_pe'] = []
 
         # counters
-        log['t_idx']  = []
-        log['p_idx']  = []
+        log['t_idx']  = [0] # kludge fix for edge case?
+        log['p_idx']  = [0]
         log['y_error'] = []
         log['chi_error'] = []
 
@@ -159,9 +159,9 @@ class ProfileSaver:
         profile_settings['rho_edge']   = engine.rho_edge
         profile_settings['rho_inner']  = engine.rho_inner
         profile_settings['rho_axis']   = engine.rho_axis
-        profile_settings['grho']       = engine.grho
         profile_settings['drho']       = engine.drho
         profile_settings['area']       = engine.area.profile
+        profile_settings['grho']       = engine.grho.profile
         profile_settings['n_core']     = engine.n_core  
         profile_settings['n_edge']     = engine.n_edge 
         profile_settings['pi_core']    = engine.pi_core

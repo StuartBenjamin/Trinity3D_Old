@@ -116,5 +116,5 @@ for t in np.arange(len(force_n)):
     fout = f'{path}t={t:03d}.png'
     plt.savefig(fout)
     plt.clf()
-    print('saved', fout)
+    print(f"saved: {fout}")
 
