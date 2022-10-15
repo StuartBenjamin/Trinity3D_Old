@@ -439,7 +439,8 @@ class Trinity_Engine():
         vmec = VmecReader(path+wout)
         self.R_major = vmec.Rmajor
         self.a_minor = vmec.aminor
-        self.Ba      = vmec.volavgB
+        #self.Ba      = vmec.volavgB # replaced 10/15
+        self.Ba      = vmec.B_GX
 
         if run_fast:
             grho = np.ones(self.N_radial)
@@ -447,10 +448,13 @@ class Trinity_Engine():
 
         else:
             print("    post-processing for surface areas")
+
+            ## retired 10/14
             #vmec.calc_geometry(s_idx)
             #s_idx = np.array([ np.rint(r) for r in self.rho_axis**2 * vmec.ns ], int)
             #if s_idx[0] == 0:
             #    s_idx[0] += 1
+            ##
 
             vmec.calc_gradrho_area(self.rho_axis)
             area = vmec.surface_areas

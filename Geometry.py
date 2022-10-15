@@ -106,7 +106,7 @@ class VmecReader():
         self.aminor      = get(f,'Aminor_p')
         self.Rmajor      = get(f,'Rmajor_p')
         self.volume      = get(f,'volume_p')
-        self.volavgB     = get(f,'volavgB')
+
 
         # 1D array
         self.xm          = get(f,'xm')
@@ -124,6 +124,12 @@ class VmecReader():
         self.bmnc        = get(f,'bmnc')
         self.bsupumnc    = get(f,'bsupumnc')
         self.bsupvmnc    = get(f,'bsupvmnc')
+        
+        # Get B field
+        self.phi  = get(f,'phi') # toroidal flux in SI webers (signed)
+        phiedge   = self.phi[-1]
+        B_norm = phiedge / (np.pi * self.aminor**2) # GX normalizes B_ref = phi/ pi a2
+        self.B_GX = np.abs(B_norm) 
 
         # save
         self.data = f
