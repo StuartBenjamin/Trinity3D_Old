@@ -24,12 +24,6 @@ class FluxTube():
     
     def load_GX_geometry(self, f_geo):
         # loads a single GX flux tube
-        #   e.g. gx_wout_gonzalez-2021_psiN_0.102_gds21_nt_36_geo.nc
-        #        gx_wout_name_geo.nc
-        #   there is potentially useful info about radial location and ntheta
-        #   but I would prefer to load this from the data within, 
-        #   instead of file string
-        #   What does gds21 signify? Is this a choice?
        
         print('  Reading GX Flux Tube:', f_geo)
         gf = Dataset(f_geo, mode='r')
@@ -314,48 +308,6 @@ class VmecReader():
         self.avg_abs_grad_rho = avg_abs_grad_rho
         self.surface_areas = areas * self.nfp
 
-#
-#    def calc_geometry(self,s_axis, N_zeta=20, N_theta=8,):
-#        # 10/13 to be retired
-#        '''
-#        Compute area and < | grad rho | >
-#        the surface area, of the absolute value, of 3D gradient of rho
-#
-#        s_axis is an INT array that indexes the VMEC flux surfaces (psi axis)
-#        '''
-#        self.r_cloud = []
-#        self.A_cloud = []
-#
-#        N_points = len(s_axis)
-#        r3 = [ self.get_surface(s, N_zeta=N_zeta, 
-#                     N_theta=N_theta, save_cloud=True) for s in s_axis ]
-#        
-#        r_cloud = np.array(self.r_cloud)
-#        a_cloud = np.array(self.A_cloud)
-#        
-#        # compute < | grad rho | >
-#        dr = np.reshape( (r_cloud[1:] - r_cloud[:-1])[:,:,:-1,:-1], (N_points-1,3,-1) )
-#        dx = np.linalg.norm( dr, axis=1)
-#        
-#        rho_axis = np.sqrt( s_axis / self.ns )
-#        drho = rho_axis[1:] - rho_axis[:-1]
-#        #drho = 1 / N_points
-#        #abs_grad_rho = drho/dx
-#        abs_grad_rho = drho[:,np.newaxis] / dx
-#        dA = np.reshape(0.5*(a_cloud[1:] + a_cloud[:-1]), (N_points-1,-1))
-#        
-#        avg_abs_grad_rho = np.sum(abs_grad_rho*dA,axis=1)/ np.sum(dA,axis=1) # this is actually grad psi, since using sax
-#        areas = np.sum(dA,axis=1)
-#
-#        # save
-#        self.avg_abs_grad_rho = avg_abs_grad_rho
-#        self.midpoint_surface_areas = areas * self.nfp
-#        # interpolate grad rho, to get on grid?
-#
-#        # (unused) for completeness
-#        da = np.reshape(a_cloud, (N_points,-1) )
-#        self.surface_areas = np.sum(da,axis=1) * self.nfp
-#
     def save_areas(self):
 
         # strip the path

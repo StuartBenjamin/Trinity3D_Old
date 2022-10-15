@@ -47,6 +47,7 @@
   bremstrahlung      = False
   update_equilibrium = False
   turbulent_exchange = False
+  compute_surface_areas = False
 
 [log]
   N_prints = 12

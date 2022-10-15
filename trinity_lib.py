@@ -90,6 +90,7 @@ class Trinity_Engine():
                        bremstrahlung      = True,
                        update_equilibrium = True,
                        turbulent_exchange = False,
+                       compute_surface_areas = True,
                        gx_inputs   = 'gx-files/',
                        gx_outputs  = 'gx-files/run-dir/',
                        vmec_path  = './',
@@ -150,6 +151,7 @@ class Trinity_Engine():
         bremstrahlung = self.load( bremstrahlung, "tr3d.inputs['debug']['bremstrahlung']" )
         update_equilibrium = self.load( update_equilibrium, "tr3d.inputs['debug']['update_equilibrium']" )
         turbulent_exchange = self.load( turbulent_exchange, "tr3d.inputs['debug']['turbulent_exchange']" )
+        compute_surface_areas = self.load( compute_surface_areas, "tr3d.inputs['debug']['compute_surface_areas']" ) 
        
         gx_inputs  = self.load( gx_inputs, "tr3d.inputs['path']['gx_inputs']")
         gx_outputs = self.load( gx_outputs, "tr3d.inputs['path']['gx_outputs']")
@@ -184,11 +186,13 @@ class Trinity_Engine():
 
         self.model    = model
 
+        # feature settings
         self.collisions = collisions
         self.alpha_heating = alpha_heating
         self.bremstrahlung = bremstrahlung
         self.update_equilibrium = update_equilibrium
         self.turbulent_exchange = turbulent_exchange
+        self.compute_surface_areas = compute_surface_areas
 
         rho_inner = rho_edge / (2*N_radial - 1)
         rho_axis = np.linspace(rho_inner, rho_edge, N_radial) # radial axis, N points
@@ -225,6 +229,7 @@ class Trinity_Engine():
         self.gx_idx = 0
         self.p_idx  = 0
         self.prev_p_id = 0
+        
         self.needs_new_flux = True
         self.needs_new_vmec = False
         self.newton_mode = False
@@ -246,14 +251,7 @@ class Trinity_Engine():
         self.R_major = R_major # meter
         self.a_minor = a_minor # meter
 
-
-        # delete this 10/12
-#        rerun_vmec = False # old, this is now self.update_equilibrium
-#        if rerun_vmec:
-#            vmec_input = "jet-inputs/input.JET-256"
-#            self.vmec = VmecRunner(vmec_input, self)
         self.path = './'
-
 
         self.eq_model = eq_model
         if eq_model == "DESC":
@@ -262,15 +260,6 @@ class Trinity_Engine():
             desc_input = "desc-examples/DSHAPE_output.h5"
             desc = DescRunner(desc_input, self)
             self.desc = desc
-
-
-        # TODO: need to implement <|grad rho|>, by reading surface area from VMEC
-##        grho = 1
-#        area       = Profile(np.linspace(0.01,a_minor,N_radial), half=True) # parabolic area, simple torus
-#        # (bug) this looks problematic. The area model should follow the rho_axis, or it should come from VMEC
-#        # wow this was totally wrong.
-#        self.grho  = grho
-#        self.area  = area
 
         
         # TODO: consider case where this is non-constant
@@ -420,7 +409,7 @@ class Trinity_Engine():
     ##### End of __init__ function
 
 
-    def read_VMEC(self, wout, path='gx-geometry/', run_fast=False):
+    def read_VMEC(self, wout, path='gx-geometry/'):
         """
         Loads VMEC wout file into Trinity
         """
@@ -442,40 +431,28 @@ class Trinity_Engine():
         #self.Ba      = vmec.volavgB # replaced 10/15
         self.Ba      = vmec.B_GX
 
-        if run_fast:
-            grho = np.ones(self.N_radial)
-            area = np.linspace(0.01,self.a_minor,self.N_radial) # parabolic area, simple torus
+        if self.compute_surface_areas:
 
-        else:
             print("    post-processing for surface areas")
-
-            ## retired 10/14
-            #vmec.calc_geometry(s_idx)
-            #s_idx = np.array([ np.rint(r) for r in self.rho_axis**2 * vmec.ns ], int)
-            #if s_idx[0] == 0:
-            #    s_idx[0] += 1
-            ##
-
             vmec.calc_gradrho_area(self.rho_axis)
             area = vmec.surface_areas
-            #area = vmec.surface_areas / vmec.aminor**2  # debugging attempt, was irrelevant, can delete
             grho = vmec.avg_abs_grad_rho
+            # Note: Michael's thesis normalizes AN = A / a^2
+            # this actually makes no difference to the code,
+            # because A and 1/A appear in pairs around the divergence.
+            # even though one is trinity grid and the other is GX midpoint grid.
+            #area = vmec.surface_areas / vmec.aminor**2 
 
-        # this works! but its clearly wrong, so there is probably a partner bug elsewhere
-        #self.grho = 1 
-        #grho = np.ones(self.N_radial)
+        else:
+
+            print("    skipping surface area calculation")
+            # parabolic area, simple torus
+            area = np.linspace(0.01,self.a_minor,self.N_radial) 
+            grho = np.ones(self.N_radial)
 
         self.area = Profile(area, half=True)
         self.grho = Profile(grho, half=True)
         self.geometry_factor = - grho / (self.drho * area) 
-        # debug
-#        plt.plot(self.rho_axis,area,'.-'); plt.plot(self.mid_axis,midpoint_area,'.-'); plt.plot(self.rho_axis,self.area.profile,'.:'); 
-# plt.plot(self.rho_axis,self.area.plus.profile,'.-'); plt.plot(self.rho_axis,self.area.minus.profile,'.-'); plt.grid(); plt.show()
-        '''
-        under development, there is something strange happening on the edge
-        check carefully everywhere (grho,area) is used
-        see whether trinity grid or GX midpoints are needed
-        '''
 
 
     def get_flux(self):
