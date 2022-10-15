@@ -1,6 +1,12 @@
 from GX_io import GX_Runner
-
 import sys
+
+'''
+This script reads a list of GX inputs (*.in)
+
+It prints two sets of columns: grid resolutions and plasma parameters
+15 October 2022
+'''
 
 f_list = sys.argv[1:]
 
