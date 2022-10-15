@@ -48,6 +48,7 @@ class GX_Runner():
                 obj[header][key] = value
 
         self.inputs = obj
+        self.filename = fin
 
 
     def write(self, fout='temp.in'):
@@ -81,6 +82,48 @@ class GX_Runner():
         # assume Trinity is in a salloc environment with GPUs
         # write input file, write batch file, execute srun
         pass
+
+
+    def list_inputs(self, header=False):
+
+        if header:
+            print( "name, tprim, fprim, temp, dens, taufac" )
+            return
+
+        name = self.filename.split('/')[-1]
+
+        def load(label):
+            # load from species
+            data = self.inputs['species'][label][1:-1].split(',')
+            return np.array(data,float)
+
+        tprim = load("tprim")
+        fprim = load("fprim")
+        dens = load("dens")
+        temp = load("temp")
+
+        taufac = float(self.inputs['Boltzmann']['tau_fac'])
+
+        print(name, tprim, fprim, temp, dens, f"{taufac:.3f}")
+
+
+    def list_resolution(self, header=False):
+        
+        if header:
+            print( 'name', 'ntheta', 'nx', 'ny', 'nhermite', 'nlaguerre', 'dt', 'nstep')
+            return
+
+        ntheta = int(self.inputs['Dimensions']['ntheta'])
+        nx     = int(self.inputs['Dimensions']['nx'])
+        ny     = int(self.inputs['Dimensions']['ny'])
+        nhermite = int(self.inputs['Dimensions']['nhermite'])
+        nlaguerre = int(self.inputs['Dimensions']['nlaguerre'])
+        
+        dt = float(self.inputs['Time']['dt'])
+        nstep = int(self.inputs['Time']['nstep'])
+
+        tag = self.filename.split('/')[-1]
+        print( tag, ntheta,nx,ny, nhermite, nlaguerre, dt, nstep)
 
     def pretty_print(self, entry=''):
     # dumps out current input data, in GX input format

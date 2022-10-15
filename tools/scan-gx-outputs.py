@@ -18,8 +18,6 @@ Updated 26 July 2022
 
 file_list = sys.argv[1:]
 
-#data_list = [ Dataset(f,mode='r') for f in file_list]
-
 def avg_flux(q):
     med = np.median( [ np.median( q[::-1][:k] ) for k in np.arange( 1,len(q) )] )
     return med
@@ -60,17 +58,13 @@ qavg_list = np.array( [ d['avg_q'] for d in data] )
 
 qavg_list = np.nan_to_num(qavg_list) # set nans to zero
 
-### make a two panel plot
-#   add ability to color code radii?
-#    would need to read radius from file name, then sort the filesA
-
 '''
 assume file has the form 'gx-files/JET/t00-r0-2.nc'
-   t00-r0-2.nc
+   t00-p2-r0-2.nc
    r0
    0
 '''
-radius_index = np.array( [ f.split('/')[-1].split('-')[1][1:] for f in file_list], int )
+radius_index = np.array( [ f.split('/')[-1].split('-')[2][1:] for f in file_list], int )
 
 fig,ax = plt.subplots(1,2, figsize=(9,5))
 
@@ -78,10 +72,18 @@ for j in np.arange(len(tprim_list)):
     ax[0].plot(tprim_list[j],qavg_list[j], f'C{radius_index[j]}.')
     ax[1].plot(tprim_list[j],nprim_list[j],f'C{radius_index[j]}.')
 
+# would be better to differeniate marker based on time
+
+# add labels
+for j in np.arange( np.max(radius_index)+1 ):
+    ax[1].plot([],[],f'C{j}.', label=f"r{j}")
+
 ax[0].set_xlabel('tprim')
 ax[0].set_ylabel('qavg')
 ax[1].set_xlabel('tprim')
 ax[1].set_ylabel('nprim')
+
+ax[1].legend()
 
 plt.suptitle("colors group radial flux tubes")
 plt.tight_layout()
