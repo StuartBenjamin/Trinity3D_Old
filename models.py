@@ -346,6 +346,9 @@ class GX_Flux_Model():
         Lpi = - engine.pressure_i.grad_log.profile  # a / L_pi
         Lpe = - engine.pressure_e.grad_log.profile  # a / L_pe
 
+        LTi = Lpi - Ln
+        LTe = Lpe - Ln
+
         # get normalizations for GX, dens and temp
         n = engine.density.midpoints
         pi = engine.pressure_i.midpoints
@@ -371,18 +374,16 @@ class GX_Flux_Model():
         fpe  = [''] * len(idx) 
 
         Q0   = np.zeros( len(idx) )
-        Qn   = np.zeros( len(idx) )
         Qpi  = np.zeros( len(idx) )
         Qpe  = np.zeros( len(idx) )
+        Qn   = np.zeros( len(idx) )
 
         for j in idx: 
+
             rho = mid_axis[j]
             kn  = Ln [j]
-            kpi = Lpi[j]
-            kpe = Lpe[j]
-
-            kti = kpi - kn
-            kte = kpe - kn
+            kti = LTi[j]
+            kte = LTe[j]
 
             # writes the GX input file and calls the slurm 
             scale = 1 + step
@@ -412,14 +413,19 @@ class GX_Flux_Model():
         '''
         In this variable notation
 
-        Qpi is array of fluxes at pressure perturbation: Q(T + delta)
+        T is temp gradient scale length
+        delta is the step size
+
+        Q0   is the base case                          : Q(T)
+        Qpi  is array of fluxes at pi perturbation     : Q(T + delta)
         Q_pi is array of derivatives of flux by step   : dQ/delta
         '''
 
         # record the heat flux
         Qflux  =  Q0
         # record dQ / dLx
-        Qi_pi  =  (Qpi - Q0) / (Lpi * step)
+        Qi_pi  =  (Qpi - Q0) / (LTi * step)
+        #Qi_pi  =  (Qpi - Q0) / (Lpi * step)  # bug
         '''
         document
         Lpi = a/Lpi # rename
