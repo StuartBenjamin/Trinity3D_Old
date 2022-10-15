@@ -409,6 +409,13 @@ class GX_Flux_Model():
             #Qn [j] = read_gx(fn [j])
             #Qpe[j] = read_gx(fpe[j])
 
+        '''
+        In this variable notation
+
+        Qpi is array of fluxes at pressure perturbation: Q(T + delta)
+        Q_pi is array of derivatives of flux by step   : dQ/delta
+        '''
+
         # record the heat flux
         Qflux  =  Q0
         # record dQ / dLx

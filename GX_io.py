@@ -104,7 +104,8 @@ class GX_Runner():
 
         taufac = float(self.inputs['Boltzmann']['tau_fac'])
 
-        print(name, tprim, fprim, temp, dens, f"{taufac:.3f}")
+        print(name, f"{str(tprim):16}", f"{str(fprim):16}"
+                  , f"{str(temp):16}", dens, f"{taufac:.3f}")
 
 
     def list_resolution(self, header=False):
