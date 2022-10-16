@@ -85,7 +85,8 @@ ax[1].set_ylabel('nprim')
 
 ax[1].legend()
 
-plt.suptitle("colors group radial flux tubes")
+plt.suptitle(f"showing {len(file_list)} GX runs")
+#plt.suptitle("colors group radial flux tubes")
 plt.tight_layout()
 plt.show()
 

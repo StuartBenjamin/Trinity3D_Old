@@ -91,6 +91,7 @@ class Trinity_Engine():
                        update_equilibrium = True,
                        turbulent_exchange = False,
                        compute_surface_areas = True,
+                       fix_electrons = False,
                        gx_inputs   = 'gx-files/',
                        gx_outputs  = 'gx-files/run-dir/',
                        vmec_path  = './',
@@ -119,6 +120,7 @@ class Trinity_Engine():
         N_steps = self.load( N_steps, "int( tr3d.inputs['grid']['N_steps'] )" )
 
         max_newton_iter = self.load( max_newton_iter, "int( tr3d.inputs['time']['max_newton_iter'] )" )
+        newton_threshold = self.load( newton_threshold, "int( tr3d.inputs['time']['newton_threshold'] )" )
         # these "time" settings succeed the "grid" settings above, keeping both now for backwards compatibility
         alpha = self.load( alpha, "float( tr3d.inputs['time']['alpha'] )" )
         dtau = self.load( dtau, "float( tr3d.inputs['time']['dtau'] )" )
@@ -146,12 +148,14 @@ class Trinity_Engine():
         
         ext_source_file = self.load( ext_source_file, "tr3d.inputs['sources']['ext_source_file']" )
 
+        # maybe add a print statement that declares all these settings?
         collisions = self.load( collisions, "tr3d.inputs['debug']['collisions']" ) 
         alpha_heating = self.load( alpha_heating, "tr3d.inputs['debug']['alpha_heating']" )
         bremstrahlung = self.load( bremstrahlung, "tr3d.inputs['debug']['bremstrahlung']" )
         update_equilibrium = self.load( update_equilibrium, "tr3d.inputs['debug']['update_equilibrium']" )
         turbulent_exchange = self.load( turbulent_exchange, "tr3d.inputs['debug']['turbulent_exchange']" )
         compute_surface_areas = self.load( compute_surface_areas, "tr3d.inputs['debug']['compute_surface_areas']" ) 
+        self.fix_electrons = self.load( fix_electrons, "tr3d.inputs['debug']['fix_electrons']" ) 
        
         gx_inputs  = self.load( gx_inputs, "tr3d.inputs['path']['gx_inputs']")
         gx_outputs = self.load( gx_outputs, "tr3d.inputs['path']['gx_outputs']")
@@ -405,6 +409,13 @@ class Trinity_Engine():
         print(f"    a_minor: {self.a_minor:.2f} m")
         print(f"    Ba     : {self.Ba:.2f} T average on LCFS \n")
 
+        # temp
+        self.record_flux = {}
+        self.record_flux['Q0'] = []
+        self.record_flux['Q1'] = []
+        self.record_flux['dQ'] = []
+        self.record_flux['kT'] = []
+        self.record_flux['dk'] = []
 
     ##### End of __init__ function
 
@@ -1284,6 +1295,10 @@ class Trinity_Engine():
  #           print("***** needs new VMEC ****** threshold exceeds 2%")
             self.needs_new_vmec = True
             self.vmec_pressure_old = p_SI # maybe move this elsewhere
+
+        # reset electrons
+        if self.fix_electrons:
+            self.pressure_e = self.pressure_e_init
 
         self.check_finite_difference()
 

@@ -334,8 +334,8 @@ class GX_Flux_Model():
 
 
     def prep_commands(self, engine, # pointer to pull profiles from trinity engine
-                            #t_id,   # integer time index in trinity
-                            step = 0.1, # absolute step size for perturbing gradients
+                            #step = 0.1, # absolute step size for perturbing gradients
+                            step = 0.3, # relativestep size for perturbing gradients
                      ):
 
         self.time = engine.time
@@ -386,9 +386,12 @@ class GX_Flux_Model():
             kte = LTe[j]
 
             # writes the GX input file and calls the slurm 
-            scale = 1 + step
+            #scale = 1 + step
             f0 [j] = self.gx_command(j, rho, kn      , kti       , kte        , '0', temp_i=gx_Ti[j], temp_e = gx_Te[j] )
-            fpi[j] = self.gx_command(j, rho, kn      , kti*scale , kte        , '2', temp_i=gx_Ti[j], temp_e = gx_Te[j] )
+            #fpi[j] = self.gx_command(j, rho, kn      , kti*scale , kte        , '2', temp_i=gx_Ti[j], temp_e = gx_Te[j] )
+            fpi[j] = self.gx_command(j, rho, kn      , kti + step , kte        , '2', temp_i=gx_Ti[j], temp_e = gx_Te[j] )
+
+
             #fn [j] = self.gx_command(j, rho, kn*scale , kpi        , kpe        , '1' )
             #fpe[j] = self.gx_command(j, rho, kn      , kpi        , kpe*scale , '3' )
 
@@ -424,18 +427,23 @@ class GX_Flux_Model():
         # record the heat flux
         Qflux  =  Q0
         # record dQ / dLx
-        Qi_pi  =  (Qpi - Q0) / (LTi * step)
-        #Qi_pi  =  (Qpi - Q0) / (Lpi * step)  # bug
-        '''
-        document
-        Lpi = a/Lpi # rename
+        Qi_pi  =  (Qpi - Q0) / step
+        #Qi_pi  =  (Qpi - Q0) / (LTi * step)
+        ###Qi_pi  =  (Qpi - Q0) / (Lpi * step)  # bug 10/15
 
-        !!! check Ln != case
-        '''
+
         #Qi_n   =  (Qn  - Q0) / (Ln * step) 
         #Qi_pe  =  (Qpe - Q0) / (Lpe * step) 
         Qi_n = 0*Q0 # this is already the init state
         Qi_pe = Qi_pi
+
+
+        rec = engine.record_flux
+        rec['Q0'].append( Q0       )
+        rec['Q1'].append( Qpi      )
+        rec['dQ'].append( Qi_pi    )
+        rec['kT'].append( LTi      )
+        rec['dk'].append( LTi*step )
 
 
         # need to add neoclassical diffusion
