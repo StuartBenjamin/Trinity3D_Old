@@ -15,7 +15,6 @@ if os.environ.get("TRINITY_PATH") == None:
     print("  Try running (source setup.sh)\n")
     sys.exit()
 
-
 try:
     fin = sys.argv[1]
 except:

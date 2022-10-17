@@ -94,6 +94,7 @@ class Trinity_Engine():
                        fix_electrons = False,
                        gx_inputs   = 'gx-files/',
                        gx_outputs  = 'gx-files/run-dir/',
+                       gx_sample   = 'gx-sample.in',
                        vmec_path  = './',
                        vmec_wout  = '',
                        eq_model   = "",
@@ -159,6 +160,7 @@ class Trinity_Engine():
        
         gx_inputs  = self.load( gx_inputs, "tr3d.inputs['path']['gx_inputs']")
         gx_outputs = self.load( gx_outputs, "tr3d.inputs['path']['gx_outputs']")
+        gx_sample = self.load( gx_sample, "tr3d.inputs['path']['gx_sample']")
         vmec_path = self.load( vmec_path, "tr3d.inputs['path']['vmec_path']")
         vmec_wout = self.load( vmec_wout, "tr3d.inputs['geometry']['vmec_wout']")
 
@@ -329,6 +331,7 @@ class Trinity_Engine():
             gx = mf.GX_Flux_Model(self,
                                   gx_root = gx_inputs, 
                                   path    = gx_outputs, 
+                                  gx_sample = gx_sample, 
                                   vmec_path = vmec_path,
                                   vmec_wout = vmec_wout,
                                   midpoints = mid_axis

@@ -177,6 +177,7 @@ class GX_Flux_Model():
 
     def __init__(self, engine, 
                        gx_root='gx-files/', 
+                       gx_sample='gx-sample.in',
                        path='run-dir/', 
                        vmec_path='./',
                        vmec_wout="",
@@ -186,13 +187,13 @@ class GX_Flux_Model():
         self.engine = engine
 
 #        gx_root = "gx-files/"  # this is part of repo, don't change # old, 9/7
-        f_input = 'gx-sample.in'  
+        #f_input = 'gx-sample.in'  # removed 10/16
         f_geo   = 'gx-geometry-sample.ing' # sample input file, to be part of repo
 
         ### Check file path
         print("  Looking for GX files")
         print("    GX input path:", gx_root)
-        print("      expecting GX template:", gx_root + f_input)
+        print("      expecting GX template:", gx_root + gx_sample)
         print("      expecting GX executable:", gx_root + "gx")
         print("      expecting GX-VMEC template:", gx_root + f_geo)
         print("      expecting GX-VMEC executable:", gx_root + "convert_VMEC_to_GX")
@@ -220,14 +221,15 @@ class GX_Flux_Model():
 
         ###  load an input template
         #    later, this should come from Trinity input file
-        self.input_template = GX_Runner(gx_root + f_input)
+        self.input_template = GX_Runner(gx_root + gx_sample)
         self.path = path # this is the GX output path (todo: rename)
         # check that path exists, if it does not, mkdir and copy gx executable
         
         self.midpoints = midpoints
         self.vmec_path = vmec_path
         self.vmec_wout = vmec_wout
-        self.gx_root = gx_root
+        self.gx_root   = gx_root
+        self.gx_sample = gx_sample
         self.f_geo   = f_geo # template convert geometry input
 
 ### retired 8/14
