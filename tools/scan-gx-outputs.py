@@ -42,8 +42,8 @@ for fname in file_list:
     entry = {}
     entry['file_name'] = fname
     entry['tprim']     = tprim
-    entry['nprim']     = uprim
-    entry['uprim']     = nprim
+    entry['nprim']     = nprim
+    entry['uprim']     = uprim
     entry['qflux']     = qflux
     entry['time']      = time
 
