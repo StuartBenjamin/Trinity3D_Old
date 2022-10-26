@@ -11,7 +11,7 @@ import profiles as pf
 
     It reads data from TRINITY stored in a python dictionary,
     and makes a number of plots showing profiles and fluxes,
-    all in one pannel.
+    all in one panel.
 
     Updated 11 October 2022, T. M. Qian
 '''
@@ -66,6 +66,7 @@ source_pe = profile_data['source_pe'] + Ee[-1]
 p_source_scale = data['norms']['pressure_source_scale']
 
 
+## unused? 10/16
 def init_profile(x,debug=False):
 
     X = pf.Profile(x, grad=True, half=True, full=True)
@@ -126,12 +127,12 @@ for t in np.arange(N):
     axs[0,2].plot(axis,pi[t] ,'.:', color=warm_map[t])
 
     # plot fluxes
-    axs[0,3].plot(mid_axis,Qe[t] ,'x-', color=cool_map[t])
+ #   axs[0,3].plot(mid_axis,Qe[t] ,'x-', color=cool_map[t])
     axs[0,3].plot(mid_axis,Qi[t] ,'x:', color=warm_map[t])
     axs[0,4].plot(mid_axis,Gamma[t] ,'x-', color=green_map[t])
 
     axs[1,3].plot( aLpi[t] - aLn[t], Qi[t] ,'.', color=warm_map[t])
-    axs[1,3].plot( aLpe[t] - aLn[t], Qe[t] ,'.', color=cool_map[t])
+ #   axs[1,3].plot( aLpe[t] - aLn[t], Qe[t] ,'.', color=cool_map[t])
     axs[1,4].plot( aLn[t],Gamma[t] ,'.', color=green_map[t])
 
  #   axs[1,0].plot(axis, fusion_rate[t], '.-', color=purple_map[t])

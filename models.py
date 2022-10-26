@@ -177,6 +177,7 @@ class GX_Flux_Model():
 
     def __init__(self, engine, 
                        gx_root='gx-files/', 
+                       gx_sample='gx-sample.in',
                        path='run-dir/', 
                        vmec_path='./',
                        vmec_wout="",
@@ -186,13 +187,13 @@ class GX_Flux_Model():
         self.engine = engine
 
 #        gx_root = "gx-files/"  # this is part of repo, don't change # old, 9/7
-        f_input = 'gx-sample.in'  
+        #f_input = 'gx-sample.in'  # removed 10/16
         f_geo   = 'gx-geometry-sample.ing' # sample input file, to be part of repo
 
         ### Check file path
         print("  Looking for GX files")
         print("    GX input path:", gx_root)
-        print("      expecting GX template:", gx_root + f_input)
+        print("      expecting GX template:", gx_root + gx_sample)
         print("      expecting GX executable:", gx_root + "gx")
         print("      expecting GX-VMEC template:", gx_root + f_geo)
         print("      expecting GX-VMEC executable:", gx_root + "convert_VMEC_to_GX")
@@ -220,14 +221,15 @@ class GX_Flux_Model():
 
         ###  load an input template
         #    later, this should come from Trinity input file
-        self.input_template = GX_Runner(gx_root + f_input)
+        self.input_template = GX_Runner(gx_root + gx_sample)
         self.path = path # this is the GX output path (todo: rename)
         # check that path exists, if it does not, mkdir and copy gx executable
         
         self.midpoints = midpoints
         self.vmec_path = vmec_path
         self.vmec_wout = vmec_wout
-        self.gx_root = gx_root
+        self.gx_root   = gx_root
+        self.gx_sample = gx_sample
         self.f_geo   = f_geo # template convert geometry input
 
 ### retired 8/14
@@ -334,8 +336,8 @@ class GX_Flux_Model():
 
 
     def prep_commands(self, engine, # pointer to pull profiles from trinity engine
-                            #t_id,   # integer time index in trinity
-                            step = 0.1, # absolute step size for perturbing gradients
+                            #step = 0.1, # absolute step size for perturbing gradients
+                            step = 0.3, # relativestep size for perturbing gradients
                      ):
 
         self.time = engine.time
@@ -345,6 +347,9 @@ class GX_Flux_Model():
         Ln  = - engine.density.grad_log   .profile  # a / L_n
         Lpi = - engine.pressure_i.grad_log.profile  # a / L_pi
         Lpe = - engine.pressure_e.grad_log.profile  # a / L_pe
+
+        LTi = Lpi - Ln
+        LTe = Lpe - Ln
 
         # get normalizations for GX, dens and temp
         n = engine.density.midpoints
@@ -371,23 +376,24 @@ class GX_Flux_Model():
         fpe  = [''] * len(idx) 
 
         Q0   = np.zeros( len(idx) )
-        Qn   = np.zeros( len(idx) )
         Qpi  = np.zeros( len(idx) )
         Qpe  = np.zeros( len(idx) )
+        Qn   = np.zeros( len(idx) )
 
         for j in idx: 
+
             rho = mid_axis[j]
             kn  = Ln [j]
-            kpi = Lpi[j]
-            kpe = Lpe[j]
-
-            kti = kpi - kn
-            kte = kpe - kn
+            kti = LTi[j]
+            kte = LTe[j]
 
             # writes the GX input file and calls the slurm 
-            scale = 1 + step
+            #scale = 1 + step
             f0 [j] = self.gx_command(j, rho, kn      , kti       , kte        , '0', temp_i=gx_Ti[j], temp_e = gx_Te[j] )
-            fpi[j] = self.gx_command(j, rho, kn      , kti*scale , kte        , '2', temp_i=gx_Ti[j], temp_e = gx_Te[j] )
+            #fpi[j] = self.gx_command(j, rho, kn      , kti*scale , kte        , '2', temp_i=gx_Ti[j], temp_e = gx_Te[j] )
+            fpi[j] = self.gx_command(j, rho, kn      , kti + step , kte        , '2', temp_i=gx_Ti[j], temp_e = gx_Te[j] )
+
+
             #fn [j] = self.gx_command(j, rho, kn*scale , kpi        , kpe        , '1' )
             #fpe[j] = self.gx_command(j, rho, kn      , kpi        , kpe*scale , '3' )
 
@@ -409,20 +415,37 @@ class GX_Flux_Model():
             #Qn [j] = read_gx(fn [j])
             #Qpe[j] = read_gx(fpe[j])
 
+        '''
+        In this variable notation
+
+        T is temp gradient scale length
+        delta is the step size
+
+        Q0   is the base case                          : Q(T)
+        Qpi  is array of fluxes at pi perturbation     : Q(T + delta)
+        Q_pi is array of derivatives of flux by step   : dQ/delta
+        '''
+
         # record the heat flux
         Qflux  =  Q0
         # record dQ / dLx
-        Qi_pi  =  (Qpi - Q0) / (Lpi * step)
-        '''
-        document
-        Lpi = a/Lpi # rename
+        Qi_pi  =  (Qpi - Q0) / step
+        #Qi_pi  =  (Qpi - Q0) / (LTi * step)
+        ###Qi_pi  =  (Qpi - Q0) / (Lpi * step)  # bug 10/15
 
-        !!! check Ln != case
-        '''
+
         #Qi_n   =  (Qn  - Q0) / (Ln * step) 
         #Qi_pe  =  (Qpe - Q0) / (Lpe * step) 
         Qi_n = 0*Q0 # this is already the init state
         Qi_pe = Qi_pi
+
+
+        rec = engine.record_flux
+        rec['Q0'].append( Q0       )
+        rec['Q1'].append( Qpi      )
+        rec['dQ'].append( Qi_pi    )
+        rec['kT'].append( LTi      )
+        rec['dk'].append( LTi*step )
 
 
         # need to add neoclassical diffusion

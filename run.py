@@ -15,7 +15,6 @@ if os.environ.get("TRINITY_PATH") == None:
     print("  Try running (source setup.sh)\n")
     sys.exit()
 
-
 try:
     fin = sys.argv[1]
 except:
@@ -83,6 +82,8 @@ while (engine.t_idx < engine.N_steps):
 #        writer.save(engine)
     writer.save(engine)
     writer.store_system(engine) # 10/9
+
+    writer.temp_record(engine) # 10/15
     writer.export(engine.f_save)
 
     engine.reset_fluxtubes()

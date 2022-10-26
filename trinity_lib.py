@@ -91,8 +91,10 @@ class Trinity_Engine():
                        update_equilibrium = True,
                        turbulent_exchange = False,
                        compute_surface_areas = True,
+                       fix_electrons = False,
                        gx_inputs   = 'gx-files/',
                        gx_outputs  = 'gx-files/run-dir/',
+                       gx_sample   = 'gx-sample.in',
                        vmec_path  = './',
                        vmec_wout  = '',
                        eq_model   = "",
@@ -119,6 +121,7 @@ class Trinity_Engine():
         N_steps = self.load( N_steps, "int( tr3d.inputs['grid']['N_steps'] )" )
 
         max_newton_iter = self.load( max_newton_iter, "int( tr3d.inputs['time']['max_newton_iter'] )" )
+        newton_threshold = self.load( newton_threshold, "int( tr3d.inputs['time']['newton_threshold'] )" )
         # these "time" settings succeed the "grid" settings above, keeping both now for backwards compatibility
         alpha = self.load( alpha, "float( tr3d.inputs['time']['alpha'] )" )
         dtau = self.load( dtau, "float( tr3d.inputs['time']['dtau'] )" )
@@ -146,15 +149,18 @@ class Trinity_Engine():
         
         ext_source_file = self.load( ext_source_file, "tr3d.inputs['sources']['ext_source_file']" )
 
+        # maybe add a print statement that declares all these settings?
         collisions = self.load( collisions, "tr3d.inputs['debug']['collisions']" ) 
         alpha_heating = self.load( alpha_heating, "tr3d.inputs['debug']['alpha_heating']" )
         bremstrahlung = self.load( bremstrahlung, "tr3d.inputs['debug']['bremstrahlung']" )
         update_equilibrium = self.load( update_equilibrium, "tr3d.inputs['debug']['update_equilibrium']" )
         turbulent_exchange = self.load( turbulent_exchange, "tr3d.inputs['debug']['turbulent_exchange']" )
         compute_surface_areas = self.load( compute_surface_areas, "tr3d.inputs['debug']['compute_surface_areas']" ) 
+        self.fix_electrons = self.load( fix_electrons, "tr3d.inputs['debug']['fix_electrons']" ) 
        
         gx_inputs  = self.load( gx_inputs, "tr3d.inputs['path']['gx_inputs']")
         gx_outputs = self.load( gx_outputs, "tr3d.inputs['path']['gx_outputs']")
+        gx_sample = self.load( gx_sample, "tr3d.inputs['path']['gx_sample']")
         vmec_path = self.load( vmec_path, "tr3d.inputs['path']['vmec_path']")
         vmec_wout = self.load( vmec_wout, "tr3d.inputs['geometry']['vmec_wout']")
 
@@ -170,6 +176,13 @@ class Trinity_Engine():
 
         ### Finished Loading Trinity Inputs
 
+        self.dtau     = dtau
+        self.alpha    = alpha
+        self.N_steps  = N_steps
+        self.N_prints = N_prints
+
+        self.max_newton_iter = max_newton_iter
+        self.newton_threshold = newton_threshold
 
         self.N_radial = N_radial         # if this is total points, including core and edge, then GX simulates (N-2) points
         self.n_core   = n_core
@@ -185,20 +198,16 @@ class Trinity_Engine():
         self.pe_edge =  n_edge * Te_edge
 
         self.model    = model
-
-        # feature settings
-        self.collisions = collisions
-        self.alpha_heating = alpha_heating
-        self.bremstrahlung = bremstrahlung
-        self.update_equilibrium = update_equilibrium
-        self.turbulent_exchange = turbulent_exchange
-        self.compute_surface_areas = compute_surface_areas
+        self.f_save = f_save
 
         rho_inner = rho_edge / (2*N_radial - 1)
         rho_axis = np.linspace(rho_inner, rho_edge, N_radial) # radial axis, N points
         mid_axis = (rho_axis[1:] + rho_axis[:-1])/2  # centers, (N-1) points
         self.rho_axis = rho_axis
         self.mid_axis = mid_axis
+
+        self.rho_edge = rho_edge
+        self.rho_inner = rho_inner
 
         # set axis for Profiles library
         pf.rho_axis   = rho_axis
@@ -209,21 +218,26 @@ class Trinity_Engine():
 
         It is not ideal, and I am open to suggestions on how to do this better.
         '''
+        ### init profiles
+        #     temporary profiles, later init from VMEC
+        n  = (n_core  - n_edge )*(1 - (rho_axis/rho_edge)**2) + n_edge
+        Ti = (Ti_core - Ti_edge)*(1 - (rho_axis/rho_edge)**2) + Ti_edge
+        Te = (Te_core - Te_edge)*(1 - (rho_axis/rho_edge)**2) + Te_edge
+        pi = n * Ti
+        pe = n * Te
 
-        self.dtau     = dtau
-        self.alpha    = alpha
-        self.N_steps  = N_steps
-        self.N_prints = N_prints
-        self.max_newton_iter = max_newton_iter
+        self.vmec_pressure_old = (pi + pe) * 1e20 * (1e3 * 1.6e-19) # for comparison later
 
-        self.newton_threshold = newton_threshold
 
-        self.rho_edge = rho_edge
-        self.rho_inner = rho_inner
+        # feature settings
+        self.collisions = collisions
+        self.alpha_heating = alpha_heating
+        self.bremstrahlung = bremstrahlung
+        self.update_equilibrium = update_equilibrium
+        self.turbulent_exchange = turbulent_exchange
+        self.compute_surface_areas = compute_surface_areas
 
-        self.f_save = f_save
-
-        # local variables
+        # init local variables
         self.time   = 0
         self.t_idx  = 0
         self.gx_idx = 0
@@ -234,9 +248,6 @@ class Trinity_Engine():
         self.needs_new_vmec = False
         self.newton_mode = False
 
-        # init normalizations
-        self.norms = self.Normalizations(a_meters=a_minor)
-
 
         # pre-compute the block identity matrix
         N_block = self.N_radial - 1
@@ -246,12 +257,13 @@ class Trinity_Engine():
                                [Z, I, Z ],
                                [Z, Z, I ]])
 
-        ### will be from VMEC
+        ### overwriten if using VMEC
         self.Ba      = Ba # average field on LCFS
         self.R_major = R_major # meter
         self.a_minor = a_minor # meter
 
-        self.path = './'
+
+        self.path = './' # who uses this? 10/16
 
         self.eq_model = eq_model
         if eq_model == "DESC":
@@ -265,15 +277,6 @@ class Trinity_Engine():
         # TODO: consider case where this is non-constant
         self.drho  = (rho_edge - rho_inner) / (N_radial - 1) 
 
-        ### init profiles
-        #     temporary profiles, later init from VMEC
-        n  = (n_core  - n_edge )*(1 - (rho_axis/rho_edge)**2) + n_edge
-        Ti = (Ti_core - Ti_edge)*(1 - (rho_axis/rho_edge)**2) + Ti_edge
-        Te = (Te_core - Te_edge)*(1 - (rho_axis/rho_edge)**2) + Te_edge
-        pi = n * Ti
-        pe = n * Te
-
-        self.vmec_pressure_old = (pi + pe) * 1e20 * (1e3 * 1.6e-19) # for comparison later
 
         # save
         self.density     = init_profile(n)
@@ -289,11 +292,6 @@ class Trinity_Engine():
         self.alpha_ion_fraction = np.zeros_like(n)
         self.E_crit_profile_keV = np.zeros_like(n)
 
-        # init collision model
-        svec = Collision_Model()
-        svec.add_species( n, pi, mass_p=2, charge_p=1, ion=True, name='Deuterium')
-        svec.add_species( n, pe, mass_p=1/1800, charge_p=-1, ion=False, name='electrons')
-        self.collision_model = svec
 
         # init history
         n_prev  = self.density.profile    [:-1]
@@ -309,6 +307,22 @@ class Trinity_Engine():
 
         # read VMEC
         self.read_VMEC( vmec_wout, path=vmec_path )
+        # Print Global Geometry information
+        #      maybe move this inside read_VMEC()
+        print("\n  Global Geometry Information")
+        print(f"    R_major: {self.R_major:.2f} m")
+        print(f"    a_minor: {self.a_minor:.2f} m")
+        print(f"    Ba     : {self.Ba:.2f} T average on LCFS")
+
+
+        # init normalizations
+        self.norms = self.Normalizations(a_meters=self.a_minor)
+
+        # init collision model
+        svec = Collision_Model()
+        svec.add_species( n, pi, mass_p=2, charge_p=1, ion=True, name='Deuterium')
+        svec.add_species( n, pe, mass_p=1/1800, charge_p=-1, ion=False, name='electrons')
+        self.collision_model = svec
 
         ### init flux models
         if (model == "GX"):
@@ -317,6 +331,7 @@ class Trinity_Engine():
             gx = mf.GX_Flux_Model(self,
                                   gx_root = gx_inputs, 
                                   path    = gx_outputs, 
+                                  gx_sample = gx_sample, 
                                   vmec_path = vmec_path,
                                   vmec_wout = vmec_wout,
                                   midpoints = mid_axis
@@ -399,12 +414,14 @@ class Trinity_Engine():
         # end source function
 
 
-        # Print Global Geometry information
-        print("\n  Global Geometry Information")
-        print(f"    R_major: {self.R_major:.2f} m")
-        print(f"    a_minor: {self.a_minor:.2f} m")
-        print(f"    Ba     : {self.Ba:.2f} T average on LCFS \n")
 
+        # temp
+        self.record_flux = {}
+        self.record_flux['Q0'] = []
+        self.record_flux['Q1'] = []
+        self.record_flux['dQ'] = []
+        self.record_flux['kT'] = []
+        self.record_flux['dk'] = []
 
     ##### End of __init__ function
 
@@ -1285,6 +1302,10 @@ class Trinity_Engine():
             self.needs_new_vmec = True
             self.vmec_pressure_old = p_SI # maybe move this elsewhere
 
+        # reset electrons
+        if self.fix_electrons:
+            self.pressure_e = self.pressure_e_init
+
         self.check_finite_difference()
 
         # step time
@@ -1455,6 +1476,12 @@ class Trinity_Engine():
                            a_meters = 1,      # minor radius, in m 
                           ):
 
+            print("\n  Initializing normalizations")
+            print(f"    n_ref = {n_ref} m3")
+            print(f"    T_ref = {T_ref} eV")
+            print(f"    B_ref = {B_ref} T")
+            print(f"    m_ref = {m_ref} kg\n")
+
             # could get these constants from scipy
             self.e = 1.602e-19  # Colulomb
             self.c = 2.99e8     # m/s
@@ -1470,7 +1497,6 @@ class Trinity_Engine():
 
             vT_ref = np.sqrt(2 * (T_ref*self.e) / m_ref)
        
-
             a_ref = a_meters
             t_ref = a_ref / vT_ref
             p_ref = n_ref * T_ref * self.e
@@ -1482,6 +1508,12 @@ class Trinity_Engine():
             # multiply SI (W/m3) by this to get Trinity units
             pressure_source_scale = t_scale / p_ref 
             particle_source_scale = t_scale / n_ref 
+
+            print(f"    a_ref = {a_ref:.2f} m")
+            print(f"    t_ref = {t_scale:.3f} s")
+            print(f"    P_ref = {1/pressure_source_scale/1e6:.2f} MW/m3")
+            print("")
+
 
             ### save
             self.n_ref = n_ref

@@ -42,8 +42,8 @@ for fname in file_list:
     entry = {}
     entry['file_name'] = fname
     entry['tprim']     = tprim
-    entry['nprim']     = uprim
-    entry['uprim']     = nprim
+    entry['nprim']     = nprim
+    entry['uprim']     = uprim
     entry['qflux']     = qflux
     entry['time']      = time
 
@@ -85,7 +85,8 @@ ax[1].set_ylabel('nprim')
 
 ax[1].legend()
 
-plt.suptitle("colors group radial flux tubes")
+plt.suptitle(f"showing {len(file_list)} GX runs")
+#plt.suptitle("colors group radial flux tubes")
 plt.tight_layout()
 plt.show()
 

@@ -9,6 +9,19 @@ This file also contains older "diagnostic" classes which are no longer used
 
 class ProfileSaver:
 
+    """
+    Rename to Trinity Log
+
+    Should have 3 functions
+
+    + init   - data from the beginning of the run
+    + update - data from each time step
+    + save   - data from end of run + write file
+
+
+    May I should make the pointer to engine a member inside writer?
+    """
+
     def __init__(self):
 
         # saves TRINITY data as a nested dictionary
@@ -59,6 +72,10 @@ class ProfileSaver:
         log['chi_error'] = []
 
         self.log = log
+
+    def temp_record(self, engine):
+
+        self.log['flux_record'] = engine.record_flux
 
     def save(self,engine):
         '''
