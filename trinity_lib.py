@@ -643,9 +643,7 @@ class Trinity_Engine():
         He  = self.He.profile
 
         # normalization
-        norm = 1 / self.a_minor / self.drho  # temp set R=1
-        # because it should cancel with a R/L that I am also ignoring
-        #norm = (self.R_major / self.a_minor) / self.drho 
+        norm = 1 / self.drho # no R/a factor because we use a/L_w for gradients 
 
         # calculate and save
         s = self
@@ -661,15 +659,17 @@ class Trinity_Engine():
         self.Cpe_pe = Flux_coefficients(pe, Fpe, Qe, s.Qe_pe, norm)
         # maybe these class definitions can be condensed
 
-        G_n = s.G_n.profile
-        G_i = s.G_pi.profile
-        G_e = s.G_pe.profile
-        Qi_n = s.Qi_n.profile
-        Qe_n = s.Qe_n.profile
-        Qi_i = s.Qi_pi.profile
-        Qe_i = s.Qe_pi.profile
-        Qi_e = s.Qi_pe.profile
-        Qe_e = s.Qe_pe.profile
+        # compute log gradients by dividing gradient by value
+        with np.errstate(divide='ignore', invalid='ignore'):
+            logG_n  = np.nan_to_num( s.G_n.profile/Gamma.profile )
+            logG_pi  = np.nan_to_num( s.G_pi.profile/Gamma.profile)
+            logG_pe  = np.nan_to_num( s.G_pe.profile/Gamma.profile)
+            logQi_n = np.nan_to_num( s.Qi_n.profile/Qi.profile  )
+            logQe_n = np.nan_to_num( s.Qe_n.profile/Qe.profile  )
+            logQi_pi = np.nan_to_num( s.Qi_pi.profile/Qi.profile )
+            logQe_pi = np.nan_to_num( s.Qe_pi.profile/Qe.profile )
+            logQi_pe = np.nan_to_num( s.Qi_pe.profile/Qi.profile )
+            logQe_pe = np.nan_to_num( s.Qe_pe.profile/Qe.profile )
 
         k1_i = s.kappa1_i.profile
         k1_e = s.kappa1_e.profile
@@ -678,13 +678,13 @@ class Trinity_Engine():
 
         ### mu coefficients (Eq 7.109-7.111)
         # these mu's are missing 3rd K-term ~ H (EM potential)
-        mu_1i = Gi * (G_n - 2.5/k1_i) + Hi * (Qi_n + 1/k2_i)  # sometimes k2_i = 0, but then Hi=Qi_n=0 also
-        mu_1e = Ge * (G_n - 2.5/k1_e) + He * (Qe_n + 1/k2_e)  
+        mu_1i = Gi * (logG_n - 2.5/k1_i) + Hi * (logQi_n + 1/k2_i)  # sometimes k2_i = 0, but then Hi=Qi_n=0 also
+        mu_1e = Ge * (logG_n - 2.5/k1_e) + He * (logQe_n + 1/k2_e)  
         # what about when Gamma_e != Gamma_i (only for multiple species)
-        mu_2i = Gi * (G_i + 1.5/k1_i) + Hi * (Qi_i - 1/k2_i) 
-        mu_2e = Ge *  G_i             + He *  Qe_i   
-        mu_3i = Gi *  G_e             + Hi *  Qi_e
-        mu_3e = Ge * (G_e + 1.5/k1_e) + He * (Qe_e - 1/k2_e) 
+        mu_2i = Gi * (logG_pi + 1.5/k1_i) + Hi * (logQi_pi - 1/k2_i) 
+        mu_2e = Ge *  logG_pi             + He *  logQe_pi   
+        mu_3i = Gi *  logG_pe             + Hi *  logQi_pe
+        mu_3e = Ge * (logG_pe + 1.5/k1_e) + He * (logQe_pe - 1/k2_e) 
 
         # save
         factor = 1. / (2 * self.drho)
