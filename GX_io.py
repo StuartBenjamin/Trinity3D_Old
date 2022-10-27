@@ -193,7 +193,6 @@ class GX_Output():
         except: 
             print('  read_GX_output: could not read', fname)
     
-    
         qflux = f.groups['Fluxes'].variables['qflux'][:,0]
     
         # check for NANs
@@ -206,6 +205,11 @@ class GX_Output():
 
         self.tprim  = f.groups['Inputs']['Species']['T0_prime'][:]
         self.fprim  = f.groups['Inputs']['Species']['n0_prime'][:]
+
+        self.B_ref = f.groups['Geometry']['B_ref'][:]
+        self.a_ref = f.groups['Geometry']['a_ref'][:]
+        self.grhoavg = f.groups['Geometry']['grhoavg'][:]
+        self.surfarea = f.groups['Geometry']['surfarea'][:]
 
         self.fname = fname
         self.data = f

@@ -56,7 +56,6 @@ while (engine.t_idx < engine.N_steps):
     '''
 
     engine.get_flux()
-    engine.normalize_fluxes()
     engine.calc_flux_coefficients()
 
     # I think collisions and turb. heat exchange should be added here

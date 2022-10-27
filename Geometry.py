@@ -18,9 +18,13 @@ class FluxTube():
     #   This class stores information for one flux tube.
     #   Should it also store the relevant GX input files?
 
-    def __init__(self, fname):
+    def __init__(self, input_template, rho=None, f_geo=None):
         
-        self.load_GX_geometry(fname)
+        self.load_GX_input(input_template)
+        if f_geo:
+            self.load_GX_geometry(f_geo)
+        if rho:
+            self.gx_input.inputs['Geometry']['rhoc'] = rho
     
     def load_GX_geometry(self, f_geo):
         # loads a single GX flux tube
@@ -42,18 +46,16 @@ class FluxTube():
 
         ## also needs to get surface area from vmec? or is that info already in grho?
 
-    def load_gx_input(self, template):
-
-        # makes a copy of pre-loaded GX input template
-        gx = copy.deepcopy(template)
-
         # modify flux tube specific data
+        gx = self.gx_input
         gx.inputs['Dimensions']['ntheta'] = self.ntheta
         gx.inputs['Geometry']['geo_file']  = '"{:}"'.format(self.f_geo)
         gx.inputs['Geometry']['shat']     = self.shat
 
-        # save
-        self.gx_input = gx
+    def load_GX_input(self, template):
+
+        # makes a copy of pre-loaded GX input template
+        self.gx_input = copy.deepcopy(template)
 
     def set_gradients(self, kn, kpi, kpe):
 
@@ -123,7 +125,7 @@ class VmecReader():
         self.phi  = get(f,'phi') # toroidal flux in SI webers (signed)
         phiedge   = self.phi[-1]
         B_norm = phiedge / (np.pi * self.aminor**2) # GX normalizes B_ref = phi/ pi a2
-        self.B_GX = np.abs(B_norm) 
+        self.B_ref = np.abs(B_norm) 
 
         # save
         self.data = f
@@ -418,8 +420,5 @@ class DescRunner():
         outname = f"{path}desc-t{t_idx:02d}.h5"
         eq.save(outname)
         print("  wrote decs output", outname)
-
-
-
 
 

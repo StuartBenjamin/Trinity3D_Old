@@ -92,12 +92,12 @@ class Trinity_Engine():
                        turbulent_exchange = False,
                        compute_surface_areas = True,
                        fix_electrons = False,
-                       gx_inputs   = 'gx-files/',
-                       gx_outputs  = 'gx-files/run-dir/',
-                       gx_sample   = 'gx-sample.in',
-                       vmec_path  = './',
-                       vmec_wout  = '',
-                       eq_model   = "",
+                       gx_inputs   = '',
+                       gx_outputs  = '',
+                       gx_template   = 'gx-sample.in',
+                       eq_path  = '',
+                       eq_file  = '',
+                       eq_model   = 'VMEC',
                        ):
 
         ### Loading Trinity Inputs
@@ -160,19 +160,24 @@ class Trinity_Engine():
        
         gx_inputs  = self.load( gx_inputs, "tr3d.inputs['path']['gx_inputs']")
         gx_outputs = self.load( gx_outputs, "tr3d.inputs['path']['gx_outputs']")
-        gx_sample = self.load( gx_sample, "tr3d.inputs['path']['gx_sample']")
-        vmec_path = self.load( vmec_path, "tr3d.inputs['path']['vmec_path']")
-        vmec_wout = self.load( vmec_wout, "tr3d.inputs['geometry']['vmec_wout']")
+        gx_template = self.load( gx_template, "tr3d.inputs['path']['gx_template']")
+        eq_path = self.load( eq_path, "tr3d.inputs['path']['eq_path']")
+        eq_file = self.load( eq_file, "tr3d.inputs['geometry']['eq_file']")
 
         R_major   = self.load( R_major, "float( tr3d.inputs['geometry']['R_major'] )" ) 
         a_minor   = self.load( a_minor, "float( tr3d.inputs['geometry']['a_minor'] )" ) 
         Ba        = self.load( Ba     , "float( tr3d.inputs['geometry']['Ba'     ] )" ) 
 
+        ### will be overwritten by equilibrium (e.g. VMEC or g-eqdsk) if available
+        self.R_major = R_major # meter
+        self.a_minor = a_minor # meter
+
         N_prints = int ( tr3d.inputs['log']['N_prints'] )
         f_save   = tr3d.inputs['log']['f_save']
 
         # new option
-        eq_model = self.load( eq_model, "tr3d.inputs['equilibria']['eq_model']")
+        eq_model = self.load( eq_model, "tr3d.inputs['geometry']['eq_model']")
+        eq_file  = self.load( eq_file , "tr3d.inputs['geometry']['eq_file']")
 
         ### Finished Loading Trinity Inputs
 
@@ -218,16 +223,6 @@ class Trinity_Engine():
 
         It is not ideal, and I am open to suggestions on how to do this better.
         '''
-        ### init profiles
-        #     temporary profiles, later init from VMEC
-        n  = (n_core  - n_edge )*(1 - (rho_axis/rho_edge)**2) + n_edge
-        Ti = (Ti_core - Ti_edge)*(1 - (rho_axis/rho_edge)**2) + Ti_edge
-        Te = (Te_core - Te_edge)*(1 - (rho_axis/rho_edge)**2) + Te_edge
-        pi = n * Ti
-        pe = n * Te
-
-        self.vmec_pressure_old = (pi + pe) * 1e20 * (1e3 * 1.6e-19) # for comparison later
-
 
         # feature settings
         self.collisions = collisions
@@ -245,8 +240,18 @@ class Trinity_Engine():
         self.prev_p_id = 0
         
         self.needs_new_flux = True
-        self.needs_new_vmec = False
+        self.needs_new_eq = False
         self.newton_mode = False
+
+        self.eq_path = eq_path
+        self.eq_model = eq_model
+
+        self.read_eq(eq_file, path=eq_path)
+
+        # init normalizations
+        self.norms = self.Normalizations(a_meters=self.a_minor)
+        class FluxNormalizations: pass
+        self.flux_norms = FluxNormalizations()  # this will be filled later
 
 
         # pre-compute the block identity matrix
@@ -257,18 +262,13 @@ class Trinity_Engine():
                                [Z, I, Z ],
                                [Z, Z, I ]])
 
-        ### overwriten if using VMEC
-        self.Ba      = Ba # average field on LCFS
-        self.R_major = R_major # meter
-        self.a_minor = a_minor # meter
-
 
         self.path = './' # who uses this? 10/16
 
-        self.eq_model = eq_model
         if eq_model == "DESC":
             print("using DESC")
 
+            # run DESC
             desc_input = "desc-examples/DSHAPE_output.h5"
             desc = DescRunner(desc_input, self)
             self.desc = desc
@@ -277,6 +277,15 @@ class Trinity_Engine():
         # TODO: consider case where this is non-constant
         self.drho  = (rho_edge - rho_inner) / (N_radial - 1) 
 
+        ### init profiles
+        #     temporary profiles, later init from eq file
+        n  = (n_core  - n_edge )*(1 - (rho_axis/rho_edge)**2) + n_edge
+        Ti = (Ti_core - Ti_edge)*(1 - (rho_axis/rho_edge)**2) + Ti_edge
+        Te = (Te_core - Te_edge)*(1 - (rho_axis/rho_edge)**2) + Te_edge
+        pi = n * Ti
+        pe = n * Te
+
+        self.vmec_pressure_old = (pi + pe) * 1e20 * (1e3 * 1.6e-19) # for comparison later
 
         # save
         self.density     = init_profile(n)
@@ -304,20 +313,6 @@ class Trinity_Engine():
         self.y_error = np.zeros_like(y_init)
         self.chi_error = 0
 
-
-        # read VMEC
-        self.read_VMEC( vmec_wout, path=vmec_path )
-        # Print Global Geometry information
-        #      maybe move this inside read_VMEC()
-        print("\n  Global Geometry Information")
-        print(f"    R_major: {self.R_major:.2f} m")
-        print(f"    a_minor: {self.a_minor:.2f} m")
-        print(f"    Ba     : {self.Ba:.2f} T average on LCFS")
-
-
-        # init normalizations
-        self.norms = self.Normalizations(a_meters=self.a_minor)
-
         # init collision model
         svec = Collision_Model()
         svec.add_species( n, pi, mass_p=2, charge_p=1, ion=True, name='Deuterium')
@@ -331,12 +326,13 @@ class Trinity_Engine():
             gx = mf.GX_Flux_Model(self,
                                   gx_root = gx_inputs, 
                                   path    = gx_outputs, 
-                                  gx_sample = gx_sample, 
-                                  vmec_path = vmec_path,
-                                  vmec_wout = vmec_wout,
+                                  gx_template = gx_template, 
+                                  eq_path = eq_path,
+                                  eq_file = eq_file,
+                                  eq_model = eq_model,
                                   midpoints = mid_axis
                                   )
-            self.vmec_wout = vmec_wout
+            self.eq_file = eq_file
 
             gx.make_fluxtubes()
             self.model_gx = gx
@@ -419,58 +415,51 @@ class Trinity_Engine():
         self.record_flux = {}
         self.record_flux['Q0'] = []
         self.record_flux['Q1'] = []
-        self.record_flux['dQ'] = []
+        self.record_flux['dlogQ'] = []
         self.record_flux['kT'] = []
         self.record_flux['dk'] = []
 
     ##### End of __init__ function
 
 
-    def read_VMEC(self, wout, path='gx-geometry/'):
+    def read_eq(self, eq_file, path='gx-geometry/'):
         """
-        Loads VMEC wout file into Trinity
+        Loads global equilibrium info into Trinity
         """
 
-        self.vmec_wout = wout
+        self.eq_file = eq_file
 
-        if wout == '':
-            print('  Trinity Lib: no vmec file given, using default flux tubes for GX')
+        if eq_file == '':
+            print('  Trinity Lib: no eq_file given, using default flux tubes for GX')
             # TQ: does this failure path actually work? 10/12
             return
 
         else:
-            print(f"  Loading VMEC geometry: {path+wout}")
+            print(f"  Loading {self.eq_model} geometry: {path+eq_file}")
 
-        # load global geometry from VMEC
-        vmec = VmecReader(path+wout)
-        self.R_major = vmec.Rmajor
-        self.a_minor = vmec.aminor
-        #self.Ba      = vmec.volavgB # replaced 10/15
-        self.Ba      = vmec.B_GX
+        if self.eq_model == "VMEC":
+            # load global geometry from VMEC
+            eq = VmecReader(path+eq_file)
+            self.R_major = eq.Rmajor  
+            self.a_minor = eq.aminor  
 
-        if self.compute_surface_areas:
-
-            print("    post-processing for surface areas")
-            vmec.calc_gradrho_area(self.rho_axis)
-            area = vmec.surface_areas
-            grho = vmec.avg_abs_grad_rho
-            # Note: Michael's thesis normalizes AN = A / a^2
-            # this actually makes no difference to the code,
-            # because A and 1/A appear in pairs around the divergence.
-            # even though one is trinity grid and the other is GX midpoint grid.
-            #area = vmec.surface_areas / vmec.aminor**2 
-
+        elif self.eq_model == "geqdsk":
+            #eq = GeqdskReader(path+eq_file)
+            eq = None
+            # NYI
+        elif self.eq_model == "DESC":
+            # read DESC
+            print("Error: eq_model = {self.eq_model} is not yet implemented")
+            exit(1)
+            # NYI
         else:
+            print("Error: eq_model = {self.eq_model} is undefined")
+            exit(1)
 
-            print("    skipping surface area calculation")
-            # parabolic area, simple torus
-            area = np.linspace(0.01,self.a_minor,self.N_radial) 
-            grho = np.ones(self.N_radial)
-
-        self.area = Profile(area, half=True)
-        self.grho = Profile(grho, half=True)
-        self.geometry_factor = - grho / (self.drho * area) 
-
+        # Print Global Geometry information
+        print("\n  Global Geometry Information")
+        print(f"    R_major: {self.R_major:.2f} m")
+        print(f"    a_minor: {self.a_minor:.2f} m")
 
     def get_flux(self):
 
@@ -479,16 +468,7 @@ class Trinity_Engine():
         if   (model == "GX"):
 
             self.model_gx.prep_commands(self)
-
-### this functionality subcycles trinity steps, without rerunning gx
-#      it was deemed unnecessary (and incorrect?)
-#            if self.needs_new_flux:
-#                # calculates fluxes from GX
-#                self.model_gx.prep_commands(self) 
-#                #self.model_gx.prep_commands(self, self.gx_idx) 
-#                self.gx_idx += 1
-##            else:
-##                print(" ENGAGE TRINITY SUBCYCLE ", f"t = {self.t_idx}")
+            self.normalize_fluxes()
 
         elif (model == "diffusive"):
             # test from MAB thesis (documented in models.py)
@@ -564,10 +544,10 @@ class Trinity_Engine():
         Qe    = self.Qe.profile
 
 
-        area  = self.area.midpoints 
-        grho  = self.grho.midpoints
-        Ba    = self.Ba
-        a     = self.a_minor
+        area  = self.flux_norms.area.profile 
+        grho  = self.flux_norms.grho.profile
+        Ba    = self.flux_norms.B_ref.profile
+        a     = self.flux_norms.a_ref.profile
 
         aLn  = - self.density.grad_log   .profile  # a / L_n
         aLpi = - self.pressure_i.grad_log.profile  # a / L_pi
@@ -641,7 +621,7 @@ class Trinity_Engine():
 
     def calc_flux_coefficients(self):
         '''
-        Computes A and B profiles for density and pressure.
+        Computes A and B profiles for density and pressure, defined in Barnes thesis eqs 7.113-114.
         This involves finite difference gradients.
         '''
         
@@ -777,7 +757,7 @@ class Trinity_Engine():
         Be     = self.Cn_pe.zero.profile 
     
         # tri diagonal matrix elements
-        g = self.geometry_factor
+        g = self.flux_norms.geometry_factor.full.profile
         psi_nn_plus  = g * (An_pos - Fnp / n_p / 4) 
         psi_nn_minus = g * (An_neg + Fnm / n_m / 4) 
         psi_nn_zero  = g * (Bn + ( Fnm/n_m - Fnp/n_p ) / 4) 
@@ -853,7 +833,7 @@ class Trinity_Engine():
         H = self.Hi.full.profile
 
         # tri diagonal matrix elements
-        g = self.geometry_factor 
+        g = self.flux_norms.geometry_factor.full.profile
         psi_pin_plus  = g * (An_pos - 3/4 * F_p / n_p) - mu1/n 
         psi_pin_minus = g * (An_neg + 3/4 * F_m / n_m) + mu1/n 
         psi_pin_zero  = g * (Bn +  3/4 * ( F_m/n_m - F_p/n_p ) ) \
@@ -934,7 +914,7 @@ class Trinity_Engine():
         E_pe = - E * ( Zi / (Zi*pi - Ze*pe) + 3/2 * mi*Ze / (me*Zi*pi + mi*Ze*pe) )
     
         # tri diagonal matrix elements
-        g = self.geometry_factor 
+        g = self.flux_norms.geometry_factor.full.profile
         psi_pen_plus  = g * (An_pos - 3/4 * F_p / n_p) - mu1/n 
         psi_pen_minus = g * (An_neg + 3/4 * F_m / n_m) + mu1/n
         psi_pen_zero  = g * (Bn +  3/4 * ( F_m/n_m - F_p/n_p ) ) \
@@ -1114,7 +1094,7 @@ class Trinity_Engine():
         psi_pepe = self.psi_pepe.matrix
 
         # compute forces (for alpha = 0, explicit mode)   
-        g = self.geometry_factor [:-1]
+        g = self.flux_norms.geometry_factor.full.profile[:-1]
         force_n  = g * (Fnp - Fnm) 
         force_pi = g * (Fip - Fim) 
         force_pe = g * (Fep - Fem) 
@@ -1462,12 +1442,13 @@ class Trinity_Engine():
 
         # read wout from vmec, and update flux tubes
         gx = self.model_gx
-        vmec_wout = f"wout_{tag}.nc"
-        gx.vmec_wout = vmec_wout
+        eq_file = f"wout_{tag}.nc"
+        gx.eq_file = eq_file
         gx.make_fluxtubes()
 
 
-    # a subclass for handling normalizations in Trinity
+    # a subclass for handling normalizations in Trinity 
+    # (not to be confused with normalizations for flux tube quantities)
     class Normalizations():
         def __init__(self, n_ref = 1e20,     # m3
                            T_ref = 1e3,      # eV

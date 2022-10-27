@@ -176,11 +176,12 @@ WAIT_TIME = 1  # this should come from the Trinity Engine
 class GX_Flux_Model():
 
     def __init__(self, engine, 
-                       gx_root='gx-files/', 
-                       gx_sample='gx-sample.in',
+                       gx_root='', 
+                       gx_template='gx-sample.in',
                        path='run-dir/', 
-                       vmec_path='./',
-                       vmec_wout="",
+                       eq_path='',
+                       eq_file='',
+                       eq_model='VMEC',
                        midpoints=[]
                 ):
 
@@ -190,15 +191,18 @@ class GX_Flux_Model():
         #f_input = 'gx-sample.in'  # removed 10/16
         f_geo   = 'gx-geometry-sample.ing' # sample input file, to be part of repo
 
+        GX_PATH = os.environ.get("GX_PATH") 
+
         ### Check file path
         print("  Looking for GX files")
         print("    GX input path:", gx_root)
-        print("      expecting GX template:", gx_root + gx_sample)
-        print("      expecting GX executable:", gx_root + "gx")
-        print("      expecting GX-VMEC template:", gx_root + f_geo)
-        print("      expecting GX-VMEC executable:", gx_root + "convert_VMEC_to_GX")
-        print("    VMEC path:", vmec_path)
-        print("      expecting VMEC wout:", vmec_path + vmec_wout)
+        print("      expecting GX template:", gx_root + gx_template)
+        print("      expecting GX executable:", GX_PATH + "gx")
+        if(eq_model == "VMEC"):
+            print("      expecting GX-VMEC template:", gx_root + f_geo)
+            print("      expecting GX-VMEC executable:", gx_binpath + "convert_VMEC_to_GX")
+            print("    VMEC path:", eq_path)
+            print("      expecting VMEC wout:", eq_path + eq_file)
         print("    GX-Trinity output path:", path)
 
         found_path = os.path.exists(path)
@@ -206,43 +210,31 @@ class GX_Flux_Model():
             print(f"      creating new output dir {path}")
             os.mkdir(path)
 
-        found_gx = os.path.exists(path+"gx")
+        found_gx = os.path.exists(GX_PATH+"gx")
         if (found_gx == False):
-            print(f"      copying gx executable from root into {path}")
-            cmd = f"cp {gx_root}gx {path}gx"
-            os.system(cmd)
+            print("  Error: gx executable not found! Make sure the GX_PATH environment variable is set.")
+            exit(1)
 
         print("")
 
 
         # check using something like
-        # os.listdir(vmec_path).find(vmec_wout)
+        # os.listdir(eq_path).find(eq_file)
 
 
         ###  load an input template
         #    later, this should come from Trinity input file
-        self.input_template = GX_Runner(gx_root + gx_sample)
+        self.input_template = GX_Runner(gx_root + gx_template)
         self.path = path # this is the GX output path (todo: rename)
         # check that path exists, if it does not, mkdir and copy gx executable
         
         self.midpoints = midpoints
-        self.vmec_path = vmec_path
-        self.vmec_wout = vmec_wout
-        self.gx_root   = gx_root
-        self.gx_sample = gx_sample
+        self.eq_path = eq_path
+        self.eq_file = eq_file
+        self.eq_model = eq_model
+        self.gx_template = gx_template
+        self.gx_root = gx_root
         self.f_geo   = f_geo # template convert geometry input
-
-### retired 8/14
-#        ### This keeps a record of GX comands, it might be retired
-#        # init file for writing GX commands
-#
-#        with  open(fname,'w') as f:
-#            print('t_idx, r_idx, time, r, s, tprim, fprim', file=f)
-#
-#        # store file name (includes path)
-#        self.fname = fname
-#        self.f_handle = open(fname, 'a')
-#        ###
 
         self.processes = []
 
@@ -262,15 +254,17 @@ class GX_Flux_Model():
 
         ### load flux tube geometry
         # these should come from Trinity input file
+        N_fluxtubes = len(self.midpoints)
+        self.flux_tubes = []
         
-        vmec = self.vmec_wout
-        if vmec: # is not blank
+        if self.eq_model == "VMEC": # is not blank
 
             # else launch flux tubes from VMEC
+            vmec = self.eq_file
             f_geo     = self.f_geo
             geo_path  = self.gx_root  # this says where the convert executable lives, and where to find the sample .ing file
             out_path  = self.path
-            vmec_path = self.vmec_path
+            eq_path = self.eq_path
 
             geo_template = gx_io.VMEC_GX_geometry_module( self.engine,
                                                  f_sample = f_geo,
@@ -279,33 +273,29 @@ class GX_Flux_Model():
                                                  tag = vmec[5:-3]
                                               )
             geo_template.set_vmec( vmec, 
-                          vmec_path   = vmec_path, 
+                          eq_path   = eq_path, 
                           output_path = out_path )
 
             geo_files = []
-            N_fluxtubes = len(self.midpoints)
             for j in np.arange(N_fluxtubes):
                 rho = self.midpoints[j]
                 f_geometry = geo_template.init_radius(rho,j) 
                 geo_files.append(out_path + f_geometry)
 
+            ### store flux tubes in a list
+            for fin in geo_files:
+                self.load_fluxtube(f_geo=fin)
+
+        elif self.eq_model == "geqdsk":
+            for j in np.arange(N_fluxtubes):
+                rho = self.midpoints[j]
+                self.load_fluxtube(rho=rho)
+
         else:
-            # load default files (assumed to be existing)
-            # 10/6 we should delete this soon, use nested circles (or even a fresh wout) as default instead
-            print('  no VMEC wout given, loading default files')
-            geo_files = [ 'gx-files/gx_wout_gonzalez-2021_psiN_0.102_gds21_nt_36_geo.nc',
-                          'gx-files/gx_wout_gonzalez-2021_psiN_0.295_gds21_nt_38_geo.nc',  
-                          'gx-files/gx_wout_gonzalez-2021_psiN_0.500_gds21_nt_40_geo.nc',
-                          'gx-files/gx_wout_gonzalez-2021_psiN_0.704_gds21_nt_42_geo.nc',
-                          'gx-files/gx_wout_gonzalez-2021_psiN_0.897_gds21_nt_42_geo.nc']
+            print("ERROR: eq_model = {self.eq_model} not recognized.")
+            exit(1)
 
         print("")
-
-        ### store flux tubes in a list
-        self.flux_tubes = []
-        for fin in geo_files:
-            self.load_fluxtube(fin)
-
 
         # make a directory for restart files
         restart_dir = self.path + 'restarts' # this name is hard-coded to agree with that in gx_command(), a better name may be restart_dir/ or a variable naming such
@@ -313,23 +303,9 @@ class GX_Flux_Model():
             os.mkdir(restart_dir)
 
 
-    # is this being used? 9/28
-    # I think the functionality got implemented somewhere else
-    def create_geometry_from_vmec(self,wout):
+    def load_fluxtube(self, rho=None, f_geo=None):
 
-        # load sample geometry file
-
-        # make changes (i.e. specify radius, ntheta etc.)
-
-        # write new file and run GX-VMEC geometry module
-
-        # wait, load new geometry files
-        pass
-
-    def load_fluxtube(self, f_geo):
-
-        ft = FluxTube(f_geo)       # init an instance of flux tube class
-        ft.load_gx_input(self.input_template)
+        ft = FluxTube(self.input_template, rho=rho, f_geo=f_geo)       # init an instance of flux tube class
 
         # save
         self.flux_tubes.append(ft)
@@ -406,14 +382,29 @@ class GX_Flux_Model():
 
         # read
         _time.sleep(WAIT_TIME)
+        grho = []
+        area = []
+        B_ref = []
+        a_ref = []
 
         print('starting to read')
         for j in idx: 
             # loop over flux tubes
-            Q0 [j] = read_gx(f0 [j])
-            Qpi[j] = read_gx(fpi[j])
+            Q0 [j], gx_data = read_gx(f0 [j])
+            Qpi[j], _ = read_gx(fpi[j])
+
+            a_ref.append(gx_data.a_ref)
+            B_ref.append(gx_data.B_ref)
+            grho.append(gx_data.grhoavg)
+            area.append(gx_data.surfarea)
+
             #Qn [j] = read_gx(fn [j])
             #Qpe[j] = read_gx(fpe[j])
+
+        grho = np.asarray(grho)
+        area = np.asarray(area)
+        B_ref = np.asarray(B_ref)
+        a_ref = np.asarray(a_ref)
 
         '''
         In this variable notation
@@ -423,7 +414,7 @@ class GX_Flux_Model():
 
         Q0   is the base case                          : Q(T)
         Qpi  is array of fluxes at pi perturbation     : Q(T + delta)
-        Q_pi is array of derivatives of flux by step   : dQ/delta
+        Q_pi is array of log derivatives of flux by step   : (1/Q) dQ/delta
         '''
 
         # record the heat flux
@@ -467,6 +458,13 @@ class GX_Flux_Model():
         engine.Qe_pi  = pf.Flux_profile(Qi_pi)
         engine.Qe_pe  = pf.Flux_profile(Qi_pe)
         # set electron flux = to ions for now
+
+        # get flux-tube normalizing and geometric quantities on same grid as fluxes
+        engine.flux_norms.B_ref = pf.Flux_profile(B_ref)
+        engine.flux_norms.a_ref = pf.Flux_profile(a_ref)
+        engine.flux_norms.grho = pf.Flux_profile(grho)
+        engine.flux_norms.area = pf.Flux_profile(area)
+        engine.flux_norms.geometry_factor = pf.Flux_profile(- grho / (engine.drho * area))
 
     #  sets up GX input, executes GX, returns input file name
     def gx_command(self, r_id, rho, kn, kti, kte, job_id, 
@@ -538,15 +536,16 @@ class GX_Flux_Model():
 
             # attempt to call
             system = os.environ['GK_SYSTEM']
+            GX_PATH = os.environ.get("GX_PATH") 
 
-            cmd = ['srun', '-N', '1', '-t', '2:00:00', '--ntasks=1', '--gpus-per-task=1', '--exclusive', path+'gx', path+tag+'.in'] # stellar
+            cmd = ['srun', '-N', '1', '-t', '2:00:00', '--ntasks=1', '--gpus-per-task=1', '--exclusive', GX_PATH+'gx', path+tag+'.in'] # stellar
             if system == 'traverse':
                 # traverse does not recognize path/to/gx as an executable
-                cmd = ['srun', '-N', '1', '-t', '2:00:00', '--ntasks=1', '--gpus-per-task=1', 'gx', path+tag+'.in'] # traverse
+                cmd = ['srun', '-N', '1', '-t', '2:00:00', '--ntasks=1', '--gpus-per-task=1', GX_PATH+'gx', path+tag+'.in'] # traverse
             if system == 'satori':
-                cmd = ['srun', '-N', '1', '-t', '2:00:00', '--ntasks=1', '--gres=gpu:1', path+'gx', path+tag+'.in'] # satori
+                cmd = ['srun', '-N', '1', '-t', '2:00:00', '--ntasks=1', '--gres=gpu:1', '--exclusive', GX_PATH+'gx', path+tag+'.in'] # satori
     
-            print('Calling', tag)
+            print('Calling', tag, 'with', cmd)
             print_time()
             f_log = path + 'log.' +tag
             with open(f_log, 'w') as fp:
@@ -563,23 +562,6 @@ class GX_Flux_Model():
 
         return f_nc # this is a file name
 
-        
-    # first attempt at exporting gradients for GX
-    def write_command(self, r_id, rho, kn, kpi, kpe):
-        
-        s = rho**2
-        kti = kpi - kn
-
-        t_id = self.t_id # time integer
-        time = self.time # time [s]
-
-        f = self.f_handle
-
-        #print('t_idx, r_idx, time, r, s, tprim, fprim', file=f)
-        print('{:d}, {:d}, {:.2e}, {:.4e}, {:.4e}, {:.6e}, {:.6e}' \
-        .format(t_id, r_id, time, rho, s, kti, kn), file=f)
-
-
 
 ###
 def print_time():
@@ -595,16 +577,15 @@ def print_time():
 def read_gx(f_nc):
     # read a GX netCDF output file, returns flux
     try:
-        qflux = gx_io.read_GX_output( f_nc )
-        if ( np.isnan(qflux).any() ):
-             print('  nans found in', f_nc, '(setting NaNs to 0)')
-             qflux = np.nan_to_num(qflux)
+        gx_data = gx_io.GX_Output(f_nc)
+        qflux = gx_data.median_estimator()
 
         tag = f_nc.split('/')[-1]
         print('  {:} qflux: {:}'.format(tag, qflux))
-        return qflux
+        return qflux, gx_data
 
     except:
         print('  issue reading', f_nc)
+        exit(1)
         return 0 # for safety, this will be problematic
 

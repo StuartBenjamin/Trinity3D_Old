@@ -177,8 +177,8 @@ class ProfileSaver:
         profile_settings['rho_inner']  = engine.rho_inner
         profile_settings['rho_axis']   = engine.rho_axis
         profile_settings['drho']       = engine.drho
-        profile_settings['area']       = engine.area.profile
-        profile_settings['grho']       = engine.grho.profile
+        profile_settings['area']       = engine.flux_norms.area.profile
+        profile_settings['grho']       = engine.flux_norms.grho.profile
         profile_settings['n_core']     = engine.n_core  
         profile_settings['n_edge']     = engine.n_edge 
         profile_settings['pi_core']    = engine.pi_core
