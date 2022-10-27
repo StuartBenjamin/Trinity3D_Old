@@ -663,9 +663,7 @@ class Trinity_Engine():
         He  = self.He.profile
 
         # normalization
-        norm = 1 / self.a_minor / self.drho  # temp set R=1
-        # because it should cancel with a R/L that I am also ignoring
-        #norm = (self.R_major / self.a_minor) / self.drho 
+        norm = 1 / self.drho # no R/a factor because we use a/L_w for gradients 
 
         # calculate and save
         s = self
