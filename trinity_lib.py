@@ -415,7 +415,7 @@ class Trinity_Engine():
         self.record_flux = {}
         self.record_flux['Q0'] = []
         self.record_flux['Q1'] = []
-        self.record_flux['dlogQ'] = []
+        self.record_flux['dQ'] = []
         self.record_flux['kT'] = []
         self.record_flux['dk'] = []
 
