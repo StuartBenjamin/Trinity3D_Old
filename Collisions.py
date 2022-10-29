@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from profiles import Profile
 
 m_proton_cgs = 1.67e-24 # mass of proton in grams
 
@@ -217,6 +218,22 @@ class Collision_Model():
     
         return lamb
 
+    def collision_frequency(self, s):
+    
+        # compute collision frequency nu_ss 
+        #    assume [n] = cc, [T] = eV, [m] = amu, [Z] = n charge
+    
+        n = np.array( self.n_cc ) #/ 1e6          # m-3          -> cc
+        T = self.T_eV
+        Z = self.Z_e
+        m = self.m_mp
+
+        if(self.isIon[s]):
+            nu_ss = 4.8e-8*Z[s]**4/m[s]**0.5*self.logLambda_nrl(s, s)*n[s]/T[s]**1.5
+        else:
+            nu_ss = 2.9e-6*self.logLambda_nrl(s, s)*n[s]/T[s]**1.5
+            
+        return nu_ss
 
     def compute_nu_ei(self):
         '''

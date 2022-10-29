@@ -339,8 +339,13 @@ class GX_Flux_Model():
 #  would it be more clear to just have keV values in absolute?
         Tref = Ti # hard-coded convention
         gx_Ti = Ti/Tref
-        gx_Te = Te/Tref
+        gx_Te = Te/Tree
 
+        vtref = (Tref*engine.norms.e/engine.norms.m_ref/2)**0.5  # GX vt does not include sqrt(2). this assumes deuterium reference ions. need to generalize.
+        coll = engine.collision_model
+        coll.update_profiles(engine)
+        nu_ii = pf.Profile(coll.collision_frequency(0),half=True).midpoints*engine.norms.a_ref/vtref  # this should really be flux_norms.a_ref, but we are assuming trinity and GX use same a_ref  
+        nu_ee = pf.Profile(coll.collision_frequency(1),half=True).midpoints*engine.norms.a_ref/vtref  # this should really be flux_norms.a_ref, but we are assuming trinity and GX use same a_ref
 
         # turbulent flux calls, for each radial flux tube
         mid_axis = engine.mid_axis
@@ -365,9 +370,9 @@ class GX_Flux_Model():
 
             # writes the GX input file and calls the slurm 
             #scale = 1 + step
-            f0 [j] = self.gx_command(j, rho, kn      , kti       , kte        , '0', temp_i=gx_Ti[j], temp_e = gx_Te[j] )
+            f0 [j] = self.gx_command(j, rho, kn      , kti       , kte        , '0', temp_i=gx_Ti[j], temp_e = gx_Te[j], nu_ii = nu_ii[j], nu_ee = nu_ee[j] )
             #fpi[j] = self.gx_command(j, rho, kn      , kti*scale , kte        , '2', temp_i=gx_Ti[j], temp_e = gx_Te[j] )
-            fpi[j] = self.gx_command(j, rho, kn      , kti + step , kte        , '2', temp_i=gx_Ti[j], temp_e = gx_Te[j] )
+            fpi[j] = self.gx_command(j, rho, kn      , kti + step , kte        , '2', temp_i=gx_Ti[j], temp_e = gx_Te[j], nu_ii = nu_ii[j], nu_ee = nu_ee[j] )
 
 
             #fn [j] = self.gx_command(j, rho, kn*scale , kpi        , kpe        , '1' )
@@ -468,7 +473,7 @@ class GX_Flux_Model():
 
     #  sets up GX input, executes GX, returns input file name
     def gx_command(self, r_id, rho, kn, kti, kte, job_id, 
-                         temp_i=1,temp_e=1):
+                         temp_i=1,temp_e=1, nu_ii=0, nu_ee=0):
         # this version perturbs for the gradient
         # (temp, should be merged as option, instead of duplicating code)
         
@@ -486,7 +491,7 @@ class GX_Flux_Model():
 
         #.format(t_id, r_id, time, rho, s, kti, kn), file=f)
         ft = self.flux_tubes[r_id] 
-        ft.set_profiles(temp_i, temp_e)
+        ft.set_profiles(temp_i, temp_e, nu_ii, nu_ee)
         #ft.set_dens_temp(temp_i, temp_e)
         ft.set_gradients(kn, kti, kte)
         
