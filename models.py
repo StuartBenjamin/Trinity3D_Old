@@ -339,7 +339,7 @@ class GX_Flux_Model():
 #  would it be more clear to just have keV values in absolute?
         Tref = Ti # hard-coded convention
         gx_Ti = Ti/Tref
-        gx_Te = Te/Tree
+        gx_Te = Te/Tref
 
         vtref = (Tref*engine.norms.e/engine.norms.m_ref/2)**0.5  # GX vt does not include sqrt(2). this assumes deuterium reference ions. need to generalize.
         coll = engine.collision_model
