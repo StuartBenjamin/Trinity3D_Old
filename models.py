@@ -546,7 +546,7 @@ class GX_Flux_Model():
             cmd = ['srun', '-N', '1', '-t', '2:00:00', '--ntasks=1', '--gpus-per-task=1', '--exclusive', GX_PATH+'gx', path+tag+'.in'] # stellar
             if system == 'traverse':
                 # traverse does not recognize path/to/gx as an executable
-                cmd = ['srun', '-N', '1', '-t', '2:00:00', '--ntasks=1', '--gpus-per-task=1', GX_PATH+'gx', path+tag+'.in'] # traverse
+                cmd = ['srun', '-N', '1', '-t', '2:00:00', '--ntasks=1', '--gres=gpu:1', '--exact', '--overcommit', GX_PATH+'gx', path+tag+'.in'] # traverse
             if system == 'satori':
                 cmd = ['srun', '-N', '1', '-t', '2:00:00', '--ntasks=1', '--gres=gpu:1', '--exclusive', GX_PATH+'gx', path+tag+'.in'] # satori
     

@@ -92,6 +92,7 @@ class Trinity_Engine():
                        turbulent_exchange = False,
                        compute_surface_areas = True,
                        fix_electrons = False,
+                       equal_temps = False,
                        gx_inputs   = '',
                        gx_outputs  = '',
                        gx_template   = 'gx-sample.in',
@@ -157,6 +158,7 @@ class Trinity_Engine():
         turbulent_exchange = self.load( turbulent_exchange, "tr3d.inputs['debug']['turbulent_exchange']" )
         compute_surface_areas = self.load( compute_surface_areas, "tr3d.inputs['debug']['compute_surface_areas']" ) 
         self.fix_electrons = self.load( fix_electrons, "tr3d.inputs['debug']['fix_electrons']" ) 
+        self.equal_temps = self.load( equal_temps, "tr3d.inputs['debug']['equal_temps']" ) 
        
         gx_inputs  = self.load( gx_inputs, "tr3d.inputs['path']['gx_inputs']")
         gx_outputs = self.load( gx_outputs, "tr3d.inputs['path']['gx_outputs']")
@@ -1283,7 +1285,9 @@ class Trinity_Engine():
             self.vmec_pressure_old = p_SI # maybe move this elsewhere
 
         # reset electrons
-        if self.fix_electrons:
+        if self.equal_temps:
+            self.pressure_e = self.pressure_i
+        elif self.fix_electrons:
             self.pressure_e = self.pressure_e_init
 
         self.check_finite_difference()
