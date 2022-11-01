@@ -20,6 +20,7 @@ try:
 except:
     fin = 'trinity.in'
 print("\n  Loading input file:", fin, "\n")
+sys.stdout.flush()
 
 
 ### Run Trinity!
@@ -86,6 +87,8 @@ while (engine.t_idx < engine.N_steps):
     writer.export(engine.f_save)
 
     engine.reset_fluxtubes()
+
+    sys.stdout.flush()
 
 end_time = time.time()
 delta_t = end_time - start_time

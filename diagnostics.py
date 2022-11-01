@@ -188,6 +188,8 @@ class ProfileSaver:
         profile_settings['source_n' ]   = engine.source_n
         profile_settings['source_pi']   = engine.source_pi
         profile_settings['source_pe']   = engine.source_pe
+        profile_settings['fix_electrons'] = engine.fix_electrons
+        profile_settings['equal_temps'] = engine.equal_temps
 
         profile_settings['source_model']   = engine.source_model
         if (engine.source_model == 'Gaussian'):

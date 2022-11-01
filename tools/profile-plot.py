@@ -72,7 +72,6 @@ def init_profile(x,debug=False):
     X = pf.Profile(x, grad=True, half=True, full=True)
     return X
 
-
 N = len(time)
 
 fig,axs = plt.subplots( 2, 6, figsize=(65,8) )
@@ -99,6 +98,11 @@ purple_map = pl.cm.Purples(np.linspace(0.25,1,N))
 n_leg = 5
 t_plot_freq = int(np.rint(N/n_leg)) # Ensures we only plot a maximum of n_leg timesteps in the legend.
 
+#plot_electrons = True
+#if profile_data['fix_electrons'] or profile_data['equal_temps']:
+#    plot_electrons = False
+plot_electrons = False
+
 # time evolution
 for t in np.arange(N):
 
@@ -114,17 +118,20 @@ for t in np.arange(N):
 
     # plot profiles
     if t == 0:
-        axs[0,1].plot(axis,Te[t] ,'.-', color=cool_map[t], label = '$T_e$, {:.2f}'.format(time[t]))
-        axs[0,1].plot(axis,Ti[t] ,'.:', color=warm_map[t], label = '$T_i$, {:.2f}'.format(time[t]))
+        axs[0,1].plot(axis,Ti[t] ,'.-', color=warm_map[t], label = '$T_i$, {:.2f}'.format(time[t]))
+        axs[0,1].plot(axis,Te[t] ,'.:', color=cool_map[t], label = '$T_e$, {:.2f}'.format(time[t]))
     elif t == N-1:
-        axs[0,1].plot(axis,Te[t] ,'.-', color=cool_map[t], label = '$T_e$, {:.2f}'.format(time[t]))
-        axs[0,1].plot(axis,Ti[t] ,'.:', color=warm_map[t], label = '$T_i$, {:.2f}'.format(time[t]))
+        if plot_electrons:
+            axs[0,1].plot(axis,Te[t] ,'.:', color=cool_map[t], label = '$T_e$, {:.2f}'.format(time[t]))
+        axs[0,1].plot(axis,Ti[t] ,'.-', color=warm_map[t], label = '$T_i$, {:.2f}'.format(time[t]))
     else:
-        axs[0,1].plot(axis,Te[t] ,'.-', color=cool_map[t])
-        axs[0,1].plot(axis,Ti[t] ,'.:', color=warm_map[t])
+        if plot_electrons:
+            axs[0,1].plot(axis,Te[t] ,'.:', color=cool_map[t])
+        axs[0,1].plot(axis,Ti[t] ,'.-', color=warm_map[t])
 
-    axs[0,2].plot(axis,pe[t] ,'.-', color=cool_map[t])
-    axs[0,2].plot(axis,pi[t] ,'.:', color=warm_map[t])
+    if plot_electrons:
+        axs[0,2].plot(axis,pe[t] ,'.:', color=cool_map[t])
+    axs[0,2].plot(axis,pi[t] ,'.-', color=warm_map[t])
 
     # plot fluxes
  #   axs[0,3].plot(mid_axis,Qe[t] ,'x-', color=cool_map[t])
@@ -150,10 +157,10 @@ axs[1,5].plot(axis, source_pe / p_source_scale * 1e-6, 'C0.-', label = '$S_{p_e}
 axs[1,5].plot(axis, source_pi / p_source_scale * 1e-6, 'C1.:', label = '$S_{p_i}$')
 
 # adjust ylimits
-nmax = np.max(n)
+nmax = np.max(n[:N])
 axs[0,0].set_ylim( bottom=0, top = 1.5*nmax )
 
-Emax = np.max(nu_ei_Hz)
+Emax = np.max(nu_ei_Hz[:N])
 axs[1,2].set_ylim( bottom=0, top = 1.5*Emax )
 
 axs[0,0].set_xlabel('$r/a$')
