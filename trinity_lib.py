@@ -60,6 +60,8 @@ class Trinity_Engine():
                        rho_edge = 0.8,
                        n_core = 4,
                        n_edge = 0.5,
+                       n_avg = 2,
+                       n_peaking = 2,
                        Ti_core = 8,
                        Ti_edge = 2,
                        Te_core = 3,
@@ -131,7 +133,8 @@ class Trinity_Engine():
         model    = tr3d.inputs['model']['model']
         D_neo    = float ( tr3d.inputs['model']['D_neo'] )
         
-        n_core  = float ( tr3d.inputs['profiles']['n_core' ] )
+        n_avg  = float ( tr3d.inputs['profiles']['n_avg' ] )
+        n_peaking  = float ( tr3d.inputs['profiles']['n_peaking' ] )
         n_edge  = float ( tr3d.inputs['profiles']['n_edge' ] )
         Ti_core = float ( tr3d.inputs['profiles']['Ti_core'] )
         Ti_edge = float ( tr3d.inputs['profiles']['Ti_edge'] )
@@ -192,7 +195,9 @@ class Trinity_Engine():
         self.newton_threshold = newton_threshold
 
         self.N_radial = N_radial         # if this is total points, including core and edge, then GX simulates (N-2) points
-        self.n_core   = n_core
+        self.n_avg    = n_avg
+        self.n_core   = n_avg*(1-n_edge/n_avg)*n_peaking + n_edge
+        self.n_peaking   = n_peaking
         self.n_edge   = n_edge
         self.Ti_core   = Ti_core
         self.Ti_edge   = Ti_edge
@@ -281,7 +286,7 @@ class Trinity_Engine():
 
         ### init profiles
         #     temporary profiles, later init from eq file
-        n  = (n_core  - n_edge )*(1 - (rho_axis/rho_edge)**2) + n_edge
+        n  = n_avg * ( (1-n_edge/n_avg)*n_peaking*(1 - (rho_axis/rho_edge)**2)**(n_peaking-1) ) + n_edge
         Ti = (Ti_core - Ti_edge)*(1 - (rho_axis/rho_edge)**2) + Ti_edge
         Te = (Te_core - Te_edge)*(1 - (rho_axis/rho_edge)**2) + Te_edge
         pi = n * Ti
