@@ -75,8 +75,8 @@ class FluxTube():
 
         # for adiatibatic electrons ne=ni so dens is [1,1] for now
 
-        # set tau = Te/Ti ratio
-        tau = temp_e/temp_i
+        # set tau = Ti/Te ratio (assume adiabatic electrons, not ions)
+        tau = temp_i/temp_e
         gx.inputs['Boltzmann']['tau_fac'] = tau
 
 
