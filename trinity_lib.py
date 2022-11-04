@@ -1186,7 +1186,7 @@ class Trinity_Engine():
         # compute matrices and forces at this iteration (m+1, p)
         Mmat = self.time_step_LHS()
         Amat = self.I_mat - self.dtau * self.alpha * Mmat
-        bvec = self.time_step_RHS() # we don't need the full bvec here, but time_step_RHS also updates force_vec and source_vec, which we do need
+        bvec = self.time_step_RHS() # we don't need the full bvec here, but time_step_RHS also updates force_vec, which we do need
 
         # compute y_next = y^(m+1, p+1)
         Ainv = np.linalg.inv(Amat)
