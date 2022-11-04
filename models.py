@@ -435,15 +435,6 @@ class GX_Flux_Model():
         Qi_n = 0*Q0 # this is already the init state
         Qi_pe = Qi_pi
 
-
-        rec = engine.record_flux
-        rec['Q0'].append( Q0       )
-        rec['Q1'].append( Qpi      )
-        rec['dQ'].append( Qi_pi    )
-        rec['kT'].append( LTi      )
-        rec['dk'].append( LTi*step )
-
-
         # need to add neoclassical diffusion
 
         # save, this is what engine.compute_flux() writes

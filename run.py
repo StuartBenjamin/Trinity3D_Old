@@ -73,6 +73,10 @@ while (engine.t_idx < engine.N_steps):
     else:
        engine.calc_y_iter()
 
+    # save state vector and fluxes at this iteration, before advancing state
+    writer.save(engine)
+
+    # advance state vector
     engine.update()
 
 ###  turtle: why not save every step? Its not expensive to write. Is it expensive to read?
@@ -80,16 +84,18 @@ while (engine.t_idx < engine.N_steps):
 #        
 #        print(f"  Saving: t = {engine.t_idx}")
 #        writer.save(engine)
-    writer.save(engine)
+
+    # write restart info
     writer.store_system(engine) # 10/9
 
-    writer.temp_record(engine) # 10/15
     writer.export(engine.f_save)
 
     engine.reset_fluxtubes()
 
     sys.stdout.flush()
 
+writer.save(engine)
+writer.export(engine.f_save)
 end_time = time.time()
 delta_t = end_time - start_time
 def print_time(dt):
