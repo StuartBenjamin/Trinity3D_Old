@@ -312,8 +312,8 @@ class GX_Flux_Model():
 
 
     def prep_commands(self, engine, # pointer to pull profiles from trinity engine
-                            #step = 0.1, # absolute step size for perturbing gradients
-                            step = 0.3, # relativestep size for perturbing gradients
+                            step = 0.2, # relative step size for perturbing gradients
+                            abs_step = 0.3, # absolute size for perturbing gradients
                      ):
 
         self.time = engine.time
@@ -360,6 +360,14 @@ class GX_Flux_Model():
         Qpi  = np.zeros( len(idx) )
         Qpe  = np.zeros( len(idx) )
         Qn   = np.zeros( len(idx) )
+        dkti  = np.zeros( len(idx) )
+
+        try:
+            Qi_prev = engine.Qi.profile
+            Qpi_prev = engine.Qpi.profile
+        except:
+            Qi_prev = np.zeros( len(idx) )
+            Qpi_prev = np.zeros( len(idx) )
 
         for j in idx: 
 
@@ -368,19 +376,21 @@ class GX_Flux_Model():
             kti = LTi[j]
             kte = LTe[j]
 
+            restart_0 = True
+            restart_pi = True
+            if Qi_prev[j] < 1e-10:
+                restart_0 = False
+            if Qpi_prev[j] < 1e-10:
+                restart_pi = False
+
             # writes the GX input file and calls the slurm 
-            #scale = 1 + step
-            f0 [j] = self.gx_command(j, rho, kn      , kti       , kte        , '0', temp_i=gx_Ti[j], temp_e = gx_Te[j], nu_ii = nu_ii[j], nu_ee = nu_ee[j] )
-            #fpi[j] = self.gx_command(j, rho, kn      , kti*scale , kte        , '2', temp_i=gx_Ti[j], temp_e = gx_Te[j] )
-            fpi[j] = self.gx_command(j, rho, kn      , kti + step , kte        , '2', temp_i=gx_Ti[j], temp_e = gx_Te[j], nu_ii = nu_ii[j], nu_ee = nu_ee[j] )
-
-
-            #fn [j] = self.gx_command(j, rho, kn*scale , kpi        , kpe        , '1' )
-            #fpe[j] = self.gx_command(j, rho, kn      , kpi        , kpe*scale , '3' )
-
-            # turn off density, since particle flux is set to 0
-            # turn off pe, since Qe = Qi
-            ### there is choice, relative step * or absolute step +?
+            scale = 1 + step
+            kti_pert = max(kti*(1+step), kti + abs_step)
+            dkti[j] = kti_pert - kti
+            f0 [j] = self.gx_command(j, rho, kn      , kti      , kte      , '0', temp_i=gx_Ti[j], temp_e = gx_Te[j], nu_ii = nu_ii[j], nu_ee = nu_ee[j], restart=restart_0 )
+            #fn [j] = self.gx_command(j, rho, kn_pert , kti      , kte      , '1', temp_i=gx_Ti[j], temp_e = gx_Te[j], nu_ii = nu_ii[j], nu_ee = nu_ee[j] )
+            fpi[j] = self.gx_command(j, rho, kn      , kti_pert , kte      , '2', temp_i=gx_Ti[j], temp_e = gx_Te[j], nu_ii = nu_ii[j], nu_ee = nu_ee[j], restart=restart_pi )
+            #fpe[j] = self.gx_command(j, rho, kn      , kti      , kte_pert , '3', temp_i=gx_Ti[j], temp_e = gx_Te[j], nu_ii = nu_ii[j], nu_ee = nu_ee[j] )
 
         ### collect parallel runs
         self.wait()
@@ -425,8 +435,8 @@ class GX_Flux_Model():
         # record the heat flux
         Qflux  =  Q0
         # record dQ / dLx
-        Qi_pi  =  (Qpi - Q0) / step
-        #Qi_pi  =  (Qpi - Q0) / (LTi * step)
+        #Qi_pi  =  (Qpi - Q0) / step
+        Qi_pi  =  (Qpi - Q0) / dkti
         ###Qi_pi  =  (Qpi - Q0) / (Lpi * step)  # bug 10/15
 
 
@@ -464,7 +474,7 @@ class GX_Flux_Model():
 
     #  sets up GX input, executes GX, returns input file name
     def gx_command(self, r_id, rho, kn, kti, kte, job_id, 
-                         temp_i=1,temp_e=1, nu_ii=0, nu_ee=0):
+                         temp_i=1,temp_e=1, nu_ii=0, nu_ee=0, restart=True):
         # this version perturbs for the gradient
         # (temp, should be merged as option, instead of duplicating code)
         
@@ -500,7 +510,7 @@ class GX_Flux_Model():
         f_save = tag + '-restart.nc'
 
         ### Decide whether to load restart
-        if (t_id == 0): 
+        if (t_id == 0 or restart == False): 
             # skip only for first time step
             ft.gx_input.inputs['Restart']['restart'] = 'false'
 
