@@ -38,6 +38,9 @@ class ProfileSaver:
         log['Gamma'] = []
         log['Qi']    = []
         log['Qe']    = []
+        log['Fn']    = []
+        log['Fpi']    = []
+        log['Fpe']    = []
 
         # additional profiles
         log['fusion_rate']  = []
@@ -68,7 +71,7 @@ class ProfileSaver:
         # counters
         log['t_idx']  = [0] # kludge fix for edge case?
         log['p_idx']  = [0]
-        log['y_error'] = []
+        #log['y_error'] = []
         log['chi_error'] = []
 
         self.log = log
@@ -92,6 +95,9 @@ class ProfileSaver:
         G  = engine.Gamma.profile
         Qi = engine.Qi.profile
         Qe = engine.Qe.profile
+        Fn = engine.Fn.profile
+        Fpi = engine.Fpi.profile
+        Fpe = engine.Fpe.profile
         Gi = engine.Gi.full.profile
         Ge = engine.Ge.full.profile
         Hi = engine.Hi.full.profile
@@ -109,10 +115,13 @@ class ProfileSaver:
         self.log['Gamma'].append(G)
         self.log['Qi'].append(Qi)
         self.log['Qe'].append(Qe)
+        self.log['Fn'].append(Fn)
+        self.log['Fpi'].append(Fpi)
+        self.log['Fpe'].append(Fpe)
 
         self.log['t_idx'].append(engine.t_idx)
         self.log['p_idx'].append(engine.p_idx)
-        self.log['y_error'].append(engine.y_error)
+        #self.log['y_error'].append(engine.y_error)
         self.log['chi_error'].append(engine.chi_error)
 
         self.log['aLn'] .append(aLn)
@@ -225,6 +234,7 @@ class ProfileSaver:
         norms['vT_ref']                = n.vT_ref
         norms['gyro_scale']            = n.gyro_scale
         norms['pressure_source_scale'] = n.pressure_source_scale
+        norms['particle_source_scale'] = n.particle_source_scale
 
         self.log['norms'] = norms
 
