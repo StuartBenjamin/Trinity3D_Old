@@ -1157,7 +1157,8 @@ class Trinity_Engine():
         self.force_vec_prev = self.force_vec # save force_vec_prev = F^m
         self.source_vec_prev = self.source_vec # save source_vec_prev = S^m
 
-        # compute y_next = y^(m+1, 1)
+        # compute y_next = y^(m+1, p+1) = y^m + alpha*dt*M*(y^(m+1, p+1) - y^(m+1, p)) + alpha*dt*F^(m+1,p) + (1-alpha)*dt*F^m + dt*S^m
+        # (I - alpha*dt*M)*y^(m+1, p+1) = y^m - alpha*dt*M*y^(m+1, p) + alpha*dt*F^(m+1,p) + (1-alpha)*dt*F^m + dt*S^m
         Ainv = np.linalg.inv(Amat) 
         y_next = Ainv @ bvec
         
@@ -1284,10 +1285,23 @@ class Trinity_Engine():
         y1 = self.y_hist[-1]
         y0 = self.y_hist[-2]
 
+        N_mat = self.N_radial - 1
+        n0, pi0, pe0 = np.reshape( y0,(3,N_mat) )
+        n1, pi1, pe1 = np.reshape( y1,(3,N_mat) )
+
         # compute rms error
-        y_err = y1 - y0
- 
-        rms = np.sqrt( np.sum( np.abs(y_err/y0)**2 ) )
+        n_err = n1 - n0
+        pi_err = pi1 - pi0
+        pe_err = pe1 - pe0
+
+        n_rms = np.sqrt( np.sum( np.abs(n_err/n0)**2 )/(self.N_radial-1) )
+        pi_rms = np.sqrt( np.sum( np.abs(pi_err/pi0)**2 )/(self.N_radial-1) )
+        pe_rms = np.sqrt( np.sum( np.abs(pe_err/pe0)**2 )/(self.N_radial-1) )
+
+        if self.fix_electrons:
+            rms = pi_rms
+        else:
+            rms = np.sqrt( pi_rms**2 + pe_rms**2 )/2
 
         out_string = f"(t,p) = {self.t_idx}, {self.p_idx} :: (p_prev, err, iterate) = "
 
@@ -1316,7 +1330,7 @@ class Trinity_Engine():
 
         # save state for Trinity engine
         self.newton_mode = iterate
-        self.y_error = y_err
+        #self.y_error = y_err
         self.chi_error = rms
 
         out_string += f"{self.prev_p_id} {rms:.3e} {self.newton_mode}"
