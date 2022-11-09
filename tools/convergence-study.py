@@ -30,7 +30,7 @@ t_idx = np.array( data['t_idx'] )
 p_idx = np.array( data['p_idx'] )
 
 y_hist  = np.array( data['y_hist'] )
-y_error = np.array( data['y_error'] )
+#y_error = np.array( data['y_error'] )
 chi_err = np.array( data['chi_error'] )
 
 N_profiles = len(chi_err)
@@ -45,7 +45,7 @@ max_iter = data['system']['max_newton_iter']
 for j in np.arange(max_iter+1):
     plt.plot([],[], f'C{j}o', label=f'iter {j}')
 
-#plt.yscale('log')
+plt.yscale('log')
 
 plt.xlabel('time index')
 plt.ylabel('chi( y error )')
@@ -55,5 +55,5 @@ plt.legend()
 plt.grid()
 plt.show()
 
-import pdb
-pdb.set_trace()
+#import pdb
+#pdb.set_trace()

@@ -26,6 +26,14 @@ pe     =      np.array( data['pe'    ] )
 Gamma  =      np.array( data['Gamma' ] ) 
 Qi     =      np.array( data['Qi'    ] ) 
 Qe     =      np.array( data['Qe'    ] ) 
+try:
+    Fn     =      np.array( data['Fn'    ] ) 
+    Fpi    =      np.array( data['Fpi'   ] ) 
+    Fpe    =      np.array( data['Fpe'   ] ) 
+except:
+    Fn = np.zeros(Gamma.shape)
+    Fpi = np.zeros(Qi.shape)
+    Fpe = np.zeros(Qe.shape)
 aLn  =      np.array( data['aLn' ] ) 
 aLpi =      np.array( data['aLpi'] ) 
 aLpe =      np.array( data['aLpe'] ) 
@@ -54,6 +62,15 @@ except:
     axis        = np.linspace(0,rho_edge,N_rho) # radial axis
 mid_axis    = (axis[1:] + axis[:-1])/2
 pf.rho_axis = axis
+drho = profile_data['drho']
+grho = profile_data['grho']
+area = profile_data['area']
+
+# need to get grho and area on grid (instead of cell centers)
+grho = np.insert(grho, 0, grho[0])
+area = np.insert(area, 0, 0)
+grho = pf.Profile(grho, half=True).plus.profile
+area = pf.Profile(area, half=True).plus.profile
 
 # sources
 Ei     =      np.array( data['power balance']['Ei' ] ) 
@@ -64,6 +81,10 @@ source_pi = profile_data['source_pi'] + Ei[-1]
 source_pe = profile_data['source_pe'] + Ee[-1]
 
 p_source_scale = data['norms']['pressure_source_scale']
+try:
+    n_source_scale = data['norms']['particle_source_scale']
+except:
+    n_source_scale = 1
 
 
 ## unused? 10/16
@@ -71,6 +92,12 @@ def init_profile(x,debug=False):
 
     X = pf.Profile(x, grad=True, half=True, full=True)
     return X
+
+def volume_integrate(integrand):
+    integral = np.sum(integrand*area[:len(integrand)]/grho[:len(integrand)])*drho
+    return integral
+
+Pfus_MW = volume_integrate(P_fusion_Wm3[-1])/1e6
 
 N = len(time)
 
@@ -98,10 +125,9 @@ purple_map = pl.cm.Purples(np.linspace(0.25,1,N))
 n_leg = 5
 t_plot_freq = int(np.rint(N_steps/n_leg)) # Ensures we only plot a maximum of n_leg timesteps in the legend.
 
-#plot_electrons = True
-#if profile_data['fix_electrons'] or profile_data['equal_temps']:
-#    plot_electrons = False
-plot_electrons = False
+plot_electrons = True
+if profile_data['fix_electrons'] or profile_data['equal_temps']:
+    plot_electrons = False
 
 # time evolution
 t_old = -1
@@ -142,6 +168,8 @@ for t in np.arange(N):
 
     # plot fluxes
  #   axs[0,3].plot(mid_axis,Qe[t] ,'x-', color=cool_map[t])
+    #axs[0,3].plot(mid_axis,Fpi[t]/p_source_scale/1e6 ,'x:', color=warm_map[t])
+    #axs[0,4].plot(mid_axis,Fn[t]/n_source_scale ,'x-', color=green_map[t])
     axs[0,3].plot(mid_axis,Qi[t] ,'x:', color=warm_map[t])
     axs[0,4].plot(mid_axis,Gamma[t] ,'x-', color=green_map[t])
 
@@ -222,6 +250,9 @@ leg2.get_frame().set_linewidth(0.65)
 leg4 = axs[0,5].legend(loc='best', fancybox=False, shadow=False,ncol=1)
 leg4.get_frame().set_edgecolor('k')
 leg4.get_frame().set_linewidth(0.65)
+leg5 = axs[1,0].legend(loc='best', title = '$P_{fus} =$' + '{:.2f} MW'.format(Pfus_MW), fancybox=False, shadow=False,ncol=1)
+leg5.get_frame().set_edgecolor('k')
+leg5.get_frame().set_linewidth(0.65)
 
 #plt.tight_layout()
 
