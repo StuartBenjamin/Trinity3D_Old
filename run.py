@@ -75,18 +75,12 @@ while (engine.t_idx < engine.N_steps):
 
     # save state vector and fluxes at this iteration, before advancing state
     writer.save(engine)
+    # write data that is not time-dependent on first step only
+    if engine.t_idx == 0:
+        writer.store_system(engine) 
 
     # advance state vector
     engine.update()
-
-###  turtle: why not save every step? Its not expensive to write. Is it expensive to read?
-#    if not ( engine.t_idx % N_step_print):
-#        
-#        print(f"  Saving: t = {engine.t_idx}")
-#        writer.save(engine)
-
-    # write restart info
-    writer.store_system(engine) # 10/9
 
     writer.export(engine.f_save)
 
