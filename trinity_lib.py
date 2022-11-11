@@ -1150,17 +1150,16 @@ class Trinity_Engine():
         
         # Invert Ax = b
         # compute matrices and forces at time index m
-        Mmat = self.time_step_LHS()
-        Amat = self.I_mat - self.dtau * self.alpha * Mmat
+        Psi = self.time_step_LHS()
+        Jac = self.I_mat - self.dtau * self.alpha * Psi
         bvec = self.time_step_RHS()
         self.bvec_prev = bvec # save bvec_prev = b^m
         self.force_vec_prev = self.force_vec # save force_vec_prev = F^m
         self.source_vec_prev = self.source_vec # save source_vec_prev = S^m
 
-        # compute y_next = y^(m+1, p+1) = y^m + alpha*dt*M*(y^(m+1, p+1) - y^(m+1, p)) + alpha*dt*F^(m+1,p) + (1-alpha)*dt*F^m + dt*S^m
-        # (I - alpha*dt*M)*y^(m+1, p+1) = y^m - alpha*dt*M*y^(m+1, p) + alpha*dt*F^(m+1,p) + (1-alpha)*dt*F^m + dt*S^m
-        Ainv = np.linalg.inv(Amat) 
-        y_next = Ainv @ bvec
+        # compute y_next = y^(m+1, p+1) = y^m + alpha*dt*Psi*(y^(m+1, p+1) - y^(m+1, p)) + alpha*dt*F^(m+1,p) + (1-alpha)*dt*F^m + dt*S^m
+        # (I - alpha*dt*Psi)*y^(m+1, p+1) = y^m - alpha*dt*Psi*y^(m+1, p) + alpha*dt*F^(m+1,p) + (1-alpha)*dt*F^m + dt*S^m
+        y_next = np.linalg.solve(Jac, bvec)
         
         # save 
         self.y_next = y_next
@@ -1172,14 +1171,17 @@ class Trinity_Engine():
         self.y_curr = self.y_hist[-1] # y_curr = y^(m+1,p)
 
         # compute matrices and forces at this iteration (m+1, p)
-        Mmat = self.time_step_LHS()
-        Amat = self.I_mat - self.dtau * self.alpha * Mmat
+        Psi = self.time_step_LHS()
+        Jac = self.I_mat - self.dtau * self.alpha * Psi
         bvec = self.time_step_RHS() # we don't need the full bvec here, but time_step_RHS also updates force_vec, which we do need
 
+        # R = y^(m+1, p) - y^m - alpha*dt*F^(m+1, p) - (1-alpha)*dt*F^m - dt*S^m
+        residual = self.y_curr - self.y_prev - self.alpha*self.dtau*self.force_vec - (1-self.alpha)*self.dtau*self.force_vec_prev - self.dtau*self.source_vec_prev
+
         # compute y_next = y^(m+1, p+1)
-        Ainv = np.linalg.inv(Amat)
-        RHS = self.y_prev - self.alpha*self.dtau*(Mmat @ self.y_curr) + self.alpha*self.dtau*self.force_vec + (1-self.alpha)*self.dtau*self.force_vec_prev + self.dtau*self.source_vec_prev
-        y_next = Ainv @ RHS
+        dy = np.linalg.solve(Jac, residual)  # newton step
+        lam = 1.0 # relaxation parameter
+        y_next = self.y_curr - lam*dy
 
         # save 
         self.y_next = y_next
@@ -1301,7 +1303,7 @@ class Trinity_Engine():
         if self.fix_electrons:
             rms = pi_rms
         else:
-            rms = np.sqrt( pi_rms**2 + pe_rms**2 )/2
+            rms = np.sqrt( n_rms**2 + pi_rms**2 + pe_rms**2 )/3
 
         out_string = f"(t,p) = {self.t_idx}, {self.p_idx} :: (p_prev, err, iterate) = "
 
