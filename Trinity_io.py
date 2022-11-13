@@ -1,61 +1,74 @@
 import numpy as np
-from netCDF4 import Dataset
+try:
+   from netCDF4 import Dataset
+except ModuleNotFoundError:
+   print("Please install netCDF4")
+   exit()
+   
+try:
+   import tomllib
+except ModuleNotFoundError:
+   try:
+       import tomli as tomllib
+   except ModuleNotFoundError:
+       print("Please install tomli or upgrade to Python >= 3.11")
+       exit()
+ 
 
+class Species():
+    pass
 
 class Trinity_Input():
 
-    # This class handles Trinity input files
+    # This class handles Trinity input files and parameters
+    # Parameters are set from input file if they exist, otherwise use defaults
 
     def __init__(self, fin):
         
-        self.read_input(fin)
+        inputs = self.read_input(fin)
 
+#  the following will be moved to the constructors of Geometry, Physics, etc
+#        # maybe add a print statement that declares all these settings?
+#        debug_parameters = inputs.get('debug', {})
+#        self.collisions = debug_parameters.get('collisions', True)
+#        self.alpha_heating = debug_parameters.get('alpha_heating', True)
+#        self.bremstrahlung = debug_parameters.get('bremstrahlung', True)
+#        self.update_equilibrium = debug_parameters.get('update_equilibrium', False)
+#        self.turbulent_exchange = debug_parameters.get('turbulent_exchange', False)
+#        self.compute_surface_areas = debug_parameters.get('compute_surface_areas', True)
+#
+#        path_parameters = inputs.get('path', {})
+#        self.gx_inputs  = path_parameters.get('gx_inputs', 'gx-files/')
+#        self.gx_outputs = path_parameters.get('gx_outputs', 'gx-files/run-dir')
+#        self.gx_sample  = path_parameters.get('gx_sample', 'gx-sample.in')
+#        self.vmec_path  = path_parameters.get('vmec_path', './')
+#
+#        geo_parameters = inputs.get('geometry', {})
+#        self.vmec_wout = geo_parameters.get('vmec_wout', '')
+#        self.R_major   = geo_parameters.get('R_major', 4)
+#        self.a_minor   = geo_parameters.get('a_minor', 1)
+#        self.Ba   = geo_parameters.get('Ba', 3)
+#
+#        log_parameters = inputs.get('log', {})
+#        self.N_prints = log_parameters.get('N_prints', 10)
+#        self.f_save = log_parameters.get('f_save', 'log_trinity')
+#
+#        # new option
+#        eq_parameters = inputs.get('equilibria', {})
+#        self.eq_model = eq_parameters.get('eq_model', '')
+        
+        self.input_dict = inputs
 
     def read_input(self, fin):
 
         '''
-            The convention is mostly TOML
-            [blocks] organize parameters into subgroups
-            # comments out a whole line
-            ! comments out everything after the '!'
-              blank lines are ignored
+            Read TOML input file
         '''
 
-        with open(fin) as f:
-            data = f.readlines()
+        with open(fin, mode="rb") as f:
+            obj = tomllib.load(f)
 
-        obj = {}
-        header = ''
-        for line in data:
-
-            # remove comments
-            line = line.split('!')[0]
-
-            # skip disabled lines
-            if line.find('#') > -1:
-                continue
-
-            # parse headers
-            if line.find('[') == 0:
-                header = line.split('[')[1].split(']')[0]
-                obj[header] = {}
-                continue
-
-            # skip blanks
-            if line.find('=') < 0:
-                continue
-
-            # store data
-            key, value = line.split('=')
-            key   = key.strip()
-            value = value.strip()
-            
-            if header == '':
-                obj[key] = value
-            else:
-                obj[header][key] = value
-
-        self.inputs = obj
+        return obj
 
 
     def write(self, fout='temp.in'):

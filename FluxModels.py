@@ -22,6 +22,20 @@ This library contains model functons for fluxes.
 + there is the GX flux model
 '''
 
+def FluxModelFactory(inputs):
+
+    model_parameters = inputs.get('model', {})
+    my_model = model_parameters.get('model', 'GX')
+
+    models = {
+       "GX": GX_FluxModel,
+       "ReLU": ReLU_FluxModel,
+       "ReLU-particle-only": ReLU_FluxModel,
+       "diffusive": Barnes_Model2
+    }
+    return models[my_model]()
+
+
 def ReLU(x,a=1,m=1):
     '''
        piecewise-linear function
@@ -46,17 +60,11 @@ def Step(x,a=0.5,m=1.):
         return m
 
 
-# for a particle and heat sources
-def Gaussian(x, A=2, sigma=.3, x0=0):
-    exp = - ( (x - x0) / sigma)**2  / 2
-    return A * np.e ** exp
-
 
 '''
 analytic flux model based on ReLU + neoclassical
 '''
-# rename as ReluFluxModel
-class Flux_model():
+class ReLU_FluxModel():
 
     def __init__(self,
                # neoclassical diffusion coefficient
@@ -173,7 +181,7 @@ class Barnes_Model2():
 
 
 WAIT_TIME = 1  # this should come from the Trinity Engine
-class GX_Flux_Model():
+class GX_FluxModel():
 
     def __init__(self, engine, 
                        gx_root='gx-files/', 

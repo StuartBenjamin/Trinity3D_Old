@@ -4,13 +4,17 @@ import matplotlib.pyplot as plt
 import profiles as pf # needed for setting pf.rho_axis
 from profiles import Profile, Flux_profile, Flux_coefficients, Psi_profiles, init_profile
 
+from Grid import Grid
+from Time import Time
+from Species import SpeciesDict
+from Solver import TransportSolver
 from Geometry import VmecReader
 from Geometry import VmecRunner
 #from Geometry import DescRunner
 from Trinity_io import Trinity_Input
 from Collisions import Collision_Model
 
-import models as mf 
+from FluxModels import FluxModelFactory
 import fusion_lib as fus
 
 from scipy.interpolate import interp1d
@@ -55,50 +59,7 @@ class Trinity_Engine():
 
         return x
 
-    def __init__(self, trinity_input,
-                       N_radial = 10, # number of radial points
-                       rho_edge = 0.8,
-                       n_core = 4,
-                       n_edge = 0.5,
-                       Ti_core = 8,
-                       Ti_edge = 2,
-                       Te_core = 3,
-                       Te_edge = .3,
-                       R_major = 4,
-                       a_minor = 1,
-                       Ba = 3,
-                       alpha = 1,          # explicit to implicit mixer
-                       dtau  = 0.5,        # step size 
-                       N_steps  = 1000,    # total Time = dtau * N_steps
-                       N_prints = 10,
-                       max_newton_iter = 4,
-                       newton_threshold = 2.0,
-                       Sn_height  = 0,  
-                       Spe_height = 0,
-                       Spi_height = 0, 
-                       Sn_width   = 0.1,   
-                       Spi_width  = 0.1, 
-                       Spe_width  = 0.1,  
-                       Sn_center  = 0.0,   
-                       Spi_center = 0.0, 
-                       Spe_center = 0.0,  
-                       ext_source_file = '',
-                       model      = 'GX',
-                       D_neo      = 0.5,
-                       collisions         = True,
-                       alpha_heating      = True,
-                       bremstrahlung      = True,
-                       update_equilibrium = True,
-                       turbulent_exchange = False,
-                       compute_surface_areas = True,
-                       fix_electrons = False,
-                       gx_inputs   = 'gx-files/',
-                       gx_outputs  = 'gx-files/run-dir/',
-                       gx_sample   = 'gx-sample.in',
-                       vmec_path  = './',
-                       vmec_wout  = '',
-                       eq_model   = "",
-                       ):
+    def __init__(self, trinity_input):
 
         ### Loading Trinity Inputs
         '''
@@ -106,156 +67,39 @@ class Trinity_Engine():
         loads defaults first,
         then overwrite with input file as needed.
         '''
-
-        tr3d = Trinity_Input(trinity_input) # parse the input file data
+        # Parse the input file data, and store in dictionary self.input_dict
+        self.inputs = Trinity_Input(trinity_input)
+        self.input_dict = self.inputs.input_dict
         self.trinity_infile = trinity_input  # save input file name
-        self.inputs = tr3d
-
         self.version = _version
         
+        # initialize grid
+        self.grid = Grid(self.input_dict)
 
-        N_radial = self.load( N_radial, "int(tr3d.inputs['grid']['N_radial'])" )
-        rho_edge = float ( tr3d.inputs['grid']['rho_edge'] )
-        alpha = self.load( alpha, "float( tr3d.inputs['grid']['alpha'] )" )
-        dtau = self.load( dtau, "float( tr3d.inputs['grid']['dtau'] )" )
-        N_steps = self.load( N_steps, "int( tr3d.inputs['grid']['N_steps'] )" )
+        # initialize time
+        self.time = Time(self.input_dict)
 
-        max_newton_iter = self.load( max_newton_iter, "int( tr3d.inputs['time']['max_newton_iter'] )" )
-        newton_threshold = self.load( newton_threshold, "int( tr3d.inputs['time']['newton_threshold'] )" )
-        # these "time" settings succeed the "grid" settings above, keeping both now for backwards compatibility
-        alpha = self.load( alpha, "float( tr3d.inputs['time']['alpha'] )" )
-        dtau = self.load( dtau, "float( tr3d.inputs['time']['dtau'] )" )
-        N_steps = self.load( N_steps, "int( tr3d.inputs['time']['N_steps'] )" )
-        
-        model    = tr3d.inputs['model']['model']
-        D_neo    = float ( tr3d.inputs['model']['D_neo'] )
-        
-        n_core  = float ( tr3d.inputs['profiles']['n_core' ] )
-        n_edge  = float ( tr3d.inputs['profiles']['n_edge' ] )
-        Ti_core = float ( tr3d.inputs['profiles']['Ti_core'] )
-        Ti_edge = float ( tr3d.inputs['profiles']['Ti_edge'] )
-        Te_core = float ( tr3d.inputs['profiles']['Te_core'] )
-        Te_edge = float ( tr3d.inputs['profiles']['Te_edge'] )
-        
-        Sn_height  = float ( tr3d.inputs['sources']['Sn_height' ] ) 
-        Spi_height = float ( tr3d.inputs['sources']['Spi_height'] ) 
-        Spe_height = float ( tr3d.inputs['sources']['Spe_height'] ) 
-        Sn_width   = float ( tr3d.inputs['sources']['Sn_width'  ] ) 
-        Spi_width  = float ( tr3d.inputs['sources']['Spi_width' ] ) 
-        Spe_width  = float ( tr3d.inputs['sources']['Spe_width' ] ) 
-        Sn_center  = float ( tr3d.inputs['sources']['Sn_center' ] ) 
-        Spi_center = float ( tr3d.inputs['sources']['Spi_center'] ) 
-        Spe_center = float ( tr3d.inputs['sources']['Spe_center'] ) 
-        
-        ext_source_file = self.load( ext_source_file, "tr3d.inputs['sources']['ext_source_file']" )
+        # initialize all species
+        self.species = SpeciesDict(self.input_dict, self.grid)
 
-        # maybe add a print statement that declares all these settings?
-        collisions = self.load( collisions, "tr3d.inputs['debug']['collisions']" ) 
-        alpha_heating = self.load( alpha_heating, "tr3d.inputs['debug']['alpha_heating']" )
-        bremstrahlung = self.load( bremstrahlung, "tr3d.inputs['debug']['bremstrahlung']" )
-        update_equilibrium = self.load( update_equilibrium, "tr3d.inputs['debug']['update_equilibrium']" )
-        turbulent_exchange = self.load( turbulent_exchange, "tr3d.inputs['debug']['turbulent_exchange']" )
-        compute_surface_areas = self.load( compute_surface_areas, "tr3d.inputs['debug']['compute_surface_areas']" ) 
-        self.fix_electrons = self.load( fix_electrons, "tr3d.inputs['debug']['fix_electrons']" ) 
-       
-        gx_inputs  = self.load( gx_inputs, "tr3d.inputs['path']['gx_inputs']")
-        gx_outputs = self.load( gx_outputs, "tr3d.inputs['path']['gx_outputs']")
-        gx_sample = self.load( gx_sample, "tr3d.inputs['path']['gx_sample']")
-        vmec_path = self.load( vmec_path, "tr3d.inputs['path']['vmec_path']")
-        vmec_wout = self.load( vmec_wout, "tr3d.inputs['geometry']['vmec_wout']")
+        # initialize normalizations
+        #self.norms = Normalizations()
 
-        R_major   = self.load( R_major, "float( tr3d.inputs['geometry']['R_major'] )" ) 
-        a_minor   = self.load( a_minor, "float( tr3d.inputs['geometry']['a_minor'] )" ) 
-        Ba        = self.load( Ba     , "float( tr3d.inputs['geometry']['Ba'     ] )" ) 
+        # initialize flux model
+        self.flux_model = FluxModelFactory(self.input_dict)
 
-        N_prints = int ( tr3d.inputs['log']['N_prints'] )
-        f_save   = tr3d.inputs['log']['f_save']
+        # initialize geometry
+        #self.geometry = Geometry(self.input_dict)
 
-        # new option
-        eq_model = self.load( eq_model, "tr3d.inputs['equilibria']['eq_model']")
+        # initialize physics
+        #self.physics = Physics(self.input_dict)
 
-        ### Finished Loading Trinity Inputs
+        # initialize solver
+        self.solver = TransportSolver(self.grid, self.time, self.species)
 
-        self.dtau     = dtau
-        self.alpha    = alpha
-        self.N_steps  = N_steps
-        self.N_prints = N_prints
+        # initialize diagnostics
+        #self.diagnostics = Diagnostics()
 
-        self.max_newton_iter = max_newton_iter
-        self.newton_threshold = newton_threshold
-
-        self.N_radial = N_radial         # if this is total points, including core and edge, then GX simulates (N-2) points
-        self.n_core   = n_core
-        self.n_edge   = n_edge
-        self.Ti_core   = Ti_core
-        self.Ti_edge   = Ti_edge
-        self.Te_core   = Te_core
-        self.Te_edge   = Te_edge
-
-        self.pi_core =  n_core * Ti_core
-        self.pe_core =  n_core * Te_core
-        self.pi_edge =  n_edge * Ti_edge
-        self.pe_edge =  n_edge * Te_edge
-
-        self.model    = model
-        self.f_save = f_save
-
-        rho_inner = rho_edge / (2*N_radial - 1)
-        rho_axis = np.linspace(rho_inner, rho_edge, N_radial) # radial axis, N points
-        mid_axis = (rho_axis[1:] + rho_axis[:-1])/2  # centers, (N-1) points
-        self.rho_axis = rho_axis
-        self.mid_axis = mid_axis
-
-        self.rho_edge = rho_edge
-        self.rho_inner = rho_inner
-
-        # set axis for Profiles library
-        pf.rho_axis   = rho_axis
-        pf.mid_axis   = mid_axis
-        '''
-        The Profiles.py library needs rho_axis and mid_axis for intitative Profile and Flux_Profile class objects.
-        This line of code sets them as a global variable of the library, during the init of the trinity engine.
-
-        It is not ideal, and I am open to suggestions on how to do this better.
-        '''
-        ### init profiles
-        #     temporary profiles, later init from VMEC
-        n  = (n_core  - n_edge )*(1 - (rho_axis/rho_edge)**2) + n_edge
-        Ti = (Ti_core - Ti_edge)*(1 - (rho_axis/rho_edge)**2) + Ti_edge
-        Te = (Te_core - Te_edge)*(1 - (rho_axis/rho_edge)**2) + Te_edge
-        pi = n * Ti
-        pe = n * Te
-
-        self.vmec_pressure_old = (pi + pe) * 1e20 * (1e3 * 1.6e-19) # for comparison later
-
-
-        # feature settings
-        self.collisions = collisions
-        self.alpha_heating = alpha_heating
-        self.bremstrahlung = bremstrahlung
-        self.update_equilibrium = update_equilibrium
-        self.turbulent_exchange = turbulent_exchange
-        self.compute_surface_areas = compute_surface_areas
-
-        # init local variables
-        self.time   = 0
-        self.t_idx  = 0
-        self.gx_idx = 0
-        self.p_idx  = 0
-        self.prev_p_id = 0
-        
-        self.needs_new_flux = True
-        self.needs_new_vmec = False
-        self.newton_mode = False
-
-
-        # pre-compute the block identity matrix
-        N_block = self.N_radial - 1
-        I = np.identity(N_block)
-        Z = np.zeros_like(I)
-        self.I_mat = np.block([[I, Z, Z ],
-                               [Z, I, Z ],
-                               [Z, Z, I ]])
 
         ### overwriten if using VMEC
         self.Ba      = Ba # average field on LCFS
@@ -274,19 +118,6 @@ class Trinity_Engine():
             self.desc = desc
 
         
-        # TODO: consider case where this is non-constant
-        self.drho  = (rho_edge - rho_inner) / (N_radial - 1) 
-
-
-        # save
-        self.density     = init_profile(n)
-        self.pressure_i  = init_profile(pi)
-        self.pressure_e  = init_profile(pe)
-
-        # new 9/7: save a copy of the initial profiles
-        self.density_init     = self.density     
-        self.pressure_i_init  = self.pressure_i  
-        self.pressure_e_init  = self.pressure_e  
 
         # init alpha heating
         self.alpha_ion_fraction = np.zeros_like(n)

@@ -3,7 +3,6 @@ import matplotlib.pyplot as plt
 
 import trinity_lib as trl
 import diagnostics as dgn
-import models      as mf
 
 import os, sys, time
 

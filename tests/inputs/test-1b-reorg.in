@@ -1,8 +1,9 @@
 [grid]
+  N_radial = 10
   rho_edge = 0.85
   dtau     = 2e-3
   N_steps  = 200
-  alpha    = 1
+  alpha    = 0
 
 [path]
   vmec_path = "gx-geometry/"
@@ -14,24 +15,22 @@
   #model = GX          # use slurm to call GX
   D_neo = 0
 
-[profiles]
-  n_core  = 5
-  n_edge  = 2
-  Ti_core = 5
-  Ti_edge = 5
-  Te_core = 5
-  Te_edge = 5
+[[species]]
+type = "deuterium"
+#use_as_reference = true
+density = {core = 5, edge = 2, evolve = true}
+temperature = {core = 5, edge = 2, evolve = true}
+density_source = { height = 0, width = 0.2, center = 0.5 }
+pressure_source = { height = 0, width = 0.2, center = 0.5 }
 
-[sources]
-  Sn_height   = 0
-  Spi_height  = 0
-  Spe_height  = 0
-  Sn_width    = 0.2
-  Spi_width   = 20
-  Spe_width   = 20
-  Sn_center   = 0.3
-  Spi_center  = 0.5
-  Spe_center  = 0.5
+[[species]]
+type = "electron"
+#adiabatic = true
+density = {core = 5, edge = 2, evolve = true}
+#temperature = {core = 5, edge = 2, equal_to = "ion"}
+temperature = {core = 5, edge = 2, evolve = true}
+density_source = { height = 0, width = 0.2, center = 0.5 }
+pressure_source = { height = 0, width = 0.2, center = 0.5 }
 
 [geometry]
   Ba        = 4

@@ -7,7 +7,7 @@ This class writes the LOG file that saves outputs from Trinity.
 This file also contains older "diagnostic" classes which are no longer used
 '''
 
-class ProfileSaver:
+class Diagnostics:
 
     """
     Rename to Trinity Log
