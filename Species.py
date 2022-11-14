@@ -17,8 +17,10 @@ class SpeciesDict():
         adiabatic_species_count = 0
         first_type = None
 
-        self.n_evolve = OrderedDict()
-        self.T_evolve = OrderedDict()
+        self.N_dens_profiles = 0
+        self.N_temp_profiles = 0
+        self.N_profiles = 0
+
         for sp in species_list_params:
             # initialize a species object
             s = Species(sp, grid)
@@ -42,24 +44,19 @@ class SpeciesDict():
                 first_type = s.type
 
             if s.evolve_density:
-                self.n_evolve["n_"+s.type] = s.n.profile
+                self.N_dens_profiles = self.N_dens_profiles + 1
             if s.temperature_equal_to != None:
                 s.evolve_temperature = False
             if s.evolve_temperature: 
-                self.T_evolve["T_"+s.type] = s.T.profile
+                self.N_temp_profiles = self.N_temp_profiles + 1
 
-        # remove the last n_evolve because it can be set by quasineutrality
-        if len(self.n_evolve) > 0:
-            self.n_evolve.popitem()
-
-        # create dictionary of evolved densities and temperatures
-        self.nT_dict = OrderedDict(**self.n_evolve, **self.T_evolve)
-
+        # the last density profile can be set by quasineutrality
+        if self.N_dens_profiles > 0:
+            self.N_dens_profiles = self.N_dens_profiles - 1
         # number of evolved profiles
-        self.N_profiles = len(self.nT_dict)
+        self.N_profiles = self.N_dens_profiles + self.N_temp_profiles
 
-        # copy nT_dict values into a stacked numpy vector
-        self.nT_vec = self.nT_dict_copyto_vec() 
+        self.nt_vec = self.get_vec_from_profs()
 
         # sanity checks
         assert adiabatic_species_count <= 1, "Error: cannot have more than one adiabatic species"
@@ -77,26 +74,59 @@ class SpeciesDict():
 
         print(f"Using {self.species['reference'].type} as reference species for flux tube calculations.")
 
-    def nT_dict_copyto_vec(self):
+    def get_vec_from_profs(self):
         '''
-        copy values from nT_dict into a numpy vector nT_vec
+        copy and concatenate values from species profiles into a numpy vector
         '''
-        nT_vec = np.concatenate(list(self.nT_dict.values()))
-        return nT_vec
+        nt_vec = []
+        ndens = 0
+        for type, s in self.species.items():
+            if s.evolve_density:
+                ndens = ndens + 1
+                if ndens <= self.N_dens_profiles:
+                    nt_vec.append(s.n().profile)
 
-    def nT_dict_copyfrom_vec(self, vec):
+        for type, s in self.species.items():
+            if s.evolve_temperature:
+                nt_vec.append(s.p().profile)
+            
+        nt_vec = np.concatenate(nt_vec)
+
+        return nt_vec
+
+    def get_profs_from_vec(self, nt_vec):
         '''
-        copy values from nT_vec vector into the ordered nT_dict and species dictionary
+        copy values from nt_vec vector into the species profiles
         '''
         offset = 0
-        for k, v in self.nT_dict.items():
-            self.nT_dict[k] = vec[offset:offset+self.N_radial]
-            if k[0] == 'n':
-                self.species[k[2:]].n = GridProfile(self.nT_dict[k], self.grid)
-            if k[0] == 'T':
-                self.species[k[2:]].T = GridProfile(self.nT_dict[k], self.grid)
-            offset = offset + self.N_radial
-        
+        ndens = 0
+        charge_density = np.zeros(self.N_radial)
+        for s in self.species.values():
+            if s.evolve_density:
+                ndens = ndens + 1
+                if ndens <= self.N_dens_profiles:
+                    s.n().profile = nt_vec[offset:offset+self.N_radial]
+                    charge_density = charge_density + s.Z*s.n().profile
+                    offset = offset + self.N_radial
+            else:
+                # non-evolved species still count towards charge density
+                charge_density = charge_density + s.Z*s.n().profile
+
+        # use quasineutrality to set density of last evolved species.
+        # this needs to happen outside the above loop to ensure charge_density
+        # has been computed correctly.
+        ndens = 0
+        for s in self.species.values():
+            if s.evolve_density:
+                ndens = ndens + 1
+                if ndens > self.N_dens_profiles:
+                    s.n().profile = -charge_density/s.Z
+
+        for s in self.species.values():
+            if s.evolve_temperature:
+                s.p().profile = nt_vec[offset:offset+self.N_radial]
+                offset = offset + self.N_radial
+
 
 class Species():
 
@@ -108,9 +138,14 @@ class Species():
         density_parameters = sp.get('density', {})
         temperature_parameters = sp.get('temperature', {})
 
+        # flags controlling density and temperature evolution
         self.evolve_density = density_parameters.get('evolve', True)
         self.evolve_temperature = temperature_parameters.get('evolve', True)
         self.temperature_equal_to = temperature_parameters.get('equal_to', None)
+
+        # physical parameters
+        self.mass = sp.get('mass') or self.get_mass()  # mass in units of proton mass
+        self.Z = sp.get('Z') or self.get_charge()      # charge in units of e
         
         # initial profiles
         self.n_core = density_parameters.get('core', 4)
@@ -135,14 +170,34 @@ class Species():
         self.init_sources(grid)
 
     def init_profiles(self, grid):
-        self.n = GridProfile((self.n_core - self.n_edge)*(1 - (grid.rho_axis/grid.rho_edge)**2) + self.n_edge, grid)
-        self.T = GridProfile((self.T_core - self.T_edge)*(1 - (grid.rho_axis/grid.rho_edge)**2) + self.T_edge, grid)
-        self.p = self.n * self.T
+        self.n_prof = GridProfile((self.n_core - self.n_edge)*(1 - (grid.rho_axis/grid.rho_edge)**2) + self.n_edge, grid)
+        T_prof = GridProfile((self.T_core - self.T_edge)*(1 - (grid.rho_axis/grid.rho_edge)**2) + self.T_edge, grid)
+        self.p_prof = self.n_prof * T_prof
 
         # save a copy of initial profiles separately
-        self.n_init = self.n
-        self.T_init = self.T
-        self.p_init = self.p
+        self.n_init = self.n_prof
+        self.p_init = self.p_prof
+
+    def n(self):
+        return self.n_prof
+
+    def p(self):
+        return self.p_prof
+
+    def T(self):
+        return self.p_prof / self.n_prof
+
+    def set_n(self, n):
+        if isinstance(n, GridProfile):
+            self.n_prof = n
+        else:
+            self.n_prof.profile = n
+
+    def set_p(self, p):
+        if isinstance(p, GridProfile):
+            self.p_prof.profile = p
+        else:
+            self.p_prof.profile = p
 
     def init_sources(self, grid):
         ### sources
@@ -153,11 +208,39 @@ class Species():
         
         self.source_model = 'Gaussian'
         
-    def update_profiles(self):
-        pass
-
     # for a particle and heat sources
     def Gaussian(self, x, A=2, sigma=.3, x0=0):
         exp = - ( (x - x0) / sigma)**2  / 2
         return A * np.e ** exp
+
+    def get_mass(self):
+        ''' 
+        Look-up table for species mass in units of proton mass.
+        '''
+        if self.type == "hydrogen":
+            return 1.0
+        if self.type == "deuterium":
+            return 2.0
+        elif self.type == "tritium":
+            return 3.0
+        elif self.type == "electron":
+            return 0.000544617021
+        else:
+            assert False, f"species '{self.type}' has unknown mass. use mass parameter in input file (with units of proton mass)."
+
+    def get_charge(self):
+        ''' 
+        Look-up table for species charge in units of e.
+        '''
+        if self.type == "hydrogen":
+            return 1.0
+        if self.type == "deuterium":
+            return 1.0
+        elif self.type == "tritium":
+            return 1.0
+        elif self.type == "electron":
+            return -1.0
+        else:
+            assert False, f"species '{self.type}' has unknown charge. use Z parameter in input file (with units of e)."
+
 

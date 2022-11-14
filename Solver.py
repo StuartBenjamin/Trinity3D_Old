@@ -10,7 +10,7 @@ class TransportSolver():
         # initialize an N_prof x N_prof identity matrix
         self.I_mat = np.identity(self.N_profiles*grid.N_radial)
 
-        y_init = species.nT_vec
+        y_init = species.get_vec_from_profs()
         self.y_hist = []
         self.y_hist.append(y_init)
         self.y_error = np.zeros_like(y_init)
