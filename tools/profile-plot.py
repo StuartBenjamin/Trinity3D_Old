@@ -97,20 +97,27 @@ green_map = pl.cm.YlGn(np.linspace(0.25,1,N))
 purple_map = pl.cm.Purples(np.linspace(0.25,1,N))
 
 n_leg = 5
-t_plot_freq = int(np.rint(N/n_leg)) # Ensures we only plot a maximum of n_leg timesteps in the legend.
+t_plot_freq = int(np.rint(N_steps/n_leg)) # Ensures we only plot a maximum of n_leg timesteps in the legend.
 
 # time evolution
+t_old = -1
+i_plot = 0
 for t in np.arange(N):
 
-    if ( t % N_step_print):
+    t_curr = time[t]
+
+    if ( t_curr == t_old):
         # skip majority of prints
         continue
+    else:
+        t_old = t_curr
 
     # plot profiles
-    if t%t_plot_freq == 0:
+    if i_plot%t_plot_freq == 0:
         axs[0,0].plot(axis,n [t] ,'.-', color=green_map[t], label = '{:.2f}'.format(time[t]))
     else:
         axs[0,0].plot(axis,n [t] ,'.-', color=green_map[t])
+    i_plot = i_plot + 1
 
     # plot profiles
     if t == 0:

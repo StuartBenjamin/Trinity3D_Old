@@ -1,11 +1,15 @@
 [grid]
   rho_edge = 0.85
-  dtau     = 2e-3
-  N_steps  = 200
+  dtau     = 1
+  N_steps  = 10
   alpha    = 1
 
 [path]
   vmec_path = "gx-geometry/"
+
+[time]
+  newton_threshold = 0.001
+  max_newton_iter = 4
 
 [model]
   #model = ReLU         # default
