@@ -85,6 +85,35 @@ class Profile():
         else:
             raise Exception("Type mismatch in Profile.__truediv__")
 
+    def __neg__(A):
+        return -1*A
+  
+    def __eq__(A, B):
+        if isinstance(B, A.__class__):
+            return (A.profile == B.profile).any()
+        else:
+            raise Exception("Type mismatch in Profile.__eq__")
+        
+    def __getitem__(A, i):
+        return A.profile[i]
+
+    def __setitem__(A, i, val):
+        A.profile[i] = val
+
+    def __len__(A):
+        return len(A.profile)
+
+    def __repr__(A):
+        return A.profile.__repr__()
+
+    def __set__(A, B):
+        if isinstance(B, A.__class__):
+            A = B
+        elif isinstance(B, (list, tuple, np.ndarray)) and len(B) == len(A.profile):
+            A.profile = B
+        else:
+            raise Exception("Type mismatch in Profile.__set__")
+        
 
 class GridProfile(Profile):
 

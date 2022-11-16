@@ -20,6 +20,9 @@ class SpeciesDict():
         self.N_dens_profiles = 0
         self.N_temp_profiles = 0
         self.N_profiles = 0
+        self.n_evolve_list = []
+        self.T_evolve_list = []
+        self.T_equalto_list = []
 
         for sp in species_list_params:
             # initialize a species object
@@ -45,14 +48,22 @@ class SpeciesDict():
 
             if s.evolve_density:
                 self.N_dens_profiles = self.N_dens_profiles + 1
+                self.n_evolve_list.append(s.type)
             if s.temperature_equal_to != None:
                 s.evolve_temperature = False
+                self.T_equalto_list.append(s.type)
             if s.evolve_temperature: 
                 self.N_temp_profiles = self.N_temp_profiles + 1
+                self.T_evolve_list.append(s.type)
 
-        # the last density profile can be set by quasineutrality
+        # the last density profile can be set by quasineutrality,
+        # so don't include it in count of evolved profiles
         if self.N_dens_profiles > 0:
             self.N_dens_profiles = self.N_dens_profiles - 1
+            self.qneut_species = self.species[self.n_evolve_list[-1]]
+            self.n_evolve_list = self.n_evolve_list[:-1]
+        else:
+            self.qneut_species = None
         # number of evolved profiles
         self.N_profiles = self.N_dens_profiles + self.N_temp_profiles
 
@@ -61,34 +72,63 @@ class SpeciesDict():
         # sanity checks
         assert adiabatic_species_count <= 1, "Error: cannot have more than one adiabatic species"
         assert reference_species_count <= 1, "Error: cannot have more than one species set as reference species"
+        for t in self.T_equalto_list:
+            assert self.species[t].temperature_equal_to in self.species.keys(), f"Error: cannot set '{t}' temperature equal to non-existent species '{self.species[t].temperature_equal_to}'"
 
         # label adiabatic species in dictionary
         if adiabatic_species_count == 1:
-            self.species['adiabatic'] = self.species[adiabatic_type]
+            self.adiabatic_species = self.species[adiabatic_type]
+        else:
+            self.adiabatic_species = None
 
         # label reference species in dictionary
         if reference_species_count == 0:
-            self.species['reference'] = self.species[first_type]
+            self.ref_species = self.species[first_type]
         else:
-            self.species['reference'] = self.species[reference_type]
+            self.ref_species = self.species[reference_type]
 
-        print(f"Using {self.species['reference'].type} as reference species for flux tube calculations.")
+        print(f"This calculation contains {[s for s in self.species]} species.")
+        print(f"Evolving densities: {self.n_evolve_list}")
+        if self.qneut_species:
+            print(f"The '{self.qneut_species.type}' density will be set by quasineutrality.")
+        print(f"Evolving temperatures: {self.T_evolve_list}")
+        for t in self.T_equalto_list:
+            print(f"The '{t}' temperature will be set equal to the {self.species[t].temperature_equal_to} temperature.")
+
+        if self.adiabatic_species:
+            print(f"The '{self.adiabatic_species.type}' species will be treated adiabatically.")
+
+        print(f"Using '{self.ref_species.type}' as the reference species for turbulence calculations.")
+
+        #print("Base profiles:")
+        #kn, kt = self.get_perturbed_fluxgrads()
+        #print([l for l in kn])
+        #print([l for l in kt])
+
+        #print("Perturbed profiles:")
+        #for t in self.n_evolve_list:
+        #    print("perturb", t, "density")
+        #    kn, kt = self.get_perturbed_fluxgrads(pert_n=t, pert_T=None)
+        #    print([l for l in kn])
+        #    print([l for l in kt])
+
+        #for t in self.T_evolve_list:
+        #    print("perturb", t, "temp")
+        #    kn, kt = self.get_perturbed_fluxgrads(pert_T=t, pert_n=None)
+        #    print([l for l in kn])
+        #    print([l for l in kt])
 
     def get_vec_from_profs(self):
         '''
         copy and concatenate values from species profiles into a numpy vector
         '''
         nt_vec = []
-        ndens = 0
-        for type, s in self.species.items():
-            if s.evolve_density:
-                ndens = ndens + 1
-                if ndens <= self.N_dens_profiles:
-                    nt_vec.append(s.n().profile)
 
-        for type, s in self.species.items():
-            if s.evolve_temperature:
-                nt_vec.append(s.p().profile)
+        for t in self.n_evolve_list:
+            nt_vec.append(self.species[t].n().profile)
+
+        for t in self.T_evolve_list:
+            nt_vec.append(self.species[t].p().profile)
             
         nt_vec = np.concatenate(nt_vec)
 
@@ -106,27 +146,46 @@ class SpeciesDict():
                 ndens = ndens + 1
                 if ndens <= self.N_dens_profiles:
                     s.n().profile = nt_vec[offset:offset+self.N_radial]
-                    charge_density = charge_density + s.Z*s.n().profile
+                    charge_density = charge_density + s.Z*s.n()
                     offset = offset + self.N_radial
             else:
                 # non-evolved species still count towards charge density
-                charge_density = charge_density + s.Z*s.n().profile
+                charge_density = charge_density + s.Z*s.n()
 
         # use quasineutrality to set density of last evolved species.
         # this needs to happen outside the above loop to ensure charge_density
         # has been computed correctly.
-        ndens = 0
-        for s in self.species.values():
-            if s.evolve_density:
-                ndens = ndens + 1
-                if ndens > self.N_dens_profiles:
-                    s.n().profile = -charge_density/s.Z
+        self.qneut_species.set_n(-charge_density/s.Z)
 
         for s in self.species.values():
             if s.evolve_temperature:
                 s.p().profile = nt_vec[offset:offset+self.N_radial]
                 offset = offset + self.N_radial
 
+    def get_perturbed_fluxgrads(self, pert_n=None, pert_T=None, rel_step = 0.2, abs_step = 0.3):
+
+        kns = []
+        kts = []
+        for s in self.species.values():
+            kn, kt = s.get_fluxgrads()
+            for j in np.arange(len(kn)):
+                if pert_n == s.type:
+                    # perturb density gradient at fixed pressure gradient
+                    kn[j] = kn[j] + abs_step
+                    kt[j] = kt[j] - abs_step
+                if pert_T == s.type:
+                    kt[j] = max(kt[j]*(1+rel_step), kt[j] + abs_step)
+
+                # if perturbing density, maintain quasineutrality of density gradient in species evolved by quasineutrality
+                if self.qneut_species and s.type == self.qneut_species.type and pert_n != None:
+                    # perturb density gradient at fixed pressure gradient
+                    kn[j] = kn[j] - self.species[pert_n].Z*abs_step/s.Z
+                    kt[j] = kt[j] + self.species[pert_n].Z*abs_step/s.Z
+                
+            kns.append(kn)
+            kts.append(kt)
+
+        return kns, kts
 
 class Species():
 
@@ -188,16 +247,16 @@ class Species():
         return self.p_prof / self.n_prof
 
     def set_n(self, n):
-        if isinstance(n, GridProfile):
-            self.n_prof = n
-        else:
-            self.n_prof.profile = n
+        self.n_prof = n
 
     def set_p(self, p):
-        if isinstance(p, GridProfile):
-            self.p_prof.profile = p
-        else:
-            self.p_prof.profile = p
+        self.p_prof = p
+
+    def get_fluxgrads(self):
+        kap_n = -1*self.n_prof.log_gradient_as_FluxProfile()
+        T_prof = self.p_prof / self.n_prof
+        kap_t = -1*T_prof.log_gradient_as_FluxProfile()
+        return kap_n, kap_t
 
     def init_sources(self, grid):
         ### sources
