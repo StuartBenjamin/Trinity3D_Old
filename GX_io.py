@@ -202,6 +202,7 @@ class GX_Output():
              qflux = np.nan_to_num(qflux)
 
         self.qflux = qflux
+        self.pflux = f.groups['Fluxes'].variables['pflux'][:,0]
         self.time  = f.variables['time'][:]
 
         self.tprim  = f.groups['Inputs']['Species']['T0_prime'][:]
@@ -220,6 +221,8 @@ class GX_Output():
 
     def exponential_window_estimator(self, tau=100):
 
+        ### todo: separate data from physics. let this take flux as an argument, so it can work for both heat and particle flux
+
         # load data
         time  = self.time
         qflux = self.qflux
@@ -233,7 +236,7 @@ class GX_Output():
         Var_Q_avg = []
         
         # loop through time
-        N = len(self.qflux)
+        N = len(qflux)
         for k in np.arange(N):
         
             # get q(t)
@@ -260,6 +263,8 @@ class GX_Output():
         return Q_avg[-1], Var_Q_avg[-1]
 
     def check_convergence(self, tau_list=[10,50,100], threshold=0.5):
+
+        # turtle: I don't think this is being used yet, it may not have been tested 11/17
 
         '''
         Runs the exponential moving average for a list of taus
