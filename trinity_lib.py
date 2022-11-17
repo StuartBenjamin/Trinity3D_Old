@@ -72,7 +72,7 @@ class Trinity_Engine():
                        N_steps  = 1000,    # total Time = dtau * N_steps
                        N_prints = 10,
                        max_newton_iter = 4,
-                       newton_threshold = 2.0,
+                       newton_threshold = 0.02,
                        Sn_height  = 0,  
                        Spe_height = 0,
                        Spi_height = 0, 
@@ -121,7 +121,7 @@ class Trinity_Engine():
         N_steps = self.load( N_steps, "int( tr3d.inputs['grid']['N_steps'] )" )
 
         max_newton_iter = self.load( max_newton_iter, "int( tr3d.inputs['time']['max_newton_iter'] )" )
-        newton_threshold = self.load( newton_threshold, "int( tr3d.inputs['time']['newton_threshold'] )" )
+        newton_threshold = self.load( newton_threshold, "float( tr3d.inputs['time']['newton_threshold'] )" )
         # these "time" settings succeed the "grid" settings above, keeping both now for backwards compatibility
         alpha = self.load( alpha, "float( tr3d.inputs['time']['alpha'] )" )
         dtau = self.load( dtau, "float( tr3d.inputs['time']['dtau'] )" )
@@ -412,16 +412,6 @@ class Trinity_Engine():
             self.source_model = 'external'
             self.ext_source_file = ext_source_file
         # end source function
-
-
-
-        # temp
-        self.record_flux = {}
-        self.record_flux['Q0'] = []
-        self.record_flux['Q1'] = []
-        self.record_flux['dQ'] = []
-        self.record_flux['kT'] = []
-        self.record_flux['dk'] = []
 
     ##### End of __init__ function
 
@@ -965,33 +955,6 @@ class Trinity_Engine():
                                      psi_pepe_plus,
                                      psi_pepe_minus)
 
-    def time_step_LHS(self):
- 
-        # load, dropping last point for Dirchlet fixed boundary condition
-        M_nn   = self.psi_nn .matrix[:-1, :-1]         
-        M_npi  = self.psi_npi.matrix[:-1, :-1]   
-        M_npe  = self.psi_npe.matrix[:-1, :-1]  
-
-        # factor 2/3 for pressure (Barnes 7.115)
-        M_pin  = self.psi_pin .matrix[:-1, :-1] * (2./3) 
-        M_pipi = self.psi_pipi.matrix[:-1, :-1] * (2./3) 
-        M_pipe = self.psi_pipe.matrix[:-1, :-1] * (2./3)      
- 
-        M_pen  = self.psi_pen .matrix[:-1, :-1] * (2./3)       
-        M_pepi = self.psi_pepi.matrix[:-1, :-1] * (2./3)       
-        M_pepe = self.psi_pepe.matrix[:-1, :-1] * (2./3)       
-
-        
-        ## build block-diagonal matrices
-        M = np.block([
-                      [ M_nn , M_npi , M_npe  ], 
-                      [ M_pin, M_pipi, M_pipe ],
-                      [ M_pen, M_pepi, M_pepe ]
-                     ])
-        self.psi_mat = M
-
-        Amat = self.I_mat - self.dtau * self.alpha * M
-        return Amat
 
 
     # use auxiliary sources, add fusion power, subtract Bremstrahlung
@@ -1077,6 +1040,31 @@ class Trinity_Engine():
         self.alpha_ion_fraction = f
 
 
+    def time_step_LHS(self):
+ 
+        # load, dropping last point for Dirchlet fixed boundary condition
+        M_nn   = self.psi_nn .matrix[:-1, :-1]         
+        M_npi  = self.psi_npi.matrix[:-1, :-1]   
+        M_npe  = self.psi_npe.matrix[:-1, :-1]  
+
+        # factor 2/3 for pressure (Barnes 7.115)
+        M_pin  = self.psi_pin .matrix[:-1, :-1] * (2./3) 
+        M_pipi = self.psi_pipi.matrix[:-1, :-1] * (2./3) 
+        M_pipe = self.psi_pipe.matrix[:-1, :-1] * (2./3)      
+ 
+        M_pen  = self.psi_pen .matrix[:-1, :-1] * (2./3)       
+        M_pepi = self.psi_pepi.matrix[:-1, :-1] * (2./3)       
+        M_pepe = self.psi_pepe.matrix[:-1, :-1] * (2./3)       
+
+        
+        ## build block-diagonal matrices
+        M = np.block([
+                      [ M_nn , M_npi , M_npe  ], 
+                      [ M_pin, M_pipi, M_pipe ],
+                      [ M_pen, M_pepi, M_pepe ]
+                     ])
+        self.psi_mat = M
+
     ### Calculate the A Matrix
     def time_step_RHS(self):
  
@@ -1161,73 +1149,58 @@ class Trinity_Engine():
                      + dtau*source_pe 
         # 7/18, these boundary terms were added based on Kittel, but they are not in MAB's thesis. They are important for getting the dynamics at the second to edge point correct.
 
-        bvec3 = np.concatenate( [bvec_n, bvec_pi, bvec_pe] )
-        return bvec3
+        self.force_vec = np.concatenate( [force_n, (2/3)*(force_pi + Ei + Gi + Hi), (2/3)*(force_pe + Ee + Ge + He)] )
+        self.source_vec = np.concatenate( [source_n, source_pi, source_pe] )
+        self.bvec = np.concatenate( [bvec_n, bvec_pi, bvec_pe] )
 
-    ### inverts the matrix
+    # 0th Newton iteration
     def calc_y_next(self):
+
+        self.y_prev = self.y_hist[-1] # y_prev = y^m
         
         # Invert Ax = b
-        Amat = self.time_step_LHS()
-        bvec = self.time_step_RHS()
+        # compute matrices and forces at time index m
+        self.time_step_LHS()
+        self.time_step_RHS()
+        Jac = self.I_mat - self.dtau * self.alpha * self.psi_mat
+        self.bvec_prev = self.bvec # save bvec_prev = b^m
+        self.force_vec_prev = self.force_vec # save force_vec_prev = F^m
+        self.source_vec_prev = self.source_vec # save source_vec_prev = S^m
 
-        Ainv = np.linalg.inv(Amat) 
-        y_next = Ainv @ bvec
+        # compute y_next = y^(m+1, p+1) = y^m + alpha*dt*Psi*(y^(m+1, p+1) - y^(m+1, p)) + alpha*dt*F^(m+1,p) + (1-alpha)*dt*F^m + dt*S^m
+        # (I - alpha*dt*Psi)*y^(m+1, p+1) = y^m - alpha*dt*Psi*y^(m+1, p) + alpha*dt*F^(m+1,p) + (1-alpha)*dt*F^m + dt*S^m
+        y_next = np.linalg.solve(Jac, self.bvec)
         
-        # for debugging the A matrix
-        # plt.figure(); plt.imshow( np.log(np.abs(Amat))); plt.show()
-    
         # save 
         self.y_next = y_next
         self.y_hist.append( y_next )
 
+    # subsequent Newton iterations
     def calc_y_iter(self):
 
-        ##### this 'shorts' out the iteration
-        #self.calc_y_next() # temp
-        #return
+        self.y_curr = self.y_hist[-1] # y_curr = y^(m+1,p)
 
-        y1 = self.y_hist[-1] # this is y_p
+        # compute matrices and forces at this iteration (m+1, p)
+        self.time_step_LHS()
+        self.time_step_RHS() # updates force_vec
+        Jac = self.I_mat - self.dtau * self.alpha * self.psi_mat
+
+        # R = y^(m+1, p) - y^m - alpha*dt*F^(m+1, p) - (1-alpha)*dt*F^m - dt*S^m
+        y1 = self.y_curr
         y0 = self.y_prev
+        F1 = self.force_vec
+        F0 = self.force_vec_prev
+        S0 = self.source_vec_prev # there is no implicit Source term
+        residual = y1 - y0 - self.alpha*self.dtau*F1 - (1-self.alpha)*self.dtau*F0 - self.dtau*S0
 
-        force_n  = self.force_n  
-        force_pi = self.force_pi 
-        force_pe = self.force_pe 
-
-        # load source terms
-        source_n  = self.source_n[:-1] 
-        source_pi = self.source_pi[:-1]
-        source_pe = self.source_pe[:-1]
-
-        F = np.concatenate( [force_n, force_pi, force_pe] ) # Note: F < 0
-        S = np.concatenate( [source_n, source_pi, source_pe] )
-
-        dt = self.dtau
-        y_err = (y1/dt - F - S) - y0/dt # L - o (Barnes notes eq 107)
-
-        # unused debug print statements 10/12
-#        chi2 = np.sum(y_err**2)/2
-#        print(f"(t,p) = {self.t_idx}, {self.p_idx} : {chi2} (y1-y0)")
-
-        ### get the matrix
-        M = self.psi_mat 
-        I = self.I_mat
-
-        Jmat = I/dt - self.alpha * M # assumes alpha = 1, lambda = 0 (eq 110)
-
-        dy = - np.linalg.inv(Jmat) @ y_err # sign is arbitrary, it makes the next equation positive
-        y2 = y1 + dy # this is y_{p+1}
-
-        y_err = (y2/dt - F - S) - y0/dt # L - o (Barnes notes eq 107)
-        # unused debug print statements 10/12
-#        chi2 = np.sum(y_err**2)/2
-#        print(f"(t,p) = {self.t_idx}, {self.p_idx} : {chi2} (yn - y0)")
+        # compute y_next = y^(m+1, p+1)
+        dy = np.linalg.solve(Jac, residual)  # newton step
+        Lambda = 1.0 # relaxation parameter, this is NOT the lambda that controls Levinburg-Marquardt in Barnes notes
+        y_next = self.y_curr - Lambda*dy
 
         # save 
-        self.y_next = y2
-        self.y_hist.append( y2 )
-
-
+        self.y_next = y_next
+        self.y_hist.append( y_next )
 
     def update(self, threshold=10):
         '''
@@ -1325,41 +1298,32 @@ class Trinity_Engine():
 
         # note: these arrays do NOT include the edge boundary point
         y1 = self.y_hist[-1]
+        y0 = self.y_hist[-2]
 
-        if self.newton_mode:
-            y0 = self.y_prev
+        N_mat = self.N_radial - 1
+        n0, pi0, pe0 = np.reshape( y0,(3,N_mat) )
+        n1, pi1, pe1 = np.reshape( y1,(3,N_mat) )
+
+        # compute rms error
+        n_err = n1 - n0
+        pi_err = pi1 - pi0
+        pe_err = pe1 - pe0
+
+        n_rms = np.sqrt( np.sum( np.abs(n_err/n0)**2 )/(self.N_radial-1) )
+        pi_rms = np.sqrt( np.sum( np.abs(pi_err/pi0)**2 )/(self.N_radial-1) )
+        pe_rms = np.sqrt( np.sum( np.abs(pe_err/pe0)**2 )/(self.N_radial-1) )
+
+        if self.fix_electrons:
+            rms = pi_rms
         else:
-            y0 = self.y_hist[-2]
-
-        # load pre-computed force and source terms from Trinity
-        force_n  = self.force_n  
-        force_pi = self.force_pi 
-        force_pe = self.force_pe 
-
-        source_n  = self.source_n[:-1] 
-        source_pi = self.source_pi[:-1]
-        source_pe = self.source_pe[:-1]
-
-        F = np.concatenate( [force_n, force_pi, force_pe] ) # Note: F < 0
-        S = np.concatenate( [source_n, source_pi, source_pe] )
-
-        # compute chi2 error
-        dt = self.dtau
-        y_err = (y1/dt - F - S) - y0/dt
-
-        chi2 = np.max( np.abs(y_err) )
-        #chi2 = np.sum(y_err**2)/2    # Barnes Note Eq (107)
-        #chi2 = np.std(y_err)
-
-        # turtle: todo save y_err as output array
+            rms = np.sqrt( n_rms**2 + pi_rms**2 + pe_rms**2 )/3
 
         out_string = f"(t,p) = {self.t_idx}, {self.p_idx} :: (p_prev, err, iterate) = "
-        #out_string = f"(t,p : p_prev, err, iterate) = {self.t_idx}, {self.p_idx}"
 
         ### decide whether to iterate
         iterate = True
 
-        if chi2 < self.newton_threshold:
+        if rms < self.newton_threshold:
             # error is sufficiently small, do not iterate
             iterate = False
 
@@ -1372,9 +1336,6 @@ class Trinity_Engine():
         if iterate:
 
             self.p_idx += 1
-        
-            # define reference profile for Newton iterations
-            self.y_prev = y0 
 
         else: 
 
@@ -1384,10 +1345,10 @@ class Trinity_Engine():
 
         # save state for Trinity engine
         self.newton_mode = iterate
-        self.y_error = y_err
-        self.chi_error = chi2
+        #self.y_error = y_err
+        self.chi_error = rms
 
-        out_string += f"{self.prev_p_id} {chi2:.3e} {self.newton_mode}"
+        out_string += f"{self.prev_p_id} {rms:.3e} {self.newton_mode}"
         print(out_string)
 
         if not iterate:
