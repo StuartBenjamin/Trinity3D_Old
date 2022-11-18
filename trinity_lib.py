@@ -413,6 +413,17 @@ class Trinity_Engine():
             self.ext_source_file = ext_source_file
         # end source function
 
+
+        # temp
+        self.record_flux = {}
+        self.record_flux['Q0'] = []
+        self.record_flux['Q1'] = []
+        self.record_flux['dQ'] = []
+        self.record_flux['kT'] = []
+        self.record_flux['dk'] = []
+
+
+
     ##### End of __init__ function
 
 

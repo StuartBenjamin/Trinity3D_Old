@@ -87,6 +87,7 @@ while (engine.t_idx < engine.N_steps):
 
     # write restart info
     writer.store_system(engine) # 10/9
+    writer.temp_record(engine) # 10/15
 
     writer.export(engine.f_save)
 

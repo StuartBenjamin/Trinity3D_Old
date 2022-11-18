@@ -73,6 +73,11 @@ class ProfileSaver:
 
         self.log = log
 
+
+    def temp_record(self, engine):
+    
+        self.log['flux_record'] = engine.record_flux
+
     def save(self,engine):
         '''
         This function is called periodically in the time loop.
