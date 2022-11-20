@@ -1,0 +1,22 @@
+[[species]]
+type = "deuterium"
+density = {core = 5, edge = 2, evolve = true}
+temperature = {core = 5, edge = 2, evolve = true}
+density_source = { height = 0, width = 0.2, center = 0.5 }
+pressure_source = { height = 0, width = 0.2, center = 0.5 }
+
+[[species]]
+type = "electron"
+adiabatic = true
+density = {core = 5, edge = 2, evolve = false}
+temperature = {core = 5, edge = 2, equal_to = "deuterium"}
+density_source = { height = 0, width = 0.2, center = 0.5 }
+pressure_source = { height = 0, width = 0.2, center = 0.5 }
+
+[[species]]
+type = "tritium"
+use_as_reference = true
+density = {core = 5, edge = 2, evolve = true}
+temperature = {core = 5, edge = 2, equal_to = "deuterium"}
+density_source = { height = 0, width = 0.2, center = 0.5 }
+pressure_source = { height = 0, width = 0.2, center = 0.5 }
