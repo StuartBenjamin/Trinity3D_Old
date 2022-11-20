@@ -19,8 +19,8 @@ class TestSpecies(unittest.TestCase):
         self.assertEqual(species.n_evolve_list, ['deuterium', 'electron'])
         self.assertEqual(species.qneut_species.type, "tritium")
         self.assertEqual(species.T_evolve_list, ['deuterium', 'tritium'])
-        self.assertEqual(species.species['electron'].temperature_equal_to, 'deuterium')
-        self.assertEqual(species.species['tritium'].temperature_equal_to, None)
+        self.assertEqual(species.species_dict['electron'].temperature_equal_to, 'deuterium')
+        self.assertEqual(species.species_dict['tritium'].temperature_equal_to, None)
 
     def test_2(self):
         inputs = {}
