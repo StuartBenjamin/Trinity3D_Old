@@ -86,7 +86,8 @@ class TestFluxProfile(unittest.TestCase):
 
     def test(self):
        grid = Grid({})
-       mid_prof = FluxProfile(grid.mid_axis, grid)
+       test = FluxProfile(0, grid)
+       np.testing.assert_allclose(test.profile, np.zeros(grid.N_radial-1))
 
 
 if __name__ == '__main__':
