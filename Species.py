@@ -160,6 +160,8 @@ class SpeciesDict():
         # use quasineutrality to set density of last evolved species.
         # this needs to happen outside the above loop to ensure charge_density
         # has been computed correctly.
+        # note that the charge_density does not include a contribution from the 'quasineutral' species, 
+        # so that we can compute the following
         self.qneut_species.set_n(-charge_density/s.Z)
 
         for s in self.species_dict.values():

@@ -395,6 +395,53 @@ class GX_FluxModel(FluxModel):
             else:
                 obj[header][key] = value
 
+        # check for all possible header types in GX input file, 
+        # and initialize empty if not found
+        try:
+            gx_inputs['Dimensions']
+        except:
+            gx_inputs['Dimensions'] = {}
+        try:
+            gx_inputs['Domain']
+        except:
+            gx_inputs['Domain'] = {}
+        try:
+            gx_inputs['Time']
+        except:
+            gx_inputs['Time'] = {}
+        try:
+            gx_inputs['Initialization']
+        except:
+            gx_inputs['Initialization'] = {}
+        try:
+            gx_inputs['Restart']
+        except:
+            gx_inputs['Restart'] = {}
+        try:
+            gx_inputs['Dissipation']
+        except:
+            gx_inputs['Dissipation'] = {}
+        try:
+            gx_inputs['Diagnostics']
+        except:
+            gx_inputs['Diagnostics'] = {}
+        try:
+            gx_inputs['Geometry']
+        except:
+            gx_inputs['Geometry'] = {}
+        try:
+            gx_inputs['Physics']
+        except:
+            gx_inputs['Physics'] = {}
+        try:
+            gx_inputs['species']
+        except:
+            gx_inputs['species'] = {}
+        try:
+            gx_inputs['Boltzmann']
+        except:
+            gx_inputs['Boltzmann'] = {}
+
         self.inputs = obj
         self.filename = fin
 
@@ -465,7 +512,7 @@ class GX_FluxModel(FluxModel):
 
             # set reference beta
             gx_inputs['Physics']['beta'] = beta_ref[r_id]
-
+                 
             # set species parameters (these are lists)
             gx_inputs['species']['mass'] = list(species.get_masses(normalize=True))
             gx_inputs['species']['z'] = list(species.get_charges(normalize=True))
