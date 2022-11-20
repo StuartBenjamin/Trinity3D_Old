@@ -33,32 +33,6 @@ _version = "0.0.0"
 
 class Trinity_Engine():
 
-    ### read inputs
-    def load(self,default,string):
-
-        # implements TOML find or
-        try:
-            tr3d = self.inputs # "string" expects tr3d to be defined
-            x = eval(string)
-        except:
-            x = default
-            '''
-            it would be great if python could run
-            self.{x} = x, instead of return x
-            where {x} is the variable name thats passed in. Maybe I just add an extra varname argument
-
-            or maybe I can strip it from the input string (get the last [], then take whats inside single quotes)
-            '''
-
-        # check for boolean 
-        if x == 'True': # could add other variations 'T' 'true'
-            return True
-
-        if x == 'False':
-            return False
-
-        return x
-
     def __init__(self, trinity_input):
 
         ### Loading Trinity Inputs
@@ -82,11 +56,11 @@ class Trinity_Engine():
         # initialize all species
         self.species = SpeciesDict(self.input_dict, self.grid)
 
-        # initialize normalizations
-        #self.norms = Normalizations()
+        # initialize Trinity normalizations (not be confused with FluxModel normalizations)
+        self.norms = self.TrinNormalizations()
 
         # initialize flux model
-        self.flux_model = FluxModelFactory(self.input_dict)
+        self.flux_model = FluxModelFactory(self.input_dict, self.grid, self.time, self.species)
 
         # initialize geometry
         #self.geometry = Geometry(self.input_dict)
@@ -101,13 +75,6 @@ class Trinity_Engine():
         #self.diagnostics = Diagnostics()
 
 
-        ### overwriten if using VMEC
-        self.Ba      = Ba # average field on LCFS
-        self.R_major = R_major # meter
-        self.a_minor = a_minor # meter
-
-
-        self.path = './' # who uses this? 10/16
 
         self.eq_model = eq_model
         if eq_model == "DESC":
@@ -1256,7 +1223,7 @@ class Trinity_Engine():
 
 
     # a subclass for handling normalizations in Trinity
-    class Normalizations():
+    class TrinNormalizations():
         def __init__(self, n_ref = 1e20,     # m3
                            T_ref = 1e3,      # eV
                            B_ref = 1,        # T
@@ -1271,7 +1238,7 @@ class Trinity_Engine():
             print(f"    m_ref = {m_ref} kg\n")
 
             # could get these constants from scipy
-            self.e = 1.602e-19  # Colulomb
+            self.e = 1.602e-19  # Coulomb
             self.c = 2.99e8     # m/s
 
             '''
@@ -1315,8 +1282,6 @@ class Trinity_Engine():
             self.gyro_scale = gyro_scale
             self.pressure_source_scale = pressure_source_scale
             self.particle_source_scale = particle_source_scale
-            self.t_trinity_to_SI = t_scale # unused
-
 
 def profile_diff(arr, old):
     # this is an L_infinity norm over the radial profile

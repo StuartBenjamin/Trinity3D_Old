@@ -12,7 +12,7 @@ class Time():
 
         time_parameters = inputs.get('time', {})
         self.max_newton_iter = time_parameters.get('max_newton_iter', 4)
-        self.newton_threshold = time_parameters.get('newton_threshold', 2.0)
+        self.newton_threshold = time_parameters.get('newton_threshold', 0.02)
         # these "time" settings succeed the "grid" settings above, keeping both now for backwards compatibility
         self.alpha = time_parameters.get('alpha', self.alpha)
         self.dtau = time_parameters.get('dtau', self.dtau)

@@ -74,7 +74,7 @@ class Profile():
     def __truediv__(A,B):
         if isinstance(B, A.__class__):
             return A.__class__(A.profile / B.profile, A.grid)
-        elif isinstance(B, (list, tuple, np.ndarray)) and len(B) == len(A.profile):
+        elif isinstance(B, (list, tuple, np.ndarray)) and len(B) == len(A.profile) or not hasattr(B, '__len__'):
             return A.__class__(A.profile / B, A.grid)
         else:
             raise Exception("Type mismatch in Profile.__truediv__")
@@ -123,11 +123,13 @@ class GridProfile(Profile):
     
     def __init__(self, arr, grid):
 
-        self.profile = arr
         self.grid = grid
         self.axis = grid.rho_axis
         self.length = len(self.axis)
-        assert self.length == len(arr), "Error: GridProfile array not same length as rho_axis"
+        if hasattr(arr, '__len__'):
+            self.profile = arr
+        else:
+            self.profile = np.ones(self.length)*arr
 
     def gradient(self):
         grad_f = np.zeros(self.length)
@@ -212,10 +214,13 @@ class FluxProfile(Profile):
 
     def __init__(self, arr, grid):
 
-        self.profile = arr
         self.grid = grid
         self.axis = grid.mid_axis
         self.length = len(self.axis)
+        if hasattr(arr, '__len__'):
+            self.profile = arr
+        else:
+            self.profile = np.ones(self.length)*arr
 
     def toGridProfile(self, axis_val = 0.0):
 
@@ -244,7 +249,6 @@ class FluxProfile(Profile):
 
         return GridProfile(grid_prof, self.grid)
     
-
 class Flux_profile(Profile):
 
     '''

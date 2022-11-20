@@ -6,9 +6,10 @@ import time as _time
 #import Geometry as geo
 from Geometry import FluxTube
 from GX_io    import GX_Runner
+from netCDF4 import Dataset
 
 # read GX output
-import trinity_lib as trl
+#import trinity_lib as trl
 import profiles as pf
 import GX_io as gx_io
 import os
@@ -22,7 +23,7 @@ This library contains model functons for fluxes.
 + there is the GX flux model
 '''
 
-def FluxModelFactory(inputs):
+def FluxModelFactory(inputs, grid, time, species):
 
     model_parameters = inputs.get('model', {})
     my_model = model_parameters.get('model', 'GX')
@@ -33,8 +34,17 @@ def FluxModelFactory(inputs):
        "ReLU-particle-only": ReLU_FluxModel,
        "diffusive": Barnes_Model2
     }
-    return models[my_model]()
+    return models[my_model](inputs, grid, time, species)
 
+class FluxModel():
+
+    # base class constructor, should be called in derived class 
+    # constructor by super().__init__()
+    def __init__(self, inputs, grid, time, species):
+        self.N_fluxtubes = len(grid.mid_axis)
+        self.rho = grid.mid_axis
+        self.grid = grid
+        self.time = time
 
 def ReLU(x,a=1,m=1):
     '''
@@ -99,6 +109,7 @@ class ReLU_FluxModel():
         self.n_flux_slope  = n_flux_slope  
         self.pi_flux_slope = pi_flux_slope 
         self.pe_flux_slope = pe_flux_slope 
+
 
     # input: 3 inverse gradient length scales
     #        kn = 1/L_n = grad n / n = grad ln n
@@ -181,78 +192,162 @@ class Barnes_Model2():
 
 
 WAIT_TIME = 1  # this should come from the Trinity Engine
-class GX_FluxModel():
+class GX_FluxModel(FluxModel):
 
-    def __init__(self, engine, 
-                       gx_root='gx-files/', 
-                       gx_sample='gx-sample.in',
-                       path='run-dir/', 
-                       vmec_path='./',
-                       vmec_wout="",
-                       midpoints=[]
-                ):
+    def __init__(self, inputs, grid, time, species):
 
-        self.engine = engine
+        # call base class constructor
+        super().__init__(inputs, grid, time, species)
 
-#        gx_root = "gx-files/"  # this is part of repo, don't change # old, 9/7
-        #f_input = 'gx-sample.in'  # removed 10/16
-        f_geo   = 'gx-geometry-sample.ing' # sample input file, to be part of repo
+        # environment variable containing path to gx executable
+        GX_PATH = os.environ.get("GX_PATH") or ""
+
+        model_parameters = inputs.get('model', {})
+        gx_template = model_parameters.get('gx_template', 'gx-files/gx-sample.in')
+        out_dir = self.out_dir = model_parameters.get('gx_outputs', 'gx-files/out-dir/')
+        self.overwrite = model_parameters.get('overwrite', False)
 
         ### Check file path
         print("  Looking for GX files")
-        print("    GX input path:", gx_root)
-        print("      expecting GX template:", gx_root + gx_sample)
-        print("      expecting GX executable:", gx_root + "gx")
-        print("      expecting GX-VMEC template:", gx_root + f_geo)
-        print("      expecting GX-VMEC executable:", gx_root + "convert_VMEC_to_GX")
-        print("    VMEC path:", vmec_path)
-        print("      expecting VMEC wout:", vmec_path + vmec_wout)
-        print("    GX-Trinity output path:", path)
+        print("    Expecting GX template:", gx_template)
+        print("    Expecting GX executable:", GX_PATH + "gx")
+        print("    GX-Trinity output path:", out_dir)
 
-        found_path = os.path.exists(path)
+        found_path = os.path.exists(out_dir)
         if (found_path == False):
-            print(f"      creating new output dir {path}")
-            os.mkdir(path)
+            print(f"      creating new output dir {out_dir}")
+            os.mkdir(out_dir)
 
-        found_gx = os.path.exists(path+"gx")
+        # make a directory for restart files
+        restart_dir = out_dir + 'restarts' # this name is hard-coded to agree with that in gx_command(), a better name may be restart_dir/ or a variable naming such
+        if os.path.exists(restart_dir) == False:
+            print(f"          creating new restart dir {restart_dir}")
+            os.mkdir(restart_dir)
+
+        found_gx = os.path.exists(GX_PATH+"gx")
         if (found_gx == False):
-            print(f"      copying gx executable from root into {path}")
-            cmd = f"cp {gx_root}gx {path}gx"
-            os.system(cmd)
+            print("  Error: gx executable not found! Make sure the GX_PATH environment variable is set.")
+            exit(1)
 
         print("")
 
-
-        # check using something like
-        # os.listdir(vmec_path).find(vmec_wout)
-
-
         ###  load an input template
-        #    later, this should come from Trinity input file
-        self.input_template = GX_Runner(gx_root + gx_sample)
-        self.path = path # this is the GX output path (todo: rename)
-        # check that path exists, if it does not, mkdir and copy gx executable
-        
-        self.midpoints = midpoints
-        self.vmec_path = vmec_path
-        self.vmec_wout = vmec_wout
-        self.gx_root   = gx_root
-        self.gx_sample = gx_sample
-        self.f_geo   = f_geo # template convert geometry input
-
-### retired 8/14
-#        ### This keeps a record of GX comands, it might be retired
-#        # init file for writing GX commands
-#
-#        with  open(fname,'w') as f:
-#            print('t_idx, r_idx, time, r, s, tprim, fprim', file=f)
-#
-#        # store file name (includes path)
-#        self.fname = fname
-#        self.f_handle = open(fname, 'a')
-#        ###
+        self.read_input(gx_template)
+        self.nstep_gx = self.inputs['Time']['nstep']
 
         self.processes = []
+ 
+        self.B_ref = 1 # this will be reset 
+
+        # do a dummy init-only GX calculation for each flux tube so that the
+        # GX geometry information (B_ref, a_ref, grho, area) can be read
+        kn0_sj, kT0_sj = species.get_grads_on_flux_grid(pert_n=None, pert_T=None)
+        out_ncs = self.run_gx_fluxtubes(self.rho, kn0_sj, kT0_sj, species, 'i', init_only=True)
+        ### collect parallel runs
+        self.wait()
+        # read
+        _time.sleep(WAIT_TIME)
+        self.read_gx_geometry(out_ncs)
+
+
+        #if self.vmec_wout: # is not blank
+
+        #    # else launch flux tubes from VMEC
+        #    f_geo     = self.f_geo
+        #    geo_path  = self.gx_root  # this says where the convert executable lives, and where to find the sample .ing file
+        #    out_path  = self.path
+        #    vmec_path = self.vmec_path
+
+        #    geo_template = gx_io.VMEC_GX_geometry_module( self.engine,
+        #                                         f_sample = f_geo,
+        #                                         input_path = geo_path,
+        #                                         output_path = out_path,
+        #                                         tag = vmec[5:-3]
+        #                                      )
+        #    geo_template.set_vmec( vmec, 
+        #                  vmec_path   = vmec_path, 
+        #                  output_path = out_path )
+
+        #    geo_files = []
+        #    N_fluxtubes = len(self.midpoints)
+        #    for j in np.arange(N_fluxtubes):
+        #        rho = self.midpoints[j]
+        #        f_geometry = geo_template.init_radius(rho,j) 
+        #        geo_files.append(out_path + f_geometry)
+
+    # run GX calculations and pass fluxes and flux jacobian to SpeciesDict species
+    def get_fluxes(self, species):
+        # in the following, A_sjk indicates A[s, j, k] where 
+        # s is species index
+        # j is rho index
+        # k is perturb index
+  
+        out_ncs_jk = []
+        dkap_jk = []
+       
+        rho_j = self.rho
+ 
+        # base profiles case
+        pert_id = 0
+        # get gradient values on flux grid
+        # these are 2d arrays, e.g. kn_sj = kap_n[s, j]
+        kn0_sj, kT0_sj = species.get_grads_on_flux_grid(pert_n=None, pert_T=None)
+        dkap_jk.append(0) # this is a dummy entry, unused
+        out_ncs_j = self.run_gx_fluxtubes(rho_j, kn0_sj, kT0_sj, species, pert_id)
+        out_ncs_jk.append(out_ncs_j)
+
+        # perturbed density cases
+        # for each evolved density species, need to perturb density
+        for stype in species.n_evolve_list:
+            pert_id = pert_id + 1
+            kn_sj, kT_sj = species.get_grads_on_flux_grid(pert_n=stype, pert_T=None)
+            dkap = kn_sj - kn0_sj
+            dkap_jk.append(dkap[dkap != 0]) # this eliminates elements that are zero,
+                                            # so that we are only left with the perturbation in this (stype) species
+            out_ncs_for_fluxtubes = self.run_gx_fluxtubes(rho_j, kn_sj, kT_sj, species, pert_id)
+            out_ncs_jk.append(out_ncs_for_fluxtubes)
+
+        # perturbed temperature cases
+        # for each evolved temperature species, need to perturb temperature
+        for stype in species.T_evolve_list:
+            pert_id = pert_id + 1
+            kn_sj, kT_sj = species.get_grads_on_flux_grid(pert_n=None, pert_T=stype)
+            dkap = kT_sj - kT0_sj
+            dkap_jk.append(dkap[dkap != 0]) # this eliminates elements that are zero,
+                                            # so that we are only left with the perturbation in this (stype) species
+            out_ncs_for_fluxtubes = self.run_gx_fluxtubes(rho_j, kn_sj, kT_sj, species, pert_id)
+            out_ncs_jk.append(out_ncs_for_fluxtubes)
+
+        ### collect parallel runs
+        self.wait()
+
+        # read
+        _time.sleep(WAIT_TIME)
+
+        # read GX output data and pass results to species
+        # base
+        pert_id = 0
+        pflux0_sj, qflux0_sj = self.read_gx_fluxes(out_ncs_jk[pert_id], species)
+        species.set_flux(pflux0_sj, qflux0_sj)
+        pert_id = pert_id + 1
+
+        # perturbed density cases
+        for stype in species.n_evolve_list:
+            dkn_j = dkap_jk[pert_id]
+            pflux_sj, qflux_sj = self.read_gx_fluxes(out_ncs_jk[pert_id], species)
+            dpflux_dkn_sj = (pflux_sj - pflux0_sj) / dkn_j
+            dqflux_dkn_sj = (qflux_sj - qflux0_sj) / dkn_j
+            species.set_dflux_dkn(stype, dpflux_dkn_sj, dqflux_dkn_sj)
+            pert_id = pert_id + 1
+
+        # perturbed temperature cases
+        for stype in species.T_evolve_list:
+            dkT_j = dkap_jk[pert_id]
+            pflux_sj, qflux_sj = self.read_gx_fluxes(out_ncs_jk[pert_id], species)
+            dpflux_dkT_sj = (pflux_sj - pflux0_sj) / dkT_j
+            dqflux_dkT_sj = (qflux_sj - qflux0_sj) / dkT_j
+            species.set_dflux_dkT(stype, dpflux_dkT_sj, dqflux_dkT_sj)
+            pert_id = pert_id + 1
 
     def wait(self):
 
@@ -265,287 +360,176 @@ class GX_FluxModel():
 
         # could add some sort of timer here
 
+    def read_input(self, fin):
 
-    def make_fluxtubes(self):
+        with open(fin) as f:
+            data = f.readlines()
 
-        ### load flux tube geometry
-        # these should come from Trinity input file
+        obj = {}
+        header = ''
+        for line in data:
+
+            # strip comments
+            if line.find('#') > -1:
+                end = line.find('#')
+                line = line[:end]
+
+            # parse headers
+            if line.find('[') == 0:
+                header = line.split('[')[1].split(']')[0]
+                obj[header] = {}
+                continue
+
+            # skip blanks
+            if line.find('=') < 0:
+                continue
+
+            # store data
+            key, value = line.split('=')
+            key   = key.strip()
+            value = value.strip()
+            
+            if header == '':
+                obj[key] = value
+            else:
+                obj[header][key] = value
+
+        self.inputs = obj
+        self.filename = fin
+
+    def write_input(self, fout='temp.in'):
+
+        # do not overwrite
+        if (os.path.exists(fout) and not self.overwrite):
+            print( '  input exists, skipping write', fout )
+            return
+
+        with open(fout,'w') as f:
         
-        vmec = self.vmec_wout
-        if vmec: # is not blank
+            for item in self.inputs.items():
+                 
+                if ( type(item[1]) is not dict ):
+                    print('  %s = %s ' % item, file=f)  
+                    continue
+    
+                header, nest = item
+                print('\n[%s]' % header, file=f)
+    
+                longest_key =  max( nest.keys(), key=len) 
+                N_space = len(longest_key) 
+                for pair in nest.items():
+                    s = '  {:%i}  =  {}' % N_space
+                    print(s.format(*pair), file=f)
 
-            # else launch flux tubes from VMEC
-            f_geo     = self.f_geo
-            geo_path  = self.gx_root  # this says where the convert executable lives, and where to find the sample .ing file
-            out_path  = self.path
-            vmec_path = self.vmec_path
+        print('  wrote input:', fout)
 
-            geo_template = gx_io.VMEC_GX_geometry_module( self.engine,
-                                                 f_sample = f_geo,
-                                                 input_path = geo_path,
-                                                 output_path = out_path,
-                                                 tag = vmec[5:-3]
-                                              )
-            geo_template.set_vmec( vmec, 
-                          vmec_path   = vmec_path, 
-                          output_path = out_path )
+    # run a GX flux tube calculation at each radius, given gradient values kns and kts
+    def run_gx_fluxtubes(self, rho, kns, kts, species, pert_id, init_only=False):
 
-            geo_files = []
-            N_fluxtubes = len(self.midpoints)
-            for j in np.arange(N_fluxtubes):
-                rho = self.midpoints[j]
-                f_geometry = geo_template.init_radius(rho,j) 
-                geo_files.append(out_path + f_geometry)
+        t_id = self.time.t_idx # time integer
+        p_id = self.time.p_idx # Newton iteration number
+        prev_p_id = self.time.prev_p_id # Newton iteration number
 
+        gx_inputs = self.inputs
+
+        # get profile values on flux grid
+        # these are 2d arrays, e.g. ns = ns[species_idx, rho_idx]
+        ns, Ts, nu_ss = species.get_profiles_on_flux_grid(normalize=True)
+        beta_ref = species.ref_species.beta_on_flux_grid(self.B_ref)
+
+        if species.has_adiabatic_species:
+            T_adiab = species.adiabatic_species.T().toFluxProfile()
+            T_ref = species.ref_species.T().toFluxProfile()
+            tau_fac = T_ref/T_adiab
+            N_species = species.N_species - 1 # in GX, adiabatic species doesn't count towards nspecies
+            if species.adiabatic_species.type == "electron":
+                adiab_type = "electron"
+            else:
+                adiab_type = "ion"
         else:
-            # load default files (assumed to be existing)
-            # 10/6 we should delete this soon, use nested circles (or even a fresh wout) as default instead
-            print('  no VMEC wout given, loading default files')
-            geo_files = [ 'gx-files/gx_wout_gonzalez-2021_psiN_0.102_gds21_nt_36_geo.nc',
-                          'gx-files/gx_wout_gonzalez-2021_psiN_0.295_gds21_nt_38_geo.nc',  
-                          'gx-files/gx_wout_gonzalez-2021_psiN_0.500_gds21_nt_40_geo.nc',
-                          'gx-files/gx_wout_gonzalez-2021_psiN_0.704_gds21_nt_42_geo.nc',
-                          'gx-files/gx_wout_gonzalez-2021_psiN_0.897_gds21_nt_42_geo.nc']
+            N_species = species.N_species
 
-        print("")
+        # loop over flux tubes, one at each rho
+        out_ncs = []
+        for r_id in np.arange(self.N_fluxtubes):
 
-        ### store flux tubes in a list
-        self.flux_tubes = []
-        for fin in geo_files:
-            self.load_fluxtube(fin)
+            gx_inputs['Dimensions']['nspecies'] = N_species
 
+            if init_only:
+                gx_inputs['Time']['nstep'] = 1
+            else:
+                gx_inputs['Time']['nstep'] = self.nstep_gx
 
-        # make a directory for restart files
-        restart_dir = self.path + 'restarts' # this name is hard-coded to agree with that in gx_command(), a better name may be restart_dir/ or a variable naming such
-        if os.path.exists(restart_dir) == False:
-            os.mkdir(restart_dir)
+            gx_inputs['Geometry']['rhoc'] = rho[r_id]
 
+            # set reference beta
+            gx_inputs['Physics']['beta'] = beta_ref[r_id]
 
-    # is this being used? 9/28
-    # I think the functionality got implemented somewhere else
-    def create_geometry_from_vmec(self,wout):
+            # set species parameters (these are lists)
+            gx_inputs['species']['mass'] = list(species.get_masses(normalize=True))
+            gx_inputs['species']['z'] = list(species.get_charges(normalize=True))
+            gx_inputs['species']['dens'] = list(ns[:, r_id])
+            gx_inputs['species']['temp'] = list(Ts[:, r_id])
+            gx_inputs['species']['fprim'] = list(kns[:, r_id])
+            gx_inputs['species']['tprim'] = list(kts[:, r_id])
+            gx_inputs['species']['vnewk'] = list(nu_ss[:, r_id])
+            gx_inputs['species']['type'] = species.get_types_ion_electron()
 
-        # load sample geometry file
+            if species.has_adiabatic_species:
+                gx_inputs['Boltzmann']['add_Boltzmann_species'] = 'true'
+                gx_inputs['Boltzmann']['tau_fac'] = tau_fac[r_id]
+                gx_inputs['Boltzmann']['Boltzmann_type'] = f"'{adiab_type}'"
+            else:
+                gx_inputs['Boltzmann']['add_Boltzmann_species'] = 'false'
 
-        # make changes (i.e. specify radius, ntheta etc.)
+            path = self.out_dir
+            tag  = f"t{t_id:02}-p{p_id}-r{r_id}-{pert_id}"
 
-        # write new file and run GX-VMEC geometry module
+            fout  = tag + '.in'
+            f_save = tag + '-restart.nc'
 
-        # wait, load new geometry files
-        pass
+            # Load restart if this is the first trinity timestep,
+            # or if the heat flux from the previous GX run was very small
+            if (t_id == 0 or species.ref_species.qflux[r_id] < 1e-10): 
+                gx_inputs['Restart']['restart'] = 'false'
+            else:
+                gx_inputs['Restart']['restart'] = 'true'
+                f_load = f"restarts/saved-t{t_id-1:02d}-p{prev_p_id}-r{r_id}-{pert_id}.nc" 
+                gx_inputs['Restart']['restart_from_file'] = '"{:}"'.format(path + f_load)
+                gx_inputs['Initialization']['init_amp'] = '0.0'
+                # restart from the same file (prev time step), to ensure parallelizability
 
-    def load_fluxtube(self, f_geo):
+            #### save restart file (always)
+            gx_inputs['Restart']['save_for_restart'] = 'true'
+            f_save = f"restarts/saved-t{t_id:02d}-p{p_id}-r{r_id}-{pert_id}.nc"
+            gx_inputs['Restart']['restart_to_file'] = '"{:}"'.format(path + f_save)
 
-        ft = FluxTube(f_geo)       # init an instance of flux tube class
-        ft.load_gx_input(self.input_template)
+            ### execute
+            self.write_input(path + fout)
+            out_nc = self.submit_gx_job(tag, path) # this returns a file name
+            out_ncs.append(out_nc)
+        #end flux tube loop
 
-        # save
-        self.flux_tubes.append(ft)
+        return out_ncs
 
-
-    def prep_commands(self, engine, # pointer to pull profiles from trinity engine
-                            #step = 0.1, # absolute step size for perturbing gradients
-                            step = 0.3, # relativestep size for perturbing gradients
-                     ):
-
-        self.time = engine.time
-        self.t_id = engine.t_idx
-
-        # preparing dimensionless (tprim = L_ref/LT) for GX
-        Ln  = - engine.density.grad_log   .profile  # a / L_n
-        Lpi = - engine.pressure_i.grad_log.profile  # a / L_pi
-        Lpe = - engine.pressure_e.grad_log.profile  # a / L_pe
-
-        LTi = Lpi - Ln
-        LTe = Lpe - Ln
-
-        # get normalizations for GX, dens and temp
-        n = engine.density.midpoints
-        pi = engine.pressure_i.midpoints
-        pe = engine.pressure_e.midpoints
-
-        Ti = pi/n
-        Te = pe/n
-
-## this is one way to do it, using reference temperatures
-#  would it be more clear to just have keV values in absolute?
-        Tref = Ti # hard-coded convention
-        gx_Ti = Ti/Tref
-        gx_Te = Te/Tref
-
-
-        # turbulent flux calls, for each radial flux tube
-        mid_axis = engine.mid_axis
-        idx = np.arange( len(mid_axis) ) 
-
-        f0   = [''] * len(idx) 
-        fn   = [''] * len(idx) 
-        fpi  = [''] * len(idx) 
-        fpe  = [''] * len(idx) 
-
-        Q0   = np.zeros( len(idx) )
-        Qpi  = np.zeros( len(idx) )
-        Qpe  = np.zeros( len(idx) )
-        Qn   = np.zeros( len(idx) )
-
-        for j in idx: 
-
-            rho = mid_axis[j]
-            kn  = Ln [j]
-            kti = LTi[j]
-            kte = LTe[j]
-
-            # writes the GX input file and calls the slurm 
-            #scale = 1 + step
-            f0 [j] = self.gx_command(j, rho, kn      , kti       , kte        , '0', temp_i=gx_Ti[j], temp_e = gx_Te[j] )
-            #fpi[j] = self.gx_command(j, rho, kn      , kti*scale , kte        , '2', temp_i=gx_Ti[j], temp_e = gx_Te[j] )
-            fpi[j] = self.gx_command(j, rho, kn      , kti + step , kte        , '2', temp_i=gx_Ti[j], temp_e = gx_Te[j] )
-
-
-            #fn [j] = self.gx_command(j, rho, kn*scale , kpi        , kpe        , '1' )
-            #fpe[j] = self.gx_command(j, rho, kn      , kpi        , kpe*scale , '3' )
-
-            # turn off density, since particle flux is set to 0
-            # turn off pe, since Qe = Qi
-            ### there is choice, relative step * or absolute step +?
-
-        ### collect parallel runs
-        self.wait()
-
-        # read
-        _time.sleep(WAIT_TIME)
-
-        print('starting to read')
-        for j in idx: 
-            # loop over flux tubes
-            Q0 [j] = read_gx(f0 [j])
-            Qpi[j] = read_gx(fpi[j])
-            #Qn [j] = read_gx(fn [j])
-            #Qpe[j] = read_gx(fpe[j])
-
-        '''
-        In this variable notation
-
-        T is temp gradient scale length
-        delta is the step size
-
-        Q0   is the base case                          : Q(T)
-        Qpi  is array of fluxes at pi perturbation     : Q(T + delta)
-        Q_pi is array of derivatives of flux by step   : dQ/delta
-        '''
-
-        # record the heat flux
-        Qflux  =  Q0
-        # record dQ / dLx
-        Qi_pi  =  (Qpi - Q0) / step
-        #Qi_pi  =  (Qpi - Q0) / (LTi * step)
-        ###Qi_pi  =  (Qpi - Q0) / (Lpi * step)  # bug 10/15
-
-
-        #Qi_n   =  (Qn  - Q0) / (Ln * step) 
-        #Qi_pe  =  (Qpe - Q0) / (Lpe * step) 
-        Qi_n = 0*Q0 # this is already the init state
-        Qi_pe = Qi_pi
-
-        # need to add neoclassical diffusion
-
-        # save, this is what engine.compute_flux() writes
-        zero = 0*Qflux
-        eps = 1e-8 + zero # want to avoid divide by zero
-
-        engine.Gamma  = pf.Flux_profile(eps  )
-        engine.Qi     = pf.Flux_profile(Qflux) 
-        engine.Qe     = pf.Flux_profile(Qflux) 
-        engine.G_n    = pf.Flux_profile(zero )
-        engine.G_pi   = pf.Flux_profile(zero )
-        engine.G_pe   = pf.Flux_profile(zero )
-        engine.Qi_n   = pf.Flux_profile(Qi_n )
-        engine.Qi_pi  = pf.Flux_profile(Qi_pi)
-        engine.Qi_pe  = pf.Flux_profile(Qi_pe)
-        engine.Qe_n   = pf.Flux_profile(Qi_n )
-        engine.Qe_pi  = pf.Flux_profile(Qi_pi)
-        engine.Qe_pe  = pf.Flux_profile(Qi_pe)
-        # set electron flux = to ions for now
-
-    #  sets up GX input, executes GX, returns input file name
-    def gx_command(self, r_id, rho, kn, kti, kte, job_id, 
-                         temp_i=1,temp_e=1):
-        # this version perturbs for the gradient
-        # (temp, should be merged as option, instead of duplicating code)
-        
-        ## this code used to get (kn,kp) as an input, now we take kT directly
-        #s = rho**2
-        #kti = kpi - kn
-        #kte = kpe - kn
-
-        #t_id = self.t_id # time integer
-        t_id = self.engine.t_idx # time integer
-        p_id = self.engine.p_idx # Newton iteration number
-        prev_p_id = self.engine.prev_p_id # Newton iteration number
-
-#        self.engine.gx_idx += 1 
-
-        #.format(t_id, r_id, time, rho, s, kti, kn), file=f)
-        ft = self.flux_tubes[r_id] 
-        ft.set_profiles(temp_i, temp_e)
-        #ft.set_dens_temp(temp_i, temp_e)
-        ft.set_gradients(kn, kti, kte)
-        
-        # to be specified by Trinity input file, or by time stamp
-        #root = 'gx-files/'
-        path = self.path
-        tag  = f"t{t_id:02}-p{p_id}-r{r_id}-{job_id}"
-        '''
-        job_id needs a better name
-        It currently refers to {base, pi, pe, n} perturbations
-        It can also refer to ion scale or electron scale flux tubes
-        '''
-
-        fout  = tag + '.in'
-        f_save = tag + '-restart.nc'
-
-        ### Decide whether to load restart
-        if (t_id == 0): 
-            # skip only for first time step
-            ft.gx_input.inputs['Restart']['restart'] = 'false'
-
-        else:
-            ft.gx_input.inputs['Restart']['restart'] = 'true'
-            f_load = f"restarts/saved-t{t_id-1:02d}-p{prev_p_id}-r{r_id}-{job_id}.nc" 
-            ft.gx_input.inputs['Restart']['restart_from_file'] = '"{:}"'.format(path + f_load)
-            ft.gx_input.inputs['Initialization']['init_amp'] = '0.0'
-            # restart from the same file (prev time step), to ensure parallelizability
-
-        
-        #### save restart file (always)
-        ft.gx_input.inputs['Restart']['save_for_restart'] = 'true'
-        f_save = f"restarts/saved-t{t_id:02d}-p{p_id}-r{r_id}-{job_id}.nc"
-        ft.gx_input.inputs['Restart']['restart_to_file'] = '"{:}"'.format(path + f_save)
-
-
-        ### execute
-        ft.gx_input.write(path + fout)
-        qflux = self.run_gx(tag, path) # this returns a file name
-        return qflux
-
-
-
-    def run_gx(self,tag,path):
+    def submit_gx_job(self,tag,path):
 
         f_nc = path + tag + '.nc'
-        if ( os.path.exists(f_nc) == False ):
+        if ( os.path.exists(f_nc) == False or self.overwrite ):
 
             # attempt to call
             system = os.environ['GK_SYSTEM']
+            GX_PATH = os.environ.get("GX_PATH") or ""
 
-            cmd = ['srun', '-N', '1', '-t', '2:00:00', '--ntasks=1', '--gpus-per-task=1', '--exclusive', path+'gx', path+tag+'.in'] # stellar
+            cmd = ['srun', '-N', '1', '-t', '2:00:00', '--ntasks=1', '--gpus-per-task=1', '--exclusive', GX_PATH+'gx', path+tag+'.in'] # stellar
             if system == 'traverse':
                 # traverse does not recognize path/to/gx as an executable
-                cmd = ['srun', '-N', '1', '-t', '2:00:00', '--ntasks=1', '--gpus-per-task=1', 'gx', path+tag+'.in'] # traverse
+                cmd = ['srun', '-N', '1', '-t', '2:00:00', '--ntasks=1', '--gpus-per-task=1', GX_PATH+'gx', path+tag+'.in'] # traverse
             if system == 'satori':
-                cmd = ['srun', '-N', '1', '-t', '2:00:00', '--ntasks=1', '--gres=gpu:1', path+'gx', path+tag+'.in'] # satori
+                cmd = ['srun', '-N', '1', '-t', '2:00:00', '--ntasks=1', '--gres=gpu:1', GX_PATH+'gx', path+tag+'.in'] # satori
     
-            print('Calling', tag)
+            print('Calling', tag, "with")
+            print(">", ' '.join(cmd))
             print_time()
             f_log = path + 'log.' +tag
             with open(f_log, 'w') as fp:
@@ -554,31 +538,67 @@ class GX_FluxModel():
                 p = subprocess.Popen(cmd, stdout=fp)
                 self.processes.append(p)
 
-            # tally completed GX run
-            self.engine.gx_idx += 1 
-
         else:
             print('  gx output {:} already exists'.format(tag) )
 
         return f_nc # this is a file name
 
-        
-    # first attempt at exporting gradients for GX
-    def write_command(self, r_id, rho, kn, kpi, kpe):
-        
-        s = rho**2
-        kti = kpi - kn
+    def read_gx_fluxes(self, fnc_j, species):
+        pflux = np.zeros( (species.N_species, self.N_fluxtubes) )
+        qflux = np.zeros( (species.N_species, self.N_fluxtubes) )
 
-        t_id = self.t_id # time integer
-        time = self.time # time [s]
+        for r_id in np.arange(self.N_fluxtubes):
+            fnc = fnc_j[r_id]
+            try:
+                print('  read_gx_fluxes: reading', fnc)
+                f = Dataset(fnc, mode='r')
+            except: 
+                print('  read_gx_fluxes: could not read', fnc)
 
-        f = self.f_handle
+            # read qflux[t,s] = time trace of heat flux for each species
+            for i, s in enumerate(species.species_dict.values()):
+                if s.is_adiabatic:
+                    pflux[i, r_id] = 0.0
+                    qflux[i, r_id] = 0.0
+                else:
+                    pflux_t = f.groups['Fluxes'].variables['pflux'][:,i]
+                    pflux[i, r_id] = self.median_estimator(pflux_t)
 
-        #print('t_idx, r_idx, time, r, s, tprim, fprim', file=f)
-        print('{:d}, {:d}, {:.2e}, {:.4e}, {:.4e}, {:.6e}, {:.6e}' \
-        .format(t_id, r_id, time, rho, s, kti, kn), file=f)
+                    qflux_t = f.groups['Fluxes'].variables['qflux'][:,i]
+                    qflux[i, r_id] = self.median_estimator(qflux_t)
 
+        return pflux, qflux
 
+    def median_estimator(self, flux):
+
+        N = len(flux)
+        med = np.median( [ np.median( flux[::-1][:k] ) for k in np.arange(1,N)] )
+
+        return med
+
+    def read_gx_geometry(self, fnc_j):
+        B_ref = []
+        a_ref = []
+        grho = []
+        area = []
+
+        for r_id in np.arange(self.N_fluxtubes):
+            fnc = fnc_j[r_id]
+            try:
+                f = Dataset(fnc, mode='r')
+            except: 
+                print('  read_gx_geometry: could not read', fnc)
+
+            B_ref.append(f.groups['Geometry']['B_ref'][:])
+            a_ref.append(f.groups['Geometry']['a_ref'][:])
+            grho.append(f.groups['Geometry']['grhoavg'][:])
+            area.append(f.groups['Geometry']['surfarea'][:])
+
+        self.B_ref = pf.FluxProfile(np.asarray(B_ref), self.grid)
+        self.a_ref = pf.FluxProfile(np.asarray(a_ref), self.grid)
+        self.grho = pf.FluxProfile(np.asarray(grho), self.grid)
+        self.area = pf.FluxProfile(np.asarray(area), self.grid)
+       
 
 ###
 def print_time():
@@ -588,22 +608,4 @@ def print_time():
     #ts = datetime.timestamp(dt)
     #print('  time', ts)
 
-
-## is this being used? 9/28
-#  if so, it should be replaced by GX_Output class in GX_io.py
-def read_gx(f_nc):
-    # read a GX netCDF output file, returns flux
-    try:
-        qflux = gx_io.read_GX_output( f_nc )
-        if ( np.isnan(qflux).any() ):
-             print('  nans found in', f_nc, '(setting NaNs to 0)')
-             qflux = np.nan_to_num(qflux)
-
-        tag = f_nc.split('/')[-1]
-        print('  {:} qflux: {:}'.format(tag, qflux))
-        return qflux
-
-    except:
-        print('  issue reading', f_nc)
-        return 0 # for safety, this will be problematic
 
