@@ -80,13 +80,16 @@ class Profile():
             raise Exception("Type mismatch in Profile.__truediv__")
 
     def __rtruediv__(A,B):
-        if isinstance(B, (list, tuple, np.ndarray)) and len(B) == len(A.profile):
+        if isinstance(B, (list, tuple, np.ndarray)) and len(B) == len(A.profile) or not hasattr(B, '__len__'):
             return A.__class__(B / A.profile, A.grid)
         else:
             raise Exception("Type mismatch in Profile.__truediv__")
 
     def __neg__(A):
         return -1*A
+
+    def __pow__(A, b):
+        return A.profile**b
   
     def __eq__(A, B):
         if isinstance(B, A.__class__):

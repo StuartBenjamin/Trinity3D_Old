@@ -238,6 +238,7 @@ class GX_FluxModel(FluxModel):
         self.processes = []
  
         self.B_ref = 1 # this will be reset 
+        self.a_ref = 1 # this will be reset 
 
         # do a dummy init-only GX calculation for each flux tube so that the
         # GX geometry information (B_ref, a_ref, grho, area) can be read
@@ -434,7 +435,7 @@ class GX_FluxModel(FluxModel):
 
         # get profile values on flux grid
         # these are 2d arrays, e.g. ns = ns[species_idx, rho_idx]
-        ns, Ts, nu_ss = species.get_profiles_on_flux_grid(normalize=True)
+        ns, Ts, nu_ss = species.get_profiles_on_flux_grid(normalize=True, a_ref=self.a_ref, vt_sqrt_2=False)
         beta_ref = species.ref_species.beta_on_flux_grid(self.B_ref)
 
         if species.has_adiabatic_species:
@@ -598,7 +599,6 @@ class GX_FluxModel(FluxModel):
         self.a_ref = pf.FluxProfile(np.asarray(a_ref), self.grid)
         self.grho = pf.FluxProfile(np.asarray(grho), self.grid)
         self.area = pf.FluxProfile(np.asarray(area), self.grid)
-       
 
 ###
 def print_time():

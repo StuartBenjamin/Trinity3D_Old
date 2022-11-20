@@ -2,6 +2,8 @@ import numpy as np
 from profiles import GridProfile, FluxProfile
 from collections import OrderedDict
 
+m_proton_cgs = 1.67e-24 # mass of proton in grams
+
 class SpeciesDict():
     
     def __init__(self, inputs, grid):
@@ -165,30 +167,34 @@ class SpeciesDict():
                 s.p().profile = nt_vec[offset:offset+self.N_radial]
                 offset = offset + self.N_radial
 
-    def get_profiles_on_flux_grid(self, normalize=False):
+    def get_profiles_on_flux_grid(self, normalize=False, a_ref=1.0, vt_sqrt_2=False):
         
         ns = np.zeros( (self.N_species, self.N_radial-1) )
         Ts = np.zeros( (self.N_species, self.N_radial-1) )
+        nus = np.zeros( (self.N_species, self.N_radial-1) )
 
         if normalize:
             n_ref = self.ref_species.n().toFluxProfile()
             T_ref = self.ref_species.T().toFluxProfile()
+            vt_ref = 9.79e3*(1e3*T_ref/self.ref_species.mass)**0.5 # m/s
+            if vt_sqrt_2:
+                vt_ref = vt_ref*np.sqrt(2.0)
 
         for i, s in enumerate(self.species_dict.values()):
             n = s.n().toFluxProfile()
             T = s.T().toFluxProfile()
+            nu_ss = s.collision_frequency(s).toFluxProfile()
 
             if normalize:
                 n = n/n_ref
                 T = T/T_ref
+                nu_ss = nu_ss*a_ref/vt_ref
 
-            for j in np.arange(len(n)):
-                ns[i,j] = n[j]
-                Ts[i,j] = T[j]
+            ns[i,:] = n
+            Ts[i,:] = T
+            nus[i,:] = nu_ss
 
-        nu_ss = 0*ns #self.get_nu_ss(ns, Ts)
-        
-        return ns, Ts, nu_ss
+        return ns, Ts, nus
 
     def get_grads_on_flux_grid(self, pert_n=None, pert_T=None, rel_step = 0.2, abs_step = 0.3):
 
@@ -338,9 +344,63 @@ class Species():
         # B_ref is in units of T
 
         # convert p and B to cgs
-        p_cgs = self.n_prof*1e17
+        p_cgs = self.p_prof*1e17
         B_cgs = B_ref*1e4
         return 4.03e-11*p_cgs.toFluxProfile()/(B_cgs*B_cgs)
+
+    def collision_frequency(self, other):
+        # recall:
+        # n_prof is in units of 10^20 m^-3
+        # T_prof is in units of keV
+        # the below formula is from the NRL formulary, which is in cgs units (except for temperatures in eV)
+
+        Z_s = self.Z
+        m_s = self.mass*m_proton_cgs
+        n_s = self.n()*1e14  # 10^20 m^-3 -> cm^-3
+        T_s = self.T()*1e3    # keV -> eV
+
+        Z_u = other.Z
+        m_u = other.mass*m_proton_cgs
+        n_u = other.n()*1e14  # 10^20 m^-3 -> cm^-3
+        T_u = other.T()*1e3    # keV -> eV
+
+        logLambda = self.logLambda(other)
+
+        nu = 1.8e-19 * np.sqrt( m_s * m_u) * (Z_s * Z_u)**2 * n_u \
+                   * logLambda / ( m_s * T_u + m_u * T_s )**1.5
+
+        return nu
+
+    def logLambda(self, other):
+        # recall:
+        # n_prof is in units of 10^20 m^-3
+        # T_prof is in units of keV
+        # the below formula is from the NRL formulary, which is in cgs units (except for temperatures in eV)
+
+        Z_s = self.Z
+        m_s = self.mass*m_proton_cgs
+        n_s = self.n().profile*1e14  # 10^20 m^-3 -> cm^-3
+        T_s = self.T().profile*1e3    # keV -> eV
+
+        Z_u = other.Z
+        m_u = other.mass*m_proton_cgs
+        n_u = other.n().profile*1e14  # 10^20 m^-3 -> cm^-3
+        T_u = other.T().profile*1e3    # keV -> eV
+
+        if self.type == "electron" and other.type == "electron": # ee
+            lamb = 23.5 - np.log( n_s**0.5 / T_s**1.25 ) \
+                - np.sqrt( 1e-5 + ( np.log(T_s) - 2)**2 / 16 )
+        elif self.type == "electron": # ei
+            lamb = 24.0 - np.log( n_s**0.5 / T_s )
+        elif other.type == "electron": # ie
+            lamb = 24.0 - np.log( n_u**0.5 / T_u )
+        else: # ii
+            lamb = 23.0 - np.log(
+                 (Z_s * Z_u) * (m_s + m_u) \
+                 / ( m_s * T_u + m_u * T_s ) \
+                 * ( n_s * Z_s**2 / T_s + n_u * Z_u**2 / T_u )**0.5 \
+                 )
+        return lamb
 
     def set_n(self, n):
         self.n_prof = n
