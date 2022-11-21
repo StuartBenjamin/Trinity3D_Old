@@ -10,7 +10,7 @@
 
 [log]
   N_prints = 5
-  f_save   = log_trinity
+  f_save   = log_jet-example
 
 [path]
   gx_inputs  = gx-files/

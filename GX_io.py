@@ -211,12 +211,10 @@ class GX_Output():
         self.fname = fname
         self.data = f
 
-    def median_estimator(self):
+    def median_estimator(self,flux):
 
-        N = len(self.qflux)
-        med = np.median( [ np.median( self.qflux[::-1][:k] ) for k in np.arange(1,N)] )
-
-        self.q_median = med
+        N = len(flux)
+        med = np.median( [ np.median( flux[::-1][:k] ) for k in np.arange(1,N)] )
         return med
 
     def exponential_window_estimator(self, tau=100):

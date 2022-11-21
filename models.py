@@ -5,7 +5,7 @@ import time as _time
 
 #import Geometry as geo
 from Geometry import FluxTube
-from GX_io    import GX_Runner
+from GX_io    import GX_Runner, GX_Output
 
 # read GX output
 import trinity_lib as trl
@@ -410,6 +410,8 @@ class GX_Flux_Model():
         print('starting to read')
         for j in idx: 
             # loop over flux tubes
+            #Q0 [j] = read_gx_new(f0 [j])
+            #Qpi[j] = read_gx_new(fpi[j])
             Q0 [j] = read_gx(f0 [j])
             Qpi[j] = read_gx(fpi[j])
             #Qn [j] = read_gx(fn [j])
@@ -601,6 +603,25 @@ def read_gx(f_nc):
         tag = f_nc.split('/')[-1]
         print('  {:} qflux: {:}'.format(tag, qflux))
         return qflux
+
+    except:
+        print('  issue reading', f_nc)
+        return 0 # for safety, this will be problematic
+
+def read_gx_new(f_nc):
+    # read a GX netCDF output file, returns flux
+    try:
+
+        gx = GX_Output(f_nc)
+        qflux = gx.qflux
+        pflux = gx.plfux # in construction: this gives profile, not estimate
+
+        q_median = gx.median_estimator(qflux)
+        p_median = gx.median_estimator(pflux)
+
+        tag = f_nc.split('/')[-1]
+        print(f"  {tag} qflux, pflux: {q_median}, {p_median}")
+        return q_median
 
     except:
         print('  issue reading', f_nc)
