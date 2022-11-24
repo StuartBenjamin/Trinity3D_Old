@@ -67,9 +67,10 @@ class FluxTube():
         fprim = '[ {:.2f},       {:.2f}     ]'.format(kn, kn)
         gx.inputs['species']['fprim'] = fprim
 
-    def set_profiles(self, temp_i, temp_e, nu_ii, nu_ee):
+    def set_profiles(self, temp_i, temp_e, nu_ii, nu_ee, beta_ref):
 
         gx = self.gx_input
+        gx.inputs['Physics']['beta'] = beta_ref
 
         temp = f"[ {temp_i:.2f},       {temp_e:.2f}     ]"
         gx.inputs['species']['temp'] = temp

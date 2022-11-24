@@ -193,14 +193,27 @@ class GX_Output():
         except: 
             print('  read_GX_output: could not read', fname)
     
-        qflux = f.groups['Fluxes'].variables['qflux'][:,0]
-    
-        # check for NANs
-        if ( np.isnan(qflux).any() ):
-             print('  nans found in', fname)
-             qflux = np.nan_to_num(qflux)
+        pflux = f.groups['Fluxes'].variables['pflux'][:,0]
+        qflux_i = f.groups['Fluxes'].variables['qflux'][:,0]
+        try:
+            qflux_e = f.groups['Fluxes'].variables['qflux'][:,1]
+        except:
+            qflux_e = 0.0*qflux_i
 
-        self.qflux = qflux
+        # check for NANs
+        if ( np.isnan(pflux).any() ):
+             print('  nans found in', fname)
+             pflux = np.nan_to_num(pflux)
+        if ( np.isnan(qflux_i).any() ):
+             print('  nans found in', fname)
+             qflux_i = np.nan_to_num(qflux_i)
+        if ( np.isnan(qflux_e).any() ):
+             print('  nans found in', fname)
+             qflux_e = np.nan_to_num(qflux_e)
+
+        self.pflux = self.median_estimator(pflux)
+        self.qflux_i = self.median_estimator(qflux_i)
+        self.qflux_e = self.median_estimator(qflux_e)
         self.time  = f.variables['time'][:]
 
         self.tprim  = f.groups['Inputs']['Species']['T0_prime'][:]
@@ -214,12 +227,11 @@ class GX_Output():
         self.fname = fname
         self.data = f
 
-    def median_estimator(self):
+    def median_estimator(self, flux):
 
-        N = len(self.qflux)
-        med = np.median( [ np.median( self.qflux[::-1][:k] ) for k in np.arange(1,N)] )
+        N = len(flux)
+        med = np.median( [ np.median( flux[::-1][:k] ) for k in np.arange(1,N)] )
 
-        self.q_median = med
         return med
 
     def exponential_window_estimator(self, tau=100):
