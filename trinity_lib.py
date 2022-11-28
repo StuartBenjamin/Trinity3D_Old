@@ -98,6 +98,7 @@ class Trinity_Engine():
                        vmec_path  = './',
                        vmec_wout  = '',
                        eq_model   = "",
+                       f_save = "log_trinity",
                        ):
 
         ### Loading Trinity Inputs
@@ -115,37 +116,37 @@ class Trinity_Engine():
         
 
         N_radial = self.load( N_radial, "int(tr3d.inputs['grid']['N_radial'])" )
-        rho_edge = float ( tr3d.inputs['grid']['rho_edge'] )
-        alpha = self.load( alpha, "float( tr3d.inputs['grid']['alpha'] )" )
-        dtau = self.load( dtau, "float( tr3d.inputs['grid']['dtau'] )" )
-        N_steps = self.load( N_steps, "int( tr3d.inputs['grid']['N_steps'] )" )
+        rho_edge = self.load( rho_edge, "float(tr3d.inputs['grid']['rho_edge'])" )
+        alpha    = self.load( alpha, "float( tr3d.inputs['grid']['alpha'] )" )
+        dtau     = self.load( dtau, "float( tr3d.inputs['grid']['dtau'] )" )
+        N_steps  = self.load( N_steps, "int( tr3d.inputs['grid']['N_steps'] )" )
 
-        max_newton_iter = self.load( max_newton_iter, "int( tr3d.inputs['time']['max_newton_iter'] )" )
+        max_newton_iter  = self.load( max_newton_iter, "int( tr3d.inputs['time']['max_newton_iter'] )" )
         newton_threshold = self.load( newton_threshold, "float( tr3d.inputs['time']['newton_threshold'] )" )
         # these "time" settings succeed the "grid" settings above, keeping both now for backwards compatibility
-        alpha = self.load( alpha, "float( tr3d.inputs['time']['alpha'] )" )
-        dtau = self.load( dtau, "float( tr3d.inputs['time']['dtau'] )" )
+        alpha   = self.load( alpha, "float( tr3d.inputs['time']['alpha'] )" )
+        dtau    = self.load( dtau, "float( tr3d.inputs['time']['dtau'] )" )
         N_steps = self.load( N_steps, "int( tr3d.inputs['time']['N_steps'] )" )
         
-        model    = tr3d.inputs['model']['model']
-        D_neo    = float ( tr3d.inputs['model']['D_neo'] )
+        model    = self.load(model , "tr3d.inputs['model']['model']" )
+        D_neo    = self.load(D_neo , "float(tr3d.inputs['model']['D_neo'])" )
         
-        n_core  = float ( tr3d.inputs['profiles']['n_core' ] )
-        n_edge  = float ( tr3d.inputs['profiles']['n_edge' ] )
-        Ti_core = float ( tr3d.inputs['profiles']['Ti_core'] )
-        Ti_edge = float ( tr3d.inputs['profiles']['Ti_edge'] )
-        Te_core = float ( tr3d.inputs['profiles']['Te_core'] )
-        Te_edge = float ( tr3d.inputs['profiles']['Te_edge'] )
+        n_core  = self.load(n_core , "float(tr3d.inputs['profiles']['n_core' ])")
+        n_edge  = self.load(n_edge , "float(tr3d.inputs['profiles']['n_edge' ])")
+        Ti_core = self.load(Ti_core, "float(tr3d.inputs['profiles']['Ti_core'])")
+        Ti_edge = self.load(Ti_edge, "float(tr3d.inputs['profiles']['Ti_edge'])")
+        Te_core = self.load(Te_core, "float(tr3d.inputs['profiles']['Te_core'])")
+        Te_edge = self.load(Te_edge, "float(tr3d.inputs['profiles']['Te_edge'])")
         
-        Sn_height  = float ( tr3d.inputs['sources']['Sn_height' ] ) 
-        Spi_height = float ( tr3d.inputs['sources']['Spi_height'] ) 
-        Spe_height = float ( tr3d.inputs['sources']['Spe_height'] ) 
-        Sn_width   = float ( tr3d.inputs['sources']['Sn_width'  ] ) 
-        Spi_width  = float ( tr3d.inputs['sources']['Spi_width' ] ) 
-        Spe_width  = float ( tr3d.inputs['sources']['Spe_width' ] ) 
-        Sn_center  = float ( tr3d.inputs['sources']['Sn_center' ] ) 
-        Spi_center = float ( tr3d.inputs['sources']['Spi_center'] ) 
-        Spe_center = float ( tr3d.inputs['sources']['Spe_center'] ) 
+        Sn_height  = self.load(Sn_height  , "float( tr3d.inputs['sources']['Sn_height' ] )") 
+        Spi_height = self.load(Spi_height , "float( tr3d.inputs['sources']['Spi_height'] )") 
+        Spe_height = self.load(Spe_height , "float( tr3d.inputs['sources']['Spe_height'] )") 
+        Sn_width   = self.load(Sn_width   , "float( tr3d.inputs['sources']['Sn_width'  ] )") 
+        Spi_width  = self.load(Spi_width  , "float( tr3d.inputs['sources']['Spi_width' ] )") 
+        Spe_width  = self.load(Spe_width  , "float( tr3d.inputs['sources']['Spe_width' ] )") 
+        Sn_center  = self.load(Sn_center  , "float( tr3d.inputs['sources']['Sn_center' ] )") 
+        Spi_center = self.load(Spi_center , "float( tr3d.inputs['sources']['Spi_center'] )") 
+        Spe_center = self.load(Spe_center , "float( tr3d.inputs['sources']['Spe_center'] )") 
         
         ext_source_file = self.load( ext_source_file, "tr3d.inputs['sources']['ext_source_file']" )
 
@@ -168,8 +169,8 @@ class Trinity_Engine():
         a_minor   = self.load( a_minor, "float( tr3d.inputs['geometry']['a_minor'] )" ) 
         Ba        = self.load( Ba     , "float( tr3d.inputs['geometry']['Ba'     ] )" ) 
 
-        N_prints = int ( tr3d.inputs['log']['N_prints'] )
-        f_save   = tr3d.inputs['log']['f_save']
+        N_prints = self.load(N_prints, "int ( tr3d.inputs['log']['N_prints'] )")
+        f_save   = self.load(f_save, "tr3d.inputs['log']['f_save']")
 
         # new option
         eq_model = self.load( eq_model, "tr3d.inputs['equilibria']['eq_model']")
