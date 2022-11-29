@@ -92,9 +92,14 @@ class Trinity_Engine():
                        turbulent_exchange = False,
                        compute_surface_areas = True,
                        fix_electrons = False,
+                       fix_ions = False,
+                       equal_temps = False,
+                       evolve_density     = True,
+                       evolve_temperature = True,
+                       adiabatic_species  = None,
                        gx_inputs   = 'gx-files/',
                        gx_outputs  = 'gx-files/run-dir/',
-                       gx_sample   = 'gx-sample.in',
+                       gx_template   = 'gx-sample.in',
                        vmec_path  = './',
                        vmec_wout  = '',
                        eq_model   = "",
@@ -157,11 +162,18 @@ class Trinity_Engine():
         update_equilibrium = self.load( update_equilibrium, "tr3d.inputs['debug']['update_equilibrium']" )
         turbulent_exchange = self.load( turbulent_exchange, "tr3d.inputs['debug']['turbulent_exchange']" )
         compute_surface_areas = self.load( compute_surface_areas, "tr3d.inputs['debug']['compute_surface_areas']" ) 
-        self.fix_electrons = self.load( fix_electrons, "tr3d.inputs['debug']['fix_electrons']" ) 
+
+
+        self.fix_electrons = self.load( fix_electrons, "tr3d.inputs['profiles']['fix_electrons']" ) 
+        self.fix_ions = self.load( fix_ions, "tr3d.inputs['profiles']['fix_ions']" ) 
+        self.equal_temps = self.load( equal_temps, "tr3d.inputs['profiles']['equal_temps']" ) 
+        self.evolve_density = self.load(evolve_density, "tr3d.inputs['profiles']['evolve_density']")
+        self.evolve_temperature = self.load(evolve_temperature, "tr3d.inputs['profiles']['evolve_temperature']")
+        self.adiabatic_species = self.load(adiabatic_species, "tr3d.inputs['profiles']['adiabatic_species']")
        
         gx_inputs  = self.load( gx_inputs, "tr3d.inputs['path']['gx_inputs']")
         gx_outputs = self.load( gx_outputs, "tr3d.inputs['path']['gx_outputs']")
-        gx_sample = self.load( gx_sample, "tr3d.inputs['path']['gx_sample']")
+        gx_template = self.load( gx_template, "tr3d.inputs['path']['gx_template']")
         vmec_path = self.load( vmec_path, "tr3d.inputs['path']['vmec_path']")
         vmec_wout = self.load( vmec_wout, "tr3d.inputs['geometry']['vmec_wout']")
 
@@ -332,7 +344,7 @@ class Trinity_Engine():
             gx = mf.GX_Flux_Model(self,
                                   gx_root = gx_inputs, 
                                   path    = gx_outputs, 
-                                  gx_sample = gx_sample, 
+                                  gx_template = gx_template, 
                                   vmec_path = vmec_path,
                                   vmec_wout = vmec_wout,
                                   midpoints = mid_axis
@@ -1288,7 +1300,9 @@ class Trinity_Engine():
             self.vmec_pressure_old = p_SI # maybe move this elsewhere
 
         # reset electrons
-        if self.fix_electrons:
+        if self.equal_temps:
+            self.pressure_e = self.pressure_i
+        elif self.fix_electrons:
             self.pressure_e = self.pressure_e_init
 
         self.check_finite_difference()
@@ -1325,10 +1339,24 @@ class Trinity_Engine():
         pi_rms = np.sqrt( np.sum( np.abs(pi_err/pi0)**2 )/(self.N_radial-1) )
         pe_rms = np.sqrt( np.sum( np.abs(pe_err/pe0)**2 )/(self.N_radial-1) )
 
-        if self.fix_electrons:
-            rms = pi_rms
-        else:
-            rms = np.sqrt( n_rms**2 + pi_rms**2 + pe_rms**2 )/3
+        if self.evolve_density and self.evolve_temperature:
+            if self.fix_electrons:
+                rms = np.sqrt( n_rms**2 + pi_rms**2 )/2
+            elif self.fix_ions:
+                rms = np.sqrt( n_rms**2 + pe_rms**2 )/2
+            else:
+                rms = np.sqrt( n_rms**2 + pi_rms**2 + pe_rms**2 )/3
+
+        elif self.evolve_density:
+            rms = n_rms
+
+        elif self.evolve_temperature:
+            if self.fix_electrons:
+                rms = pi_rms
+            elif self.fix_ions:
+                rms = pe_rms
+            else:
+                rms = np.sqrt( pi_rms**2 + pe_rms**2 )/2
 
         out_string = f"(t,p) = {self.t_idx}, {self.p_idx} :: (p_prev, err, iterate) = "
 

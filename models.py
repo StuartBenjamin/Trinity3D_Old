@@ -177,7 +177,7 @@ class GX_Flux_Model():
 
     def __init__(self, engine, 
                        gx_root='gx-files/', 
-                       gx_sample='gx-sample.in',
+                       gx_template='gx-sample.in',
                        path='run-dir/', 
                        vmec_path='./',
                        vmec_wout="",
@@ -186,14 +186,12 @@ class GX_Flux_Model():
 
         self.engine = engine
 
-#        gx_root = "gx-files/"  # this is part of repo, don't change # old, 9/7
-        #f_input = 'gx-sample.in'  # removed 10/16
         f_geo   = 'gx-geometry-sample.ing' # sample input file, to be part of repo
 
         ### Check file path
         print("  Looking for GX files")
         print("    GX input path:", gx_root)
-        print("      expecting GX template:", gx_root + gx_sample)
+        print("      expecting GX template:", gx_root + gx_template)
         print("      expecting GX executable:", gx_root + "gx")
         print("      expecting GX-VMEC template:", gx_root + f_geo)
         print("      expecting GX-VMEC executable:", gx_root + "convert_VMEC_to_GX")
@@ -221,7 +219,7 @@ class GX_Flux_Model():
 
         ###  load an input template
         #    later, this should come from Trinity input file
-        self.input_template = GX_Runner(gx_root + gx_sample)
+        self.input_template = GX_Runner(gx_root + gx_template)
         self.path = path # this is the GX output path (todo: rename)
         # check that path exists, if it does not, mkdir and copy gx executable
         
@@ -229,7 +227,7 @@ class GX_Flux_Model():
         self.vmec_path = vmec_path
         self.vmec_wout = vmec_wout
         self.gx_root   = gx_root
-        self.gx_sample = gx_sample
+        self.gx_template = gx_template
         self.f_geo   = f_geo # template convert geometry input
 
 ### retired 8/14
@@ -336,8 +334,8 @@ class GX_Flux_Model():
 
 
     def prep_commands(self, engine, # pointer to pull profiles from trinity engine
-                            #step = 0.1, # absolute step size for perturbing gradients
                             step = 0.3, # relativestep size for perturbing gradients
+                            abs_step = 0.3, # absolute step size for perturbing gradients
                      ):
 
         self.time = engine.time
@@ -362,11 +360,31 @@ class GX_Flux_Model():
 ## this is one way to do it, using reference temperatures
 #  would it be more clear to just have keV values in absolute?
         Tref = Ti # hard-coded convention
-        gx_Ti = Ti/Tref
-        gx_Te = Te/Tref
+        GX_Ti = Ti/Tref
+        GX_Te = Te/Tref
 
+        # get reference values for GX
+        p_cgs = pi*1e17                                                   
+        try:
+            B_cgs = engine.flux_norms.B_ref*1e4
+        except:
+            B_cgs = engine.Ba*1e4
+        beta_ref = 4.03e-11*p_cgs/(B_cgs*B_cgs) 
+        vtref_gx = (Tref*engine.norms.e/engine.norms.m_ref/2)**0.5  # GX vt does not include sqrt(2). assumes deuterium reference ions. need to generalize.
+        try:
+            # this should really be flux_norms.a_ref, but we are assuming trinity and GX use same a_ref  
+            a_ref = flux_norms.a_ref
+        except
+            a_ref = engine.norms.a_ref
+        tref_gx = a_ref / vtref_gx 
 
-        # turbulent flux calls, for each radial flux tube
+        # get collision freq for GX
+        coll = engine.collision_model
+        coll.update_profiles(engine)
+        nu_ii = pf.Profile(coll.collision_frequency(0),half=True).midpoints * tref_gx
+        nu_ee = pf.Profile(coll.collision_frequency(1),half=True).midpoints * tref_gx
+
+        # get turbulent flux at each radial flux tube
         mid_axis = engine.mid_axis
         idx = np.arange( len(mid_axis) ) 
 
@@ -375,11 +393,48 @@ class GX_Flux_Model():
         fpi  = [''] * len(idx) 
         fpe  = [''] * len(idx) 
 
-        Q0   = np.zeros( len(idx) )
-        Qpi  = np.zeros( len(idx) )
-        Qpe  = np.zeros( len(idx) )
-        Qn   = np.zeros( len(idx) )
+# delete
+#        Q0   = np.zeros( len(idx) )
+#        Qpi  = np.zeros( len(idx) )
+#        Qpe  = np.zeros( len(idx) )
+#        Qn   = np.zeros( len(idx) )
 
+        Gamma = np.zeros_like(idx)
+        Qi    = np.zeros_like(idx)
+        Qe    = np.zeros_like(idx)
+        # underscore indicates derivative: G_n = d Gamma / d(a kn)
+        G_n   = np.zeros_like(idx)
+        G_pi  = np.zeros_like(idx)
+        G_pe  = np.zeros_like(idx)
+        Qi_n  = np.zeros_like(idx)
+        Qi_pi = np.zeros_like(idx)
+        Qi_pe = np.zeros_like(idx)
+        Qe_n  = np.zeros_like(idx)
+        Qe_pi = np.zeros_like(idx)
+        Qe_pe = np.zeros_like(idx)
+        dkn   = np.zeros_like(idx)
+        dkti  = np.zeros_like(idx)
+        dkte  = np.zeros_like(idx)
+
+        # attempt to load previous values, to determine whether to use restart
+        try:
+            Qi_prev = engine.Qi.profile
+            Qi_n_prev = engine.Qi_n.profile
+            Qi_pi_prev = engine.Qi_pi.profile
+            Qi_pe_prev = engine.Qi_pe.profile
+        except:
+            Qi_prev    = np.zeros(len(idx))
+            Qi_n_prev  = np.zeros(len(idx))
+            Qi_pi_prev = np.zeros(len(idx))
+            Qi_pe_prev = np.zeros(len(idx))
+
+        eps = 1e-10 
+        restart_0 = abs(Qi_prev) > eps
+        restart_pi = abs(Qi_pi_prev[j]) > eps
+        restart_pe = abs(Qi_pe_prev[j]) > eps
+        restart_n = abs(Qi_n_prev[j]) > eps
+
+        scale = 1 + step
         for j in idx: 
 
             rho = mid_axis[j]
@@ -387,20 +442,48 @@ class GX_Flux_Model():
             kti = LTi[j]
             kte = LTe[j]
 
+            gx_ti = GX_Ti[j]
+            gx_te = GX_Te[j]
+            beta  = beta_ref[j]
+            nu_i  = nu_ii[j]
+            nu_e  = nu_ee[j]
+
+            res_0 = restart_0[j]
+            res_pi = restart_pi[j]
+            res_pe = restart_pe[j]
+            res_n = restart_n[j]
+
             # writes the GX input file and calls the slurm 
-            #scale = 1 + step
-            f0 [j] = self.gx_command(j, rho, kn      , kti       , kte        , '0', temp_i=gx_Ti[j], temp_e = gx_Te[j] )
-            #fpi[j] = self.gx_command(j, rho, kn      , kti*scale , kte        , '2', temp_i=gx_Ti[j], temp_e = gx_Te[j] )
-            fpi[j] = self.gx_command(j, rho, kn      , kti + step , kte        , '2', temp_i=gx_Ti[j], temp_e = gx_Te[j] )
+            f0[j] = self.gx_command(j, rho, kn      , kti      , kte      , '0', 
+                          temp_i=gx_ti, temp_e = gx_te, nu_ii = nu_i, nu_ee = nu_e, 
+                          restart=res_0, beta_ref= beta )
 
+            if engine.evolve_temperature:
 
-            #fn [j] = self.gx_command(j, rho, kn*scale , kpi        , kpe        , '1' )
-            #fpe[j] = self.gx_command(j, rho, kn      , kpi        , kpe*scale , '3' )
+                if not engine.fix_ions and not engine.adiabatic_species == "ion":
+                    kti_pert = max(kti*scale, kti + abs_step)
+                    dkti[j] = kti_pert - kti
+                    fpi[j] = self.gx_command(j, rho, kn      , kti_pert , kte      , '2', 
+                             temp_i=gx_ti, temp_e = gx_te, nu_ii = nu_i, nu_ee = nu_e, 
+                             restart=res_pi, beta_ref= beta )
 
-            # turn off density, since particle flux is set to 0
-            # turn off pe, since Qe = Qi
-            ### there is choice, relative step * or absolute step +?
+                if not engine.fix_electrons and not engine.adiabatic_species == "electron":
+                    kte_pert = max(kte*scale, kte + abs_step)
+                    dkte[j] = kte_pert - kte
+                    fpe[j] = self.gx_command(j, rho, kn      , kti      , kte_pert , '3', 
+                             temp_i=gx_ti, temp_e = gx_te, nu_ii = nu_i, nu_ee = nu_e, 
+                             restart=res_pe, beta_ref= beta)
 
+            if engine.evolve_density:
+                # perturb density gradient at fixed pressure gradient
+                kn_pert = kn + abs_step
+                kti_pert = kti - abs_step
+                kte_pert = kte - abs_step
+                dkn[j] = kn_pert - kn
+                fn [j] = self.gx_command(j, rho, kn_pert , kti_pert , kte_pert , '1', 
+                         temp_i=gx_ti, temp_e = gx_te, nu_ii = nu_i, nu_ee = nu_e, 
+                         restart=res_n, beta_ref= beta )
+#
         ### collect parallel runs
         self.wait()
 
@@ -470,26 +553,14 @@ class GX_Flux_Model():
 
     #  sets up GX input, executes GX, returns input file name
     def gx_command(self, r_id, rho, kn, kti, kte, job_id, 
-                         temp_i=1,temp_e=1):
-        # this version perturbs for the gradient
-        # (temp, should be merged as option, instead of duplicating code)
+                         temp_i=1,temp_e=1, nu_ii=0, nu_ee=0, beta_ref=0, restart=True):
         
-        ## this code used to get (kn,kp) as an input, now we take kT directly
-        #s = rho**2
-        #kti = kpi - kn
-        #kte = kpe - kn
-
-        #t_id = self.t_id # time integer
         t_id = self.engine.t_idx # time integer
         p_id = self.engine.p_idx # Newton iteration number
         prev_p_id = self.engine.prev_p_id # Newton iteration number
 
-#        self.engine.gx_idx += 1 
-
-        #.format(t_id, r_id, time, rho, s, kti, kn), file=f)
         ft = self.flux_tubes[r_id] 
-        ft.set_profiles(temp_i, temp_e)
-        #ft.set_dens_temp(temp_i, temp_e)
+        ft.set_profiles(temp_i, temp_e, nu_ii, nu_ee, beta_ref)
         ft.set_gradients(kn, kti, kte)
         
         # to be specified by Trinity input file, or by time stamp
@@ -506,16 +577,15 @@ class GX_Flux_Model():
         f_save = tag + '-restart.nc'
 
         ### Decide whether to load restart
-        if (t_id == 0): 
-            # skip only for first time step
+        if (not restart or t_id == 0): 
             ft.gx_input.inputs['Restart']['restart'] = 'false'
+            ft.gx_input.inputs['Initialization']['init_amp'] = '1e-3'
 
         else:
             ft.gx_input.inputs['Restart']['restart'] = 'true'
             f_load = f"restarts/saved-t{t_id-1:02d}-p{prev_p_id}-r{r_id}-{job_id}.nc" 
             ft.gx_input.inputs['Restart']['restart_from_file'] = '"{:}"'.format(path + f_load)
             ft.gx_input.inputs['Initialization']['init_amp'] = '0.0'
-            # restart from the same file (prev time step), to ensure parallelizability
 
         
         #### save restart file (always)
@@ -526,9 +596,8 @@ class GX_Flux_Model():
 
         ### execute
         ft.gx_input.write(path + fout)
-        qflux = self.run_gx(tag, path) # this returns a file name
-        return qflux
-
+        fname = self.run_gx(tag, path) # this returns a file name
+        return fname
 
 
     def run_gx(self,tag,path):

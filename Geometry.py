@@ -65,13 +65,13 @@ class FluxTube():
         fprim = '[ {:.2f},       {:.2f}     ]'.format(kn, kn)
         gx.inputs['species']['fprim'] = fprim
 
-    def set_profiles(self, temp_i, temp_e):
-    #def set_dens_temp(self, temp_i, temp_e): # renamed 10/13
+    def set_profiles(self, temp_i, temp_e, nu_ii, nu_ee, beta_ref):
 
         gx = self.gx_input
 
-        temp = f"[ {temp_i:.2f},       {temp_e:.2f}     ]"
-        gx.inputs['species']['temp'] = temp
+        gx.inputs['species']['temp'] = f"[ {temp_i:.2f}, {temp_e:.2f}]"
+        gx.inputs['species']['vnewk'] = f"[ {nu_ii:.5f}, {nu_ee:.5f} ]"
+        gx.inputs['Physics']['beta'] = beta_ref
 
         # for adiatibatic electrons ne=ni so dens is [1,1] for now
 
