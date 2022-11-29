@@ -192,21 +192,39 @@ class GX_Output():
             #f = nc.netcdf_file(fname, 'r') 
         except: 
             print('  read_GX_output: could not read', fname)
-    
-    
-        qflux = f.groups['Fluxes'].variables['qflux'][:,0]
+            self.pflux = 0.0
+            self.qflux_i = 0.0
+            self.qflux_e = 0.0
+   
+        pflux = f.groups['Fluxes'].variables['pflux'][:,0]
+        qflux_i = f.groups['Fluxes'].variables['qflux'][:,0]
+        try:
+            qflux_e = f.groups['Fluxes'].variables['qflux'][:,1]
+        except:
+            qflux_e = 0.0*qflux_i
     
         # check for NANs
-        if ( np.isnan(qflux).any() ):
+        if ( np.isnan(pflux).any() ):
              print('  nans found in', fname)
-             qflux = np.nan_to_num(qflux)
+             pflux = np.nan_to_num(pflux)
+        if ( np.isnan(qflux_i).any() ):
+             print('  nans found in', fname)
+             qflux_i = np.nan_to_num(qflux_i)
+        if ( np.isnan(qflux_e).any() ):
+             print('  nans found in', fname)
+             qflux_e = np.nan_to_num(qflux_e)
 
-        self.qflux = qflux
-        self.pflux = f.groups['Fluxes'].variables['pflux'][:,0]
+        self.pflux = self.median_estimator(pflux)
+        self.qflux_i = self.median_estimator(qflux_i)
+        self.qflux_e = self.median_estimator(qflux_e)
         self.time  = f.variables['time'][:]
 
         self.tprim  = f.groups['Inputs']['Species']['T0_prime'][:]
         self.fprim  = f.groups['Inputs']['Species']['n0_prime'][:]
+        self.B_ref = f.groups['Geometry']['B_ref'][:]
+        self.a_ref = f.groups['Geometry']['a_ref'][:]
+        self.grhoavg = f.groups['Geometry']['grhoavg'][:]
+        self.surfarea = f.groups['Geometry']['surfarea'][:]
 
         self.fname = fname
         self.data = f

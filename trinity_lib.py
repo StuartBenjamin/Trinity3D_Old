@@ -1521,6 +1521,7 @@ class Trinity_Engine():
             self.T_ref = T_ref
             self.B_ref = B_ref
             self.a_ref = a_ref
+            self.m_ref      = m_ref
 
             self.vT_ref     = vT_ref
             self.t_ref      = t_ref

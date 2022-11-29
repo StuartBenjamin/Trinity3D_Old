@@ -9,8 +9,8 @@ from GX_io    import GX_Runner, GX_Output
 
 # read GX output
 import trinity_lib as trl
-import profiles as pf
-import GX_io as gx_io
+from profiles import Profile, Flux_profile
+from GX_io import GX_Output, VMEC_GX_geometry_module
 import os
 from glob import glob
 
@@ -158,18 +158,18 @@ class Barnes_Model2():
         dQe_pe = (Qe_pe - Qe) / step
 
         # save
-        engine.Gamma  = pf.Flux_profile(zero  )
-        engine.Qi     = pf.Flux_profile(Qi    ) 
-        engine.Qe     = pf.Flux_profile(Qe    ) 
-        engine.G_n    = pf.Flux_profile(zero  )
-        engine.G_pi   = pf.Flux_profile(zero  )
-        engine.G_pe   = pf.Flux_profile(zero  )
-        engine.Qi_n   = pf.Flux_profile(zero  )
-        engine.Qi_pi  = pf.Flux_profile(dQi_pi)
-        engine.Qi_pe  = pf.Flux_profile(zero  )
-        engine.Qe_n   = pf.Flux_profile(zero  )
-        engine.Qe_pi  = pf.Flux_profile(zero  )
-        engine.Qe_pe  = pf.Flux_profile(dQe_pe)
+        engine.Gamma  = Flux_profile(zero  )
+        engine.Qi     = Flux_profile(Qi    ) 
+        engine.Qe     = Flux_profile(Qe    ) 
+        engine.G_n    = Flux_profile(zero  )
+        engine.G_pi   = Flux_profile(zero  )
+        engine.G_pe   = Flux_profile(zero  )
+        engine.Qi_n   = Flux_profile(zero  )
+        engine.Qi_pi  = Flux_profile(dQi_pi)
+        engine.Qi_pe  = Flux_profile(zero  )
+        engine.Qe_n   = Flux_profile(zero  )
+        engine.Qe_pi  = Flux_profile(zero  )
+        engine.Qe_pe  = Flux_profile(dQe_pe)
 
 
 WAIT_TIME = 1  # this should come from the Trinity Engine
@@ -270,7 +270,7 @@ class GX_Flux_Model():
             out_path  = self.path
             vmec_path = self.vmec_path
 
-            geo_template = gx_io.VMEC_GX_geometry_module( self.engine,
+            geo_template = VMEC_GX_geometry_module( self.engine,
                                                  f_sample = f_geo,
                                                  input_path = geo_path,
                                                  output_path = out_path,
@@ -374,15 +374,15 @@ class GX_Flux_Model():
         try:
             # this should really be flux_norms.a_ref, but we are assuming trinity and GX use same a_ref  
             a_ref = flux_norms.a_ref
-        except
+        except:
             a_ref = engine.norms.a_ref
         tref_gx = a_ref / vtref_gx 
 
         # get collision freq for GX
         coll = engine.collision_model
         coll.update_profiles(engine)
-        nu_ii = pf.Profile(coll.collision_frequency(0),half=True).midpoints * tref_gx
-        nu_ee = pf.Profile(coll.collision_frequency(1),half=True).midpoints * tref_gx
+        nu_ii = Profile(coll.collision_frequency(0),half=True).midpoints * tref_gx
+        nu_ee = Profile(coll.collision_frequency(1),half=True).midpoints * tref_gx
 
         # get turbulent flux at each radial flux tube
         mid_axis = engine.mid_axis
@@ -429,10 +429,10 @@ class GX_Flux_Model():
             Qi_pe_prev = np.zeros(len(idx))
 
         eps = 1e-10 
-        restart_0 = abs(Qi_prev) > eps
-        restart_pi = abs(Qi_pi_prev[j]) > eps
-        restart_pe = abs(Qi_pe_prev[j]) > eps
-        restart_n = abs(Qi_n_prev[j]) > eps
+        restart_0  = abs(Qi_prev) > eps
+        restart_pi = abs(Qi_pi_prev) > eps
+        restart_pe = abs(Qi_pe_prev) > eps
+        restart_n  = abs(Qi_n_prev) > eps
 
         scale = 1 + step
         for j in idx: 
@@ -489,16 +489,13 @@ class GX_Flux_Model():
 
         # read
         _time.sleep(WAIT_TIME)
+        print('GX runs complete: starting to read')
 
-        print('starting to read')
-        for j in idx: 
-            # loop over flux tubes
-            #Q0 [j] = read_gx_new(f0 [j])
-            #Qpi[j] = read_gx_new(fpi[j])
-            Q0 [j] = read_gx(f0 [j])
-            Qpi[j] = read_gx(fpi[j])
-            #Qn [j] = read_gx(fn [j])
-            #Qpe[j] = read_gx(fpe[j])
+        # collect normalizations
+        grho = []
+        area = []
+        B_ref = []
+        a_ref = []
 
         '''
         In this variable notation
@@ -510,46 +507,97 @@ class GX_Flux_Model():
         Qpi  is array of fluxes at pi perturbation     : Q(T + delta)
         Q_pi is array of derivatives of flux by step   : dQ/delta
         '''
+ 
 
-        # record the heat flux
-        Qflux  =  Q0
-        # record dQ / dLx
-        Qi_pi  =  (Qpi - Q0) / step
-        #Qi_pi  =  (Qpi - Q0) / (LTi * step)
-        ###Qi_pi  =  (Qpi - Q0) / (Lpi * step)  # bug 10/15
+        Gamma, Qi   , Qe    = read_gx_new(f0 )
+        G_pi , Qi_pi, Qe_pi = read_gx_new(fpi)
+        G_pe , Qi_pe, Qe_pe = read_gx_new(fpe)
+        G_n  , Qi_n , Qe_n  = read_gx_new(fn )
+
+        for j in idx: 
+            # loop over flux tubes
 
 
-        #Qi_n   =  (Qn  - Q0) / (Ln * step) 
-        #Qi_pe  =  (Qpe - Q0) / (Lpe * step) 
-        Qi_n = 0*Q0 # this is already the init state
-        Qi_pe = Qi_pi
+##            Gamma[j], Qi[j]   , Qe[j]    = read_gx( f0[j]  )
+##            G_pi[j] , Qi_pi[j], Qe_pi[j] = read_gx( fpi[j] )
+##            G_pe[j] , Qi_pe[j], Qe_pe[j] = read_gx( fpe[j] )
+##            G_n[j]  , Qi_n[j] , Qe_n[j]  = read_gx( fn[j]  )
 
+
+            gx_data = read_gx(f0 [j])
+#            Gamma[j] = gx_data.pflux
+#            Qi[j] = gx_data.qflux_i
+#            Qe[j] = gx_data.qflux_e
+#
+#            gx_data = read_gx(fpi [j])
+#            G_pi[j] = gx_data.pflux
+#            Qi_pi[j] = gx_data.qflux_i
+#            Qe_pi[j] = gx_data.qflux_e
+#
+#            gx_data = read_gx(fpe [j])
+#            G_pe[j] = gx_data.pflux
+#            Qi_pe[j] = gx_data.qflux_i
+#            Qe_pe[j] = gx_data.qflux_e
+#
+#            gx_data = read_gx(fn [j])
+#            G_n[j] = gx_data.pflux
+#            Qi_n[j] = gx_data.qflux_i
+#            Qe_n[j] = gx_data.qflux_e
+#
+            a_ref.append(gx_data.a_ref)
+            B_ref.append(gx_data.B_ref)
+            grho.append(gx_data.grhoavg)
+            area.append(gx_data.surfarea)
+
+        import pdb
+        pdb.set_trace()
+        grho = np.asarray(grho)
+        area = np.asarray(area)
+        B_ref = np.asarray(B_ref)
+        a_ref = np.asarray(a_ref)
+        # get flux-tube normalizing and geometric quantities on same grid as fluxes
+        engine.flux_norms.B_ref = Flux_profile(B_ref)
+        engine.flux_norms.a_ref = Flux_profile(a_ref)
+        engine.flux_norms.grho  = Flux_profile(grho)
+        engine.flux_norms.area  = Flux_profile(area)
+        engine.flux_norms.geometry_factor = Flux_profile(- grho / (engine.drho * area))
+
+        # record dflux / dLx
+        dG_n   =  (G_n -  Gamma) / dkn
+        dG_pi  =  (G_pi - Gamma) / dkti
+        dG_pe  =  (G_pe - Gamma) / dkte
+
+        dQi_n  =  (Qi_n - Qi) / dkn
+        dQi_pi  =  (Qi_pi - Qi) / dkti
+        dQi_pe  =  (Qi_pe - Qi) / dkte
+
+        dQe_n  =  (Qe_n - Qe) / dkn
+        dQe_pi  =  (Qe_pi - Qe) / dkti
+        dQe_pe  =  (Qe_pe - Qe) / dkte
+
+        # record the heat flux (temp diagnostic)
         rec = engine.record_flux
-        rec['Q0'].append( Q0       )
-        rec['Q1'].append( Qpi      )
-        rec['dQ'].append( Qi_pi    )
+        rec['Q0'].append( Qi       )
+        rec['Q1'].append( Qi_pi      )
+        rec['dQ'].append( dQi_pi    )
         rec['kT'].append( LTi      )
-        rec['dk'].append( LTi*step )
+        rec['dk'].append( dkti )
 
         # need to add neoclassical diffusion
 
         # save, this is what engine.compute_flux() writes
-        zero = 0*Qflux
-        eps = 1e-8 + zero # want to avoid divide by zero
-
-        engine.Gamma  = pf.Flux_profile(eps  )
-        engine.Qi     = pf.Flux_profile(Qflux) 
-        engine.Qe     = pf.Flux_profile(Qflux) 
-        engine.G_n    = pf.Flux_profile(zero )
-        engine.G_pi   = pf.Flux_profile(zero )
-        engine.G_pe   = pf.Flux_profile(zero )
-        engine.Qi_n   = pf.Flux_profile(Qi_n )
-        engine.Qi_pi  = pf.Flux_profile(Qi_pi)
-        engine.Qi_pe  = pf.Flux_profile(Qi_pe)
-        engine.Qe_n   = pf.Flux_profile(Qi_n )
-        engine.Qe_pi  = pf.Flux_profile(Qi_pi)
-        engine.Qe_pe  = pf.Flux_profile(Qi_pe)
-        # set electron flux = to ions for now
+        engine.Gamma  = Flux_profile(Gamma)
+        engine.Qi     = Flux_profile(Qi) 
+        engine.Qe     = Flux_profile(Qe) 
+        engine.G_n    = Flux_profile(dG_n)
+        engine.G_pi   = Flux_profile(dG_pi)
+        engine.G_pe   = Flux_profile(dG_pe)
+        engine.Qi_n   = Flux_profile(dQi_n )
+        engine.Qi_pi  = Flux_profile(dQi_pi)
+        engine.Qi_pe  = Flux_profile(dQi_pe)
+        engine.Qe_n   = Flux_profile(dQe_n )
+        engine.Qe_pi  = Flux_profile(dQe_pi)
+        engine.Qe_pe  = Flux_profile(dQe_pe)
 
     #  sets up GX input, executes GX, returns input file name
     def gx_command(self, r_id, rho, kn, kti, kte, job_id, 
@@ -659,25 +707,51 @@ def print_time():
     #print('  time', ts)
 
 
-## is this being used? 9/28
-#  if so, it should be replaced by GX_Output class in GX_io.py
+def read_gx_new(f_array, eps=1e-8):
+
+    pflux = []
+    qflux_i = []
+    qflux_e = []
+
+    for f in f_array:
+
+        try: 
+            gx_data = GX_Output(f)
+        except:
+            print('  issue reading', f)
+            pflux.append(eps)
+            qflux_i.append(eps)
+            qflux_e.append(eps)
+            continue
+
+        pflux  .append(gx_data.pflux  )
+        qflux_i.append(gx_data.qflux_i)
+        qflux_e.append(gx_data.qflux_e)
+
+    return pflux, qflux_i, qflux_e
+
+        
+
 def read_gx(f_nc):
+#    if f_nc == '':
+#        return 1e-8, None
+
     # read a GX netCDF output file, returns flux
     try:
-        qflux = gx_io.read_GX_output( f_nc )
-        if ( np.isnan(qflux).any() ):
-             print('  nans found in', f_nc, '(setting NaNs to 0)')
-             qflux = np.nan_to_num(qflux)
+        gx_data = GX_Output(f_nc)
 
-        tag = f_nc.split('/')[-1]
-        print('  {:} qflux: {:}'.format(tag, qflux))
-        return qflux
+#        return gx_data
+        return gx_data.qflux_i, gx_data.qflux_e, gx_data.pflux
 
     except:
         print('  issue reading', f_nc)
-        return 0 # for safety, this will be problematic
+#        exit(1)
+        return 0, 0, 0
 
-def read_gx_new(f_nc):
+    tag = f_nc.split('/')[-1]
+    print('  {:} pflux: {:}, qflux_i: {:}, qflux_e: {:}'.format(tag, gx_data.pflux, gx_data.qflux_i, gx_data.qflux_e))
+
+def read_gx_old(f_nc):
     # read a GX netCDF output file, returns flux
     try:
 

@@ -158,7 +158,24 @@ class Collision_Model():
         # maybe I had better save the units in the variable name, 
         # and then call the name with units assumed
 
+    def collision_frequency(self, s):
+    
+        # compute collision frequency nu_ss 
+        #    assume [n] = cc, [T] = eV, [m] = amu, [Z] = n charge
+    
+        n = np.array( self.n_cc ) #/ 1e6          # m-3          -> cc
+        T = self.T_eV
+        Z = self.Z_e
+        m = self.m_mp
 
+        if(self.isIon[s]):
+            nu_ss = 4.8e-8*Z[s]**4/m[s]**0.5*self.logLambda_nrl(s, s)*n[s]/T[s]**1.5
+        else:
+            nu_ss = 2.9e-6*self.logLambda_nrl(s, s)*n[s]/T[s]**1.5
+            
+        return nu_ss
+
+    # These member functions compute elements N x N matrix using the existing profiles
     def energy_collisions_nrl(self, s, u):
         '''
         Computes pair wise energy collision rate
@@ -179,7 +196,6 @@ class Collision_Model():
     
         return nu # Hz
 
-    ## These member functions compute elements N x N matrix using the existing profiles
     def logLambda_nrl(self, s, u):
     
         # compute lamb := log(Lambda)
