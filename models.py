@@ -543,6 +543,8 @@ class GX_Flux_Model():
                 cmd = ['srun', '-N', '1', '-t', '2:00:00', '--ntasks=1', '--gpus-per-task=1', 'gx', path+tag+'.in'] # traverse
             if system == 'satori':
                 cmd = ['srun', '-N', '1', '-t', '2:00:00', '--ntasks=1', '--gres=gpu:1', path+'gx', path+tag+'.in'] # satori
+            if system == 'perlmutter':
+                cmd = ['srun', '-N', '1', '--ntasks=1', '-G', '1', '-C', 'gpu', '-A', 'ntrain1', path+'gx', path+tag+'.in'] # perlmutter
     
             print('Calling', tag)
             print_time()
