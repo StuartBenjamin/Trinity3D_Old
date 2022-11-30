@@ -399,22 +399,23 @@ class GX_Flux_Model():
 #        Qpe  = np.zeros( len(idx) )
 #        Qn   = np.zeros( len(idx) )
 
-        Gamma = np.zeros_like(idx)
-        Qi    = np.zeros_like(idx)
-        Qe    = np.zeros_like(idx)
+        Gamma = np.zeros_like(idx, dtype=float)
+        Qi    = np.zeros_like(idx, dtype=float)
+        Qe    = np.zeros_like(idx, dtype=float)
         # underscore indicates derivative: G_n = d Gamma / d(a kn)
-        G_n   = np.zeros_like(idx)
-        G_pi  = np.zeros_like(idx)
-        G_pe  = np.zeros_like(idx)
-        Qi_n  = np.zeros_like(idx)
-        Qi_pi = np.zeros_like(idx)
-        Qi_pe = np.zeros_like(idx)
-        Qe_n  = np.zeros_like(idx)
-        Qe_pi = np.zeros_like(idx)
-        Qe_pe = np.zeros_like(idx)
-        dkn   = np.zeros_like(idx)
-        dkti  = np.zeros_like(idx)
-        dkte  = np.zeros_like(idx)
+        G_n   = np.zeros_like(idx, dtype=float)
+        G_pi  = np.zeros_like(idx, dtype=float)
+        G_pe  = np.zeros_like(idx, dtype=float)
+        Qi_n  = np.zeros_like(idx, dtype=float)
+        Qi_pi = np.zeros_like(idx, dtype=float)
+        Qi_pe = np.zeros_like(idx, dtype=float)
+        Qe_n  = np.zeros_like(idx, dtype=float)
+        Qe_pi = np.zeros_like(idx, dtype=float)
+        Qe_pe = np.zeros_like(idx, dtype=float)
+        # use ones like here to avoid divide by 0 (will be overwritten if used)
+        dkn   =  np.ones_like(idx, dtype=float)
+        dkti  =  np.ones_like(idx, dtype=float)
+        dkte  =  np.ones_like(idx, dtype=float)
 
         # attempt to load previous values, to determine whether to use restart
         try:
@@ -483,7 +484,7 @@ class GX_Flux_Model():
                 fn [j] = self.gx_command(j, rho, kn_pert , kti_pert , kte_pert , '1', 
                          temp_i=gx_ti, temp_e = gx_te, nu_ii = nu_i, nu_ee = nu_e, 
                          restart=res_n, beta_ref= beta )
-#
+
         ### collect parallel runs
         self.wait()
 
@@ -508,59 +509,58 @@ class GX_Flux_Model():
         Q_pi is array of derivatives of flux by step   : dQ/delta
         '''
  
+        Gamma, Qi   , Qe    = read_gx_array(f0 )
+        G_pi , Qi_pi, Qe_pi = read_gx_array(fpi)
+        G_pe , Qi_pe, Qe_pe = read_gx_array(fpe)
+        G_n  , Qi_n , Qe_n  = read_gx_array(fn )
 
-        Gamma, Qi   , Qe    = read_gx_new(f0 )
-        G_pi , Qi_pi, Qe_pi = read_gx_new(fpi)
-        G_pe , Qi_pe, Qe_pe = read_gx_new(fpe)
-        G_n  , Qi_n , Qe_n  = read_gx_new(fn )
-
-        for j in idx: 
-            # loop over flux tubes
-
-
-##            Gamma[j], Qi[j]   , Qe[j]    = read_gx( f0[j]  )
-##            G_pi[j] , Qi_pi[j], Qe_pi[j] = read_gx( fpi[j] )
-##            G_pe[j] , Qi_pe[j], Qe_pe[j] = read_gx( fpe[j] )
-##            G_n[j]  , Qi_n[j] , Qe_n[j]  = read_gx( fn[j]  )
-
-
-            gx_data = read_gx(f0 [j])
-#            Gamma[j] = gx_data.pflux
-#            Qi[j] = gx_data.qflux_i
-#            Qe[j] = gx_data.qflux_e
+#        for j in idx: 
+#            # loop over flux tubes
 #
-#            gx_data = read_gx(fpi [j])
-#            G_pi[j] = gx_data.pflux
-#            Qi_pi[j] = gx_data.qflux_i
-#            Qe_pi[j] = gx_data.qflux_e
 #
-#            gx_data = read_gx(fpe [j])
-#            G_pe[j] = gx_data.pflux
-#            Qi_pe[j] = gx_data.qflux_i
-#            Qe_pe[j] = gx_data.qflux_e
+###            Gamma[j], Qi[j]   , Qe[j]    = read_gx( f0[j]  )
+###            G_pi[j] , Qi_pi[j], Qe_pi[j] = read_gx( fpi[j] )
+###            G_pe[j] , Qi_pe[j], Qe_pe[j] = read_gx( fpe[j] )
+###            G_n[j]  , Qi_n[j] , Qe_n[j]  = read_gx( fn[j]  )
 #
-#            gx_data = read_gx(fn [j])
-#            G_n[j] = gx_data.pflux
-#            Qi_n[j] = gx_data.qflux_i
-#            Qe_n[j] = gx_data.qflux_e
 #
-            a_ref.append(gx_data.a_ref)
-            B_ref.append(gx_data.B_ref)
-            grho.append(gx_data.grhoavg)
-            area.append(gx_data.surfarea)
-
-        import pdb
-        pdb.set_trace()
-        grho = np.asarray(grho)
-        area = np.asarray(area)
-        B_ref = np.asarray(B_ref)
-        a_ref = np.asarray(a_ref)
-        # get flux-tube normalizing and geometric quantities on same grid as fluxes
-        engine.flux_norms.B_ref = Flux_profile(B_ref)
-        engine.flux_norms.a_ref = Flux_profile(a_ref)
-        engine.flux_norms.grho  = Flux_profile(grho)
-        engine.flux_norms.area  = Flux_profile(area)
-        engine.flux_norms.geometry_factor = Flux_profile(- grho / (engine.drho * area))
+#            gx_data = read_gx(f0 [j])
+##            Gamma[j] = gx_data.pflux
+##            Qi[j] = gx_data.qflux_i
+##            Qe[j] = gx_data.qflux_e
+##
+##            gx_data = read_gx(fpi [j])
+##            G_pi[j] = gx_data.pflux
+##            Qi_pi[j] = gx_data.qflux_i
+##            Qe_pi[j] = gx_data.qflux_e
+##
+##            gx_data = read_gx(fpe [j])
+##            G_pe[j] = gx_data.pflux
+##            Qi_pe[j] = gx_data.qflux_i
+##            Qe_pe[j] = gx_data.qflux_e
+##
+##            gx_data = read_gx(fn [j])
+##            G_n[j] = gx_data.pflux
+##            Qi_n[j] = gx_data.qflux_i
+##            Qe_n[j] = gx_data.qflux_e
+##
+#            a_ref.append(gx_data.a_ref)
+#            B_ref.append(gx_data.B_ref)
+#            grho.append(gx_data.grhoavg)
+#            area.append(gx_data.surfarea)
+#
+#        import pdb
+#        pdb.set_trace()
+#        grho = np.asarray(grho)
+#        area = np.asarray(area)
+#        B_ref = np.asarray(B_ref)
+#        a_ref = np.asarray(a_ref)
+#        # get flux-tube normalizing and geometric quantities on same grid as fluxes
+#        engine.flux_norms.B_ref = Flux_profile(B_ref)
+#        engine.flux_norms.a_ref = Flux_profile(a_ref)
+#        engine.flux_norms.grho  = Flux_profile(grho)
+#        engine.flux_norms.area  = Flux_profile(area)
+#        engine.flux_norms.geometry_factor = Flux_profile(- grho / (engine.drho * area))
 
         # record dflux / dLx
         dG_n   =  (G_n -  Gamma) / dkn
@@ -707,7 +707,14 @@ def print_time():
     #print('  time', ts)
 
 
-def read_gx_new(f_array, eps=1e-8):
+def read_gx_array(f_array, eps=0):
+    '''
+    Reads an array of gx netcdf outputs
+        (interpretted as one per radial location)
+
+    Extracts Gamma, Qi, Qe from each file
+    Returns an radial point array for each flux
+    '''
 
     pflux = []
     qflux_i = []
@@ -715,33 +722,34 @@ def read_gx_new(f_array, eps=1e-8):
 
     for f in f_array:
 
-        try: 
-            gx_data = GX_Output(f)
-        except:
-            print('  issue reading', f)
+        if f == '':
             pflux.append(eps)
             qflux_i.append(eps)
             qflux_e.append(eps)
             continue
 
+        gx_data = GX_Output(f)
         pflux  .append(gx_data.pflux  )
         qflux_i.append(gx_data.qflux_i)
         qflux_e.append(gx_data.qflux_e)
 
+    pflux = np.array(pflux)
+    qflux_i = np.array(qflux_i)
+    qflux_e = np.array(qflux_e)
     return pflux, qflux_i, qflux_e
 
         
-
+# old can be deleted
 def read_gx(f_nc):
-#    if f_nc == '':
-#        return 1e-8, None
+    if f_nc == '':
+        return 0, 0, 0
 
     # read a GX netCDF output file, returns flux
     try:
         gx_data = GX_Output(f_nc)
 
 #        return gx_data
-        return gx_data.qflux_i, gx_data.qflux_e, gx_data.pflux
+        return np.array( [gx_data.qflux_i, gx_data.qflux_e, gx_data.pflux] )
 
     except:
         print('  issue reading', f_nc)
