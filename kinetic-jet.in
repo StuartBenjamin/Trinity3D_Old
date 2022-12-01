@@ -10,11 +10,12 @@
 
 [log]
   N_prints = 5
-  f_save   = log_jet-example
+  f_save   = log_jet-kinetic
 
 [path]
   gx_inputs  = gx-files/
-  gx_outputs = gx-files/jet-temp/
+  gx_outputs = gx-files/jet-kinetic/
+  gx_template = gx_kinetic_sample.in
   vmec_path  = jet-inputs/
 
 [model]
@@ -32,8 +33,8 @@
   Ti_edge = 1.6
   Te_core = 5.3
   Te_edge = 2
-  evolve_density = False
-  fix_electrons = True
+  evolve_density = True
+  fix_electrons = False
 
 [sources]
   Sn_height   = 20

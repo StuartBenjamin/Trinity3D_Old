@@ -196,28 +196,34 @@ class GX_Output():
             self.qflux_i = 0.0
             self.qflux_e = 0.0
    
-        pflux = f.groups['Fluxes'].variables['pflux'][:,0]
-        qflux_i = f.groups['Fluxes'].variables['qflux'][:,0]
+        # Pflux is time trace, pflux is average
+        Pflux = f.groups['Fluxes'].variables['pflux'][:,0]
+        Qflux_i = f.groups['Fluxes'].variables['qflux'][:,0]
         try:
-            qflux_e = f.groups['Fluxes'].variables['qflux'][:,1]
+            Qflux_e = f.groups['Fluxes'].variables['qflux'][:,1]
         except:
-            qflux_e = 0.0*qflux_i
+            Qflux_e = np.zeros_like(Qflux_i)
     
         # check for NANs
-        if ( np.isnan(pflux).any() ):
+        if ( np.isnan(Pflux).any() ):
              print('  nans found in', fname)
-             pflux = np.nan_to_num(pflux)
-        if ( np.isnan(qflux_i).any() ):
+             Pflux = np.nan_to_num(Pflux)
+        if ( np.isnan(Qflux_i).any() ):
              print('  nans found in', fname)
-             qflux_i = np.nan_to_num(qflux_i)
-        if ( np.isnan(qflux_e).any() ):
+             Qflux_i = np.nan_to_num(Qflux_i)
+        if ( np.isnan(Qflux_e).any() ):
              print('  nans found in', fname)
-             qflux_e = np.nan_to_num(qflux_e)
+             Qflux_e = np.nan_to_num(Qflux_e)
 
-        self.pflux = self.median_estimator(pflux)
-        self.qflux_i = self.median_estimator(qflux_i)
-        self.qflux_e = self.median_estimator(qflux_e)
+        self.pflux_arr   = Pflux
+        self.qflux_i_arr = Qflux_i
+        self.qflux_e_arr = Qflux_e
         self.time  = f.variables['time'][:]
+
+        ### TODO: add flag to trigger different estimators at init
+        self.pflux = self.median_estimator(Pflux)
+        self.qflux_i = self.median_estimator(Qflux_i)
+        self.qflux_e = self.median_estimator(Qflux_e)
 
         self.tprim  = f.groups['Inputs']['Species']['T0_prime'][:]
         self.fprim  = f.groups['Inputs']['Species']['n0_prime'][:]

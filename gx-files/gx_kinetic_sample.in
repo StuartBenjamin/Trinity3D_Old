@@ -4,27 +4,32 @@
  debug = false
 
 [Dimensions]
- ntheta = 24            # number of points along field line (theta) per 2pi segment    
+ ntheta = 16            # number of points along field line (theta) per 2pi segment    
  nperiod = 1            # number of 2pi segments along field line is 2*nperiod-1
- ny = 64                # number of real-space grid-points in y
- nx = 192               # number of real-space grid-points in x
+ ny = 32                # number of real-space grid-points in y
+ nx = 48                # number of real-space grid-points in x
 
- nhermite = 16          # number of hermite moments (v_parallel resolution)
+ nhermite = 8           # number of hermite moments (v_parallel resolution)
  nlaguerre = 4          # number of laguerre moments (mu B resolution)
  nspecies = 2           # number of evolved kinetic species (adiabatic electrons don't count towards nspecies)
 
 [Domain]
- y0 = 28.2              # controls box length in y (in units of rho_ref) and minimum ky, so that ky_min*rho_ref = 1/y0 
+ y0 = 10.0              # controls box length in y (in units of rho_ref) and minimum ky, so that ky_min*rho_ref = 1/y0 
  boundary = "linked"    # use twist-shift boundary conditions along field line
 
 [Physics]
  beta = 0.001                    # reference normalized pressure, beta = n_ref T_ref / ( B_ref^2 / (8 pi))
  nonlinear_mode = true           # this is a nonlinear calculation
+ fapar = 1.0
+ fbpar = 0.0
 
 [Time]
- dt = 0.0005           # timestep size (in units of L_ref/vt_ref)
+ dt = 0.01           # timestep size (in units of L_ref/vt_ref)
+ t_max = 100.0
+ t_add = 100.0
  nstep = 100000          # number of timesteps
- scheme = "sspx3"       # use SSPx3 timestepping scheme
+ scheme = "rk4"
+ #scheme = "sspx3"       # use SSPx3 timestepping scheme
 
 [Initialization]
  ikpar_init = 0                  # parallel wavenumber of initial perturbation
@@ -52,9 +57,9 @@
 [Dissipation]
  closure_model = "none"          # no closure assumptions (just truncation)
  hypercollisions = true          # use hypercollision model
- nu_hyper_m = 0.5                # coefficient of hermite hypercollisions
+ nu_hyper_m = 0.1                # coefficient of hermite hypercollisions
  p_hyper_m = 6                   # exponent of hermite hypercollisions
- nu_hyper_l = 0.5                # coefficient of laguerre hypercollisions
+ nu_hyper_l = 0.1                # coefficient of laguerre hypercollisions
  p_hyper_l = 6                   # exponent of laguerre hypercollisions
 
  hyper = true                    # use hyperdiffusion
@@ -67,7 +72,6 @@
 
 [Diagnostics]
  nwrite = 10                     # write diagnostics every 100 timesteps
- #omega  = true
  fluxes = true                   # compute and write heat and particle fluxes
 
 [Wspectra]                       # spectra of W = |G_lm|**2
