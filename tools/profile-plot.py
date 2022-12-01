@@ -72,13 +72,22 @@ area = np.insert(area, 0, 0)
 grho = pf.Profile(grho, half=True).plus.profile
 area = pf.Profile(area, half=True).plus.profile
 
+# run settings
+alpha = settings['alpha']
+dtau  = settings['dtau']
+N_steps = settings['N_steps']
+N_prints = settings['N_prints']
+N_step_print = N_steps // N_prints   
+
+N = len(time)
+
 # sources
 Ei     =      np.array( data['power balance']['Ei' ] ) 
 Ee     =      np.array( data['power balance']['Ee' ] ) 
 
 source_n  = profile_data['source_n' ] 
-source_pi = profile_data['source_pi'] + Ei[-1]
-source_pe = profile_data['source_pe'] + Ee[-1]
+source_pi = profile_data['source_pi'] + Ei[N-1]
+source_pe = profile_data['source_pe'] + Ee[N-1]
 
 p_source_scale = data['norms']['pressure_source_scale']
 try:
@@ -97,18 +106,11 @@ def volume_integrate(integrand):
     integral = np.sum(integrand*area[:len(integrand)]/grho[:len(integrand)])*drho
     return integral
 
-Pfus_MW = volume_integrate(P_fusion_Wm3[-1])/1e6
+Pfus_MW = volume_integrate(P_fusion_Wm3[N-1])/1e6
 
-N = len(time)
 
 fig,axs = plt.subplots( 2, 6, figsize=(65,8) )
 
-# run settings
-alpha = settings['alpha']
-dtau  = settings['dtau']
-N_steps = settings['N_steps']
-N_prints = settings['N_prints']
-N_step_print = N_steps // N_prints   
 
 filename = data['trinity_infile']
 rlabel = rf'[{filename}] :: $\alpha = {alpha} : d\tau = {dtau:.3e} : N_\tau = {N_steps} : \Delta\tau = {dtau*N_steps:.1e}$'
@@ -123,7 +125,7 @@ green_map = pl.cm.YlGn(np.linspace(0.25,1,N))
 purple_map = pl.cm.Purples(np.linspace(0.25,1,N))
 
 n_leg = 5
-t_plot_freq = int(np.rint(N_steps/n_leg)) # Ensures we only plot a maximum of n_leg timesteps in the legend.
+t_plot_freq = max(1, int(np.rint(N_steps/n_leg))) # Ensures we only plot a maximum of n_leg timesteps in the legend.
 
 plot_electrons = True
 if profile_data['fix_electrons'] or profile_data['equal_temps']:
@@ -143,7 +145,7 @@ for t in np.arange(N):
         t_old = t_curr
 
     # plot profiles
-    if i_plot%t_plot_freq == 0:
+    if t==0 or i_plot%t_plot_freq == 0:
         axs[0,0].plot(axis,n [t] ,'.-', color=green_map[t], label = '{:.2f}'.format(time[t]))
     else:
         axs[0,0].plot(axis,n [t] ,'.-', color=green_map[t])

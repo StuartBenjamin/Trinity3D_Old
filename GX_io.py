@@ -51,10 +51,10 @@ class GX_Runner():
         self.filename = fin
 
 
-    def write(self, fout='temp.in'):
+    def write(self, fout='temp.in', overwrite=False):
 
         # do not overwrite
-        if (os.path.exists(fout)):
+        if (os.path.exists(fout) and overwrite==False):
             print( '  input exists, skipping write', fout )
             return
 

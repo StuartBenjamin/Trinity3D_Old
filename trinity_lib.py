@@ -71,6 +71,7 @@ class Trinity_Engine():
                        Ba = 3,
                        alpha = 1,          # explicit to implicit mixer
                        dtau  = 0.5,        # step size 
+                       dtau_adj  = 4.0,    # factor to reduce dtau by if timestep fails
                        N_steps  = 1000,    # total Time = dtau * N_steps
                        N_prints = 10,
                        max_newton_iter = 4,
@@ -132,6 +133,7 @@ class Trinity_Engine():
         # these "time" settings succeed the "grid" settings above, keeping both now for backwards compatibility
         alpha = self.load( alpha, "float( tr3d.inputs['time']['alpha'] )" )
         dtau = self.load( dtau, "float( tr3d.inputs['time']['dtau'] )" )
+        dtau_adj = self.load( dtau_adj, "float( tr3d.inputs['time']['dtau_adj'] )" )
         N_steps = self.load( N_steps, "int( tr3d.inputs['time']['N_steps'] )" )
         
         model    = tr3d.inputs['model']['model']
@@ -254,6 +256,7 @@ class Trinity_Engine():
         self.gx_idx = 0
         self.p_idx  = 0
         self.prev_p_id = 0
+        self.repeat = False
         
         self.needs_new_flux = True
         self.needs_new_eq = False
@@ -473,7 +476,7 @@ class Trinity_Engine():
 
         if   (model == "GX"):
 
-            self.model_gx.prep_commands(self)
+            self.model_gx.prep_commands(self, overwrite=self.repeat)
             self.normalize_fluxes()
 
         elif (model == "diffusive"):
@@ -514,9 +517,9 @@ class Trinity_Engine():
         Qe = vec(s.model_Qe.flux)(0*kn, 0*kpi, kpe-kn) + Qe_neo
 
         ### off diagonal is turned off
-        G_n, G_pi, G_pe    = vec(s.model_G.flux_gradients )(kn,0*kpi, 0*kpe) 
-        Qi_n, Qi_pi, Qi_pe = vec(s.model_Qi.flux_gradients)(0*kn, kpi-kn, 0*kpe)
-        Qe_n, Qe_pi, Qe_pe = vec(s.model_Qi.flux_gradients)(0*kn, 0*kpi, kpe-kn)
+        dG_n,  dG_pi,  dG_pe  = vec(s.model_G.flux_gradients )(kn,0*kpi, 0*kpe) 
+        dQi_n, dQi_pi, dQi_pe = vec(s.model_Qi.flux_gradients)(0*kn, kpi-kn, 0*kpe)
+        dQe_n, dQe_pi, dQe_pe = vec(s.model_Qe.flux_gradients)(0*kn, 0*kpi, kpe-kn)
 
 
         # save
@@ -525,15 +528,15 @@ class Trinity_Engine():
         self.Qi     = Flux_profile(Qi) 
         self.Qe     = Flux_profile(Qe) 
         
-        self.G_n    = Flux_profile(G_n   )
-        self.G_pi   = Flux_profile(G_pi  )
-        self.G_pe   = Flux_profile(G_pe  )
-        self.Qi_n   = Flux_profile(Qi_n )
-        self.Qi_pi  = Flux_profile(Qi_pi)
-        self.Qi_pe  = Flux_profile(Qi_pe)
-        self.Qe_n   = Flux_profile(Qe_n )
-        self.Qe_pi  = Flux_profile(Qe_pi)
-        self.Qe_pe  = Flux_profile(Qe_pe)
+        self.dG_n    = Flux_profile(dG_n   )
+        self.dG_pi   = Flux_profile(dG_pi  )
+        self.dG_pe   = Flux_profile(dG_pe  )
+        self.dQi_n   = Flux_profile(dQi_n )
+        self.dQi_pi  = Flux_profile(dQi_pi)
+        self.dQi_pe  = Flux_profile(dQi_pe)
+        self.dQe_n   = Flux_profile(dQe_n )
+        self.dQe_pi  = Flux_profile(dQe_pi)
+        self.dQe_pe  = Flux_profile(dQe_pe)
 
     def normalize_fluxes(self):
         '''
@@ -652,29 +655,29 @@ class Trinity_Engine():
 
         # calculate and save
         s = self
-        self.Cn_n  = Flux_coefficients(n,  Fn, Gamma, s.G_n, norm)
-        self.Cn_pi = Flux_coefficients(pi, Fn, Gamma, s.G_pi, norm) 
-        self.Cn_pe = Flux_coefficients(pe, Fn, Gamma, s.G_pe, norm)
+        self.Cn_n  = Flux_coefficients(n,  Fn, Gamma, s.dG_n, norm)
+        self.Cn_pi = Flux_coefficients(pi, Fn, Gamma, s.dG_pi, norm) 
+        self.Cn_pe = Flux_coefficients(pe, Fn, Gamma, s.dG_pe, norm)
 
-        self.Cpi_n  = Flux_coefficients(n,  Fpi, Qi, s.Qi_n, norm)
-        self.Cpi_pi = Flux_coefficients(pi, Fpi, Qi, s.Qi_pi, norm) 
-        self.Cpi_pe = Flux_coefficients(pe, Fpi, Qi, s.Qi_pe, norm)
-        self.Cpe_n  = Flux_coefficients(n,  Fpe, Qe, s.Qe_n, norm)
-        self.Cpe_pi = Flux_coefficients(pi, Fpe, Qe, s.Qe_pi, norm) 
-        self.Cpe_pe = Flux_coefficients(pe, Fpe, Qe, s.Qe_pe, norm)
+        self.Cpi_n  = Flux_coefficients(n,  Fpi, Qi, s.dQi_n, norm)
+        self.Cpi_pi = Flux_coefficients(pi, Fpi, Qi, s.dQi_pi, norm) 
+        self.Cpi_pe = Flux_coefficients(pe, Fpi, Qi, s.dQi_pe, norm)
+        self.Cpe_n  = Flux_coefficients(n,  Fpe, Qe, s.dQe_n, norm)
+        self.Cpe_pi = Flux_coefficients(pi, Fpe, Qe, s.dQe_pi, norm) 
+        self.Cpe_pe = Flux_coefficients(pe, Fpe, Qe, s.dQe_pe, norm)
         # maybe these class definitions can be condensed
 
         # compute log gradients by dividing gradient by value
         with np.errstate(divide='ignore', invalid='ignore'):
-            logG_n  = np.nan_to_num( s.G_n.profile/Gamma.profile )
-            logG_pi  = np.nan_to_num( s.G_pi.profile/Gamma.profile)
-            logG_pe  = np.nan_to_num( s.G_pe.profile/Gamma.profile)
-            logQi_n = np.nan_to_num( s.Qi_n.profile/Qi.profile  )
-            logQe_n = np.nan_to_num( s.Qe_n.profile/Qe.profile  )
-            logQi_pi = np.nan_to_num( s.Qi_pi.profile/Qi.profile )
-            logQe_pi = np.nan_to_num( s.Qe_pi.profile/Qe.profile )
-            logQi_pe = np.nan_to_num( s.Qi_pe.profile/Qi.profile )
-            logQe_pe = np.nan_to_num( s.Qe_pe.profile/Qe.profile )
+            logG_n  = np.nan_to_num( s.dG_n.profile/Gamma.profile )
+            logG_pi  = np.nan_to_num( s.dG_pi.profile/Gamma.profile)
+            logG_pe  = np.nan_to_num( s.dG_pe.profile/Gamma.profile)
+            logQi_n = np.nan_to_num( s.dQi_n.profile/Qi.profile  )
+            logQe_n = np.nan_to_num( s.dQe_n.profile/Qe.profile  )
+            logQi_pi = np.nan_to_num( s.dQi_pi.profile/Qi.profile )
+            logQe_pi = np.nan_to_num( s.dQe_pi.profile/Qe.profile )
+            logQi_pe = np.nan_to_num( s.dQi_pe.profile/Qi.profile )
+            logQe_pe = np.nan_to_num( s.dQe_pe.profile/Qe.profile )
 
         k1_i = s.kappa1_i.profile
         k1_e = s.kappa1_e.profile
@@ -1235,18 +1238,6 @@ class Trinity_Engine():
         delta_pe = profile_diff(pe, pe_prev) #np.std(pe - pe_prev)
         delta_n  = profile_diff(n , n_prev) #np.std(n  - n_prev)
 
-        # sanity check
-        if np.max( [delta_pi, delta_pe, delta_n] ) > threshold:
-          
-            print(f"\n    WARNING: one of the profiles changed by more than {threshold*100}%\n")
-
-            self.density = self.density_init
-            self.pressure_i = self.pressure_i_init
-            self.pressure_e = self.pressure_e_init
-            self.dtau = self.dtau / 2
-
-            print(f"\n    RESTARTING with dtau -> dtau/2: {self.dtau}\n")
-
 
 #        print("*****")
 #        print(f"(dpi, dpe, dn) = {delta_pi}, {delta_pe}, {delta_n}")
@@ -1289,6 +1280,8 @@ class Trinity_Engine():
         t = self.t_idx
         if t == 0:  
             print(f"(t,p) = {self.t_idx}, {self.p_idx}")
+            #self.p_idx += 1
+            #self.newton_mode = True
             return
 
         # note: these arrays do NOT include the edge boundary point
@@ -1327,17 +1320,39 @@ class Trinity_Engine():
 
         out_string = f"(t,p) = {self.t_idx}, {self.p_idx} :: (p_prev, err, iterate) = "
 
-        ### decide whether to iterate
+        ### decide whether to iterate or repeat timestep
         iterate = True
+        self.repeat = False
 
         if rms < self.newton_threshold:
-            # error is sufficiently small, do not iterate
+            # error is sufficiently small, do not iterate, move to next timestep
             iterate = False
 
+        # error checks
         if self.p_idx >= self.max_newton_iter:
-            # max number of newton iterations exceeded, do not iterate
-            
             iterate = False
+     #       # max number of newton iterations exceeded, need to repeat timestep
+     #       print(f"\n    ERROR: RMS relative error in profiles greater than threshold ({self.newton_threshold}) after {self.max_newton_iter} iterations. \n")
+     #       self.repeat = True
+
+     #   if np.any(y1 < 0):
+     #       # negative profiles
+     #       print(f"\n    ERROR: one (or more) of the profiles has gone negative. \n")
+     #       self.repeat = True
+
+     #   if np.max( [n_err, pi_err, pe_err] ) > threshold:
+     #       # too large change in profiles
+     #       print(f"\n    ERROR: one of the profiles changed by more than {threshold*100}%\n")
+     #       self.repeat = True
+
+     #   if self.repeat:
+     #       # rewind iterations
+     #       self.y_hist = self.y_hist[:-(self.p_idx+1)]
+     #       iterate = False
+     #       # decrease timestep
+     #       self.dtau = self.dtau/self.dtau_adj
+     #       print(f"\n    REPEATING TIMESTEP with dtau -> dtau/{self.dtau_adj} = {self.dtau}\n")
+     #       return
 
         ### execute iteration logic
         if iterate:

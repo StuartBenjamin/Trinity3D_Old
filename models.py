@@ -161,15 +161,15 @@ class Barnes_Model2():
         engine.Gamma  = pf.Flux_profile(zero  )
         engine.Qi     = pf.Flux_profile(Qi    ) 
         engine.Qe     = pf.Flux_profile(Qe    ) 
-        engine.G_n    = pf.Flux_profile(zero  )
-        engine.G_pi   = pf.Flux_profile(zero  )
-        engine.G_pe   = pf.Flux_profile(zero  )
-        engine.Qi_n   = pf.Flux_profile(zero  )
-        engine.Qi_pi  = pf.Flux_profile(dQi_pi)
-        engine.Qi_pe  = pf.Flux_profile(zero  )
-        engine.Qe_n   = pf.Flux_profile(zero  )
-        engine.Qe_pi  = pf.Flux_profile(zero  )
-        engine.Qe_pe  = pf.Flux_profile(dQe_pe)
+        engine.dG_n    = pf.Flux_profile(zero  )
+        engine.dG_pi   = pf.Flux_profile(zero  )
+        engine.dG_pe   = pf.Flux_profile(zero  )
+        engine.dQi_n   = pf.Flux_profile(zero  )
+        engine.dQi_pi  = pf.Flux_profile(dQi_pi)
+        engine.dQi_pe  = pf.Flux_profile(zero  )
+        engine.dQe_n   = pf.Flux_profile(zero  )
+        engine.dQe_pi  = pf.Flux_profile(zero  )
+        engine.dQe_pe  = pf.Flux_profile(dQe_pe)
 
 
 WAIT_TIME = 1  # this should come from the Trinity Engine
@@ -314,6 +314,7 @@ class GX_Flux_Model():
     def prep_commands(self, engine, # pointer to pull profiles from trinity engine
                             step = 0.2, # relative step size for perturbing gradients
                             abs_step = 0.3, # absolute size for perturbing gradients
+                            overwrite = False,
                      ):
 
         self.time = engine.time
@@ -401,29 +402,29 @@ class GX_Flux_Model():
             # writes the GX input file and calls the slurm 
             scale = 1 + step
 
-            restart_0 = abs(Qi_prev[j]) > 1e-10
-            f0 [j] = self.gx_command(j, rho, kn      , kti      , kte      , '0', temp_i=gx_Ti[j], temp_e = gx_Te[j], nu_ii = nu_ii[j], nu_ee = nu_ee[j], restart=restart_0, beta_ref= beta_ref[j] )
+            restart_0 = Qi_prev[j] > 1e-10 and Qi_prev[j] < 1e2
+            f0 [j] = self.gx_command(j, rho, kn      , kti      , kte      , '0', temp_i=gx_Ti[j], temp_e = gx_Te[j], nu_ii = nu_ii[j], nu_ee = nu_ee[j], restart=restart_0, beta_ref= beta_ref[j], overwrite=overwrite )
 
             if engine.evolve_density:
-                restart_n = abs(Qi_n_prev[j]) > 1e-10
+                restart_n = Qi_n_prev[j] > 1e-10 and Qi_n_prev[j] < 1e2
                 # perturb density gradient at fixed pressure gradient
                 kn_pert = kn + abs_step
                 kti_pert = kti - abs_step
                 kte_pert = kte - abs_step
                 dkn[j] = kn_pert - kn
-                fn [j] = self.gx_command(j, rho, kn_pert , kti_pert , kte_pert , '1', temp_i=gx_Ti[j], temp_e = gx_Te[j], nu_ii = nu_ii[j], nu_ee = nu_ee[j], restart=restart_n, beta_ref= beta_ref[j] )
+                fn [j] = self.gx_command(j, rho, kn_pert , kti_pert , kte_pert , '1', temp_i=gx_Ti[j], temp_e = gx_Te[j], nu_ii = nu_ii[j], nu_ee = nu_ee[j], restart=restart_n, beta_ref= beta_ref[j], overwrite=overwrite )
 
             if engine.evolve_temperature:
                 if not engine.fix_ions and not engine.adiabatic_species == "ion":
-                    restart_pi = abs(Qi_pi_prev[j]) > 1e-10
+                    restart_pi = Qi_pi_prev[j] > 1e-10 and Qi_pi_prev[j] < 1e2
                     kti_pert = max(kti*(1+step), kti + abs_step)
                     dkti[j] = kti_pert - kti
-                    fpi[j] = self.gx_command(j, rho, kn      , kti_pert , kte      , '2', temp_i=gx_Ti[j], temp_e = gx_Te[j], nu_ii = nu_ii[j], nu_ee = nu_ee[j], restart=restart_pi, beta_ref= beta_ref[j] )
+                    fpi[j] = self.gx_command(j, rho, kn      , kti_pert , kte      , '2', temp_i=gx_Ti[j], temp_e = gx_Te[j], nu_ii = nu_ii[j], nu_ee = nu_ee[j], restart=restart_pi, beta_ref= beta_ref[j], overwrite=overwrite )
                 if not engine.fix_electrons and not engine.adiabatic_species == "electron":
-                    restart_pe = abs(Qi_pe_prev[j]) > 1e-10
+                    restart_pe = Qi_pe_prev[j] > 1e-10 and Qi_pe_prev[j] < 1e2
                     kte_pert = max(kte*(1+step), kte + abs_step)
                     dkte[j] = kte_pert - kte
-                    fpe[j] = self.gx_command(j, rho, kn      , kti      , kte_pert , '3', temp_i=gx_Ti[j], temp_e = gx_Te[j], nu_ii = nu_ii[j], nu_ee = nu_ee[j], restart=restart_pe , beta_ref= beta_ref[j])
+                    fpe[j] = self.gx_command(j, rho, kn      , kti      , kte_pert , '3', temp_i=gx_Ti[j], temp_e = gx_Te[j], nu_ii = nu_ii[j], nu_ee = nu_ee[j], restart=restart_pe , beta_ref= beta_ref[j], overwrite=overwrite)
 
         ### collect parallel runs
         self.wait()
@@ -486,15 +487,25 @@ class GX_Flux_Model():
         engine.Gamma  = pf.Flux_profile(Gamma)
         engine.Qi     = pf.Flux_profile(Qi) 
         engine.Qe     = pf.Flux_profile(Qe) 
-        engine.G_n    = pf.Flux_profile(dG_n)
-        engine.G_pi   = pf.Flux_profile(dG_pi)
-        engine.G_pe   = pf.Flux_profile(dG_pe)
-        engine.Qi_n   = pf.Flux_profile(dQi_n )
-        engine.Qi_pi  = pf.Flux_profile(dQi_pi)
-        engine.Qi_pe  = pf.Flux_profile(dQi_pe)
-        engine.Qe_n   = pf.Flux_profile(dQe_n )
-        engine.Qe_pi  = pf.Flux_profile(dQe_pi)
-        engine.Qe_pe  = pf.Flux_profile(dQe_pe)
+        engine.G_n    = pf.Flux_profile(G_n)
+        engine.G_pi   = pf.Flux_profile(G_pi)
+        engine.G_pe   = pf.Flux_profile(G_pe)
+        engine.Qi_n   = pf.Flux_profile(Qi_n )
+        engine.Qi_pi  = pf.Flux_profile(Qi_pi)
+        engine.Qi_pe  = pf.Flux_profile(Qi_pe)
+        engine.Qe_n   = pf.Flux_profile(Qe_n )
+        engine.Qe_pi  = pf.Flux_profile(Qe_pi)
+        engine.Qe_pe  = pf.Flux_profile(Qe_pe)
+
+        engine.dG_n    = pf.Flux_profile(dG_n)
+        engine.dG_pi   = pf.Flux_profile(dG_pi)
+        engine.dG_pe   = pf.Flux_profile(dG_pe)
+        engine.dQi_n   = pf.Flux_profile(dQi_n )
+        engine.dQi_pi  = pf.Flux_profile(dQi_pi)
+        engine.dQi_pe  = pf.Flux_profile(dQi_pe)
+        engine.dQe_n   = pf.Flux_profile(dQe_n )
+        engine.dQe_pi  = pf.Flux_profile(dQe_pi)
+        engine.dQe_pe  = pf.Flux_profile(dQe_pe)
 
         # get flux-tube normalizing and geometric quantities on same grid as fluxes
         engine.flux_norms.B_ref = pf.Flux_profile(B_ref)
@@ -505,7 +516,7 @@ class GX_Flux_Model():
 
     #  sets up GX input, executes GX, returns input file name
     def gx_command(self, r_id, rho, kn, kti, kte, job_id, 
-                         temp_i=1,temp_e=1, nu_ii=0, nu_ee=0, beta_ref=0, restart=True):
+                         temp_i=1,temp_e=1, nu_ii=0, nu_ee=0, beta_ref=0, restart=True, overwrite=False):
         # this version perturbs for the gradient
         # (temp, should be merged as option, instead of duplicating code)
         
@@ -561,16 +572,16 @@ class GX_Flux_Model():
 
 
         ### execute
-        ft.gx_input.write(path + fout)
-        qflux = self.run_gx(tag, path) # this returns a file name
+        ft.gx_input.write(path + fout, overwrite=overwrite)
+        qflux = self.run_gx(tag, path, overwrite=overwrite) # this returns a file name
         return qflux
 
 
 
-    def run_gx(self,tag,path):
+    def run_gx(self,tag,path, overwrite=False):
 
         f_nc = path + tag + '.nc'
-        if ( os.path.exists(f_nc) == False ):
+        if ( os.path.exists(f_nc) == False or overwrite ):
 
             # attempt to call
             system = os.environ['GK_SYSTEM']
