@@ -71,7 +71,7 @@ class Trinity_Engine():
                        Ba = 3,
                        alpha = 1,          # explicit to implicit mixer
                        dtau  = 0.5,        # step size 
-                       dtau_adj  = 4.0,    # factor to reduce dtau by if timestep fails
+                       dtau_adj = 2.0,    # factor to reduce dtau by if timestep fails
                        N_steps  = 1000,    # total Time = dtau * N_steps
                        N_prints = 10,
                        max_newton_iter = 4,
@@ -79,6 +79,9 @@ class Trinity_Engine():
                        Sn_height  = 0,  
                        Spe_height = 0,
                        Spi_height = 0, 
+                       Sn_tot  = -1,  
+                       Spe_tot = -1,
+                       Spi_tot = -1, 
                        Sn_width   = 0.1,   
                        Spi_width  = 0.1, 
                        Spe_width  = 0.1,  
@@ -133,7 +136,7 @@ class Trinity_Engine():
         # these "time" settings succeed the "grid" settings above, keeping both now for backwards compatibility
         alpha = self.load( alpha, "float( tr3d.inputs['time']['alpha'] )" )
         dtau = self.load( dtau, "float( tr3d.inputs['time']['dtau'] )" )
-        dtau_adj = self.load( dtau_adj, "float( tr3d.inputs['time']['dtau_adj'] )" )
+        self.dtau_adj = self.load( dtau_adj, "float( tr3d.inputs['time']['dtau_adj'] )" )
         N_steps = self.load( N_steps, "int( tr3d.inputs['time']['N_steps'] )" )
         
         model    = tr3d.inputs['model']['model']
@@ -153,9 +156,12 @@ class Trinity_Engine():
         self.evolve_temperature = self.load(evolve_temperature, "tr3d.inputs['profiles']['evolve_temperature']")
         self.adiabatic_species = self.load(adiabatic_species, "tr3d.inputs['profiles']['adiabatic_species']")
         
-        Sn_height  = float ( tr3d.inputs['sources']['Sn_height' ] ) 
-        Spi_height = float ( tr3d.inputs['sources']['Spi_height'] ) 
-        Spe_height = float ( tr3d.inputs['sources']['Spe_height'] ) 
+        Sn_height  = self.load(Sn_height, "float ( tr3d.inputs['sources']['Sn_height' ] )" )
+        Spi_height = self.load(Spi_height, "float ( tr3d.inputs['sources']['Spi_height'] )" )
+        Spe_height = self.load(Spe_height, "float ( tr3d.inputs['sources']['Spe_height'] )" )
+        Sn_tot  = self.load(Sn_tot,  "float ( tr3d.inputs['sources']['Sn_tot' ] )" )
+        Spi_tot = self.load(Spi_tot, "float ( tr3d.inputs['sources']['Spi_tot'] )" )
+        Spe_tot = self.load(Spe_tot, "float ( tr3d.inputs['sources']['Spe_tot'] )" )
         Sn_width   = float ( tr3d.inputs['sources']['Sn_width'  ] ) 
         Spi_width  = float ( tr3d.inputs['sources']['Spi_width' ] ) 
         Spe_width  = float ( tr3d.inputs['sources']['Spe_width' ] ) 
@@ -385,6 +391,9 @@ class Trinity_Engine():
             self.Sn_height  = Sn_height  
             self.Spi_height = Spi_height 
             self.Spe_height = Spe_height 
+            self.Sn_tot  = Sn_tot  
+            self.Spi_tot = Spi_tot 
+            self.Spe_tot = Spe_tot 
             self.Sn_width   = Sn_width      
             self.Spi_width  = Spi_width   
             self.Spe_width  = Spe_width    
@@ -392,12 +401,20 @@ class Trinity_Engine():
             self.Spi_center = Spi_center 
             self.Spe_center = Spe_center  
 
+            # if any _tot source parameters are set, we will use a unit source height and rescale later in calc_sources
+            if self.Sn_tot >= 0:
+                self.Sn_height = 1.
+            if self.Spi_tot >= 0:
+                self.Spi_height = 1.
+            if self.Spe_tot >= 0:
+                self.Spe_height = 1.
+
             ### sources
             # temp, Gaussian model. Later this should be adjustable
             Gaussian  = np.vectorize(mf.Gaussian)
-            self.aux_source_n  = Gaussian(rho_axis, A=Sn_height , sigma=Sn_width , x0=Sn_center)
-            self.aux_source_pi = Gaussian(rho_axis, A=Spi_height, sigma=Spi_width, x0=Spi_center)
-            self.aux_source_pe = Gaussian(rho_axis, A=Spe_height, sigma=Spe_width, x0=Spe_center)
+            self.aux_source_n  = Gaussian(rho_axis, A=self.Sn_height , sigma=self.Sn_width , x0=self.Sn_center)
+            self.aux_source_pi = Gaussian(rho_axis, A=self.Spi_height, sigma=self.Spi_width, x0=self.Spi_center)
+            self.aux_source_pe = Gaussian(rho_axis, A=self.Spe_height, sigma=self.Spe_width, x0=self.Spe_center)
             
             self.source_model = 'Gaussian'
 
@@ -476,7 +493,7 @@ class Trinity_Engine():
 
         if   (model == "GX"):
 
-            self.model_gx.prep_commands(self, overwrite=self.repeat)
+            self.model_gx.prep_commands(self, overwrite=self.repeat and self.p_idx>0)
             self.normalize_fluxes()
 
         elif (model == "diffusive"):
@@ -984,10 +1001,26 @@ class Trinity_Engine():
     # use auxiliary sources, add fusion power, subtract Bremstrahlung
     def calc_sources(self):
     
-        # load axuiliary source terms
+        # load axuiliary source terms (these are profiles with unit height)
         aux_source_n  = self.aux_source_n #[:-1]
         aux_source_pi = self.aux_source_pi#[:-1]
         aux_source_pe = self.aux_source_pe#[:-1]
+
+        area  = self.flux_norms.area.full.profile 
+        grho  = self.flux_norms.grho.full.profile
+        drho = self.drho
+
+        def volume_integrate(integrand):
+            integral = np.sum(integrand*area[:len(integrand)]/grho[:len(integrand)])*drho
+            return integral
+
+        # scale the source profiles to get the desired total particle and heat sources
+        if self.Sn_tot >= 0:
+            aux_source_n  *= self.Sn_tot/volume_integrate(aux_source_n)
+        if self.Spi_tot >= 0:
+            aux_source_pi *= self.Spi_tot/volume_integrate(aux_source_pi)
+        if self.Spe_tot >= 0:
+            aux_source_pe *= self.Spe_tot/volume_integrate(aux_source_pe)
         
         # load profiles
         n_profile_m3 = self.density.profile * 1e20
@@ -1268,7 +1301,7 @@ class Trinity_Engine():
         self.check_finite_difference()
 
         # step time
-        if not self.newton_mode:
+        if not self.newton_mode and not self.repeat:
             # do not increment time, while Trinity iterates Newton method steps 
             self.time += self.dtau
             self.t_idx += 1 # integer index of all time steps
@@ -1278,10 +1311,10 @@ class Trinity_Engine():
     def check_finite_difference(self):
 
         t = self.t_idx
-        if t == 0:  
+        if t == 0 and self.p_idx==0:  
             print(f"(t,p) = {self.t_idx}, {self.p_idx}")
-            #self.p_idx += 1
-            #self.newton_mode = True
+            self.p_idx += 1
+            self.newton_mode = True
             return
 
         # note: these arrays do NOT include the edge boundary point
@@ -1318,41 +1351,40 @@ class Trinity_Engine():
             else:
                 rms = np.sqrt( pi_rms**2 + pe_rms**2 )/2
 
-        out_string = f"(t,p) = {self.t_idx}, {self.p_idx} :: (p_prev, err, iterate) = "
+        out_string = f"(t,p) = {self.t_idx}, {self.p_idx} :: err = {rms:.3e}  "
+        print(out_string)
 
         ### decide whether to iterate or repeat timestep
         iterate = True
-        self.repeat = False
+        repeat_now = False
 
         if rms < self.newton_threshold:
             # error is sufficiently small, do not iterate, move to next timestep
             iterate = False
+            self.repeat = False
 
-        # error checks
-        if self.p_idx >= self.max_newton_iter:
+        elif self.p_idx >= self.max_newton_iter:
             iterate = False
-     #       # max number of newton iterations exceeded, need to repeat timestep
-     #       print(f"\n    ERROR: RMS relative error in profiles greater than threshold ({self.newton_threshold}) after {self.max_newton_iter} iterations. \n")
-     #       self.repeat = True
+            # max number of newton iterations exceeded, need to repeat timestep
+            print(f"\n    ERROR: RMS relative error in profiles greater than threshold ({self.newton_threshold:.3e}) after {self.max_newton_iter} iterations. \n")
+            repeat_now = True
 
-     #   if np.any(y1 < 0):
-     #       # negative profiles
-     #       print(f"\n    ERROR: one (or more) of the profiles has gone negative. \n")
-     #       self.repeat = True
+        if np.any(y1 < 0):
+            # negative profiles
+            print(f"\n    ERROR: one (or more) of the profiles has gone negative. \n")
+            repeat_now = True
 
-     #   if np.max( [n_err, pi_err, pe_err] ) > threshold:
-     #       # too large change in profiles
-     #       print(f"\n    ERROR: one of the profiles changed by more than {threshold*100}%\n")
-     #       self.repeat = True
-
-     #   if self.repeat:
-     #       # rewind iterations
-     #       self.y_hist = self.y_hist[:-(self.p_idx+1)]
-     #       iterate = False
-     #       # decrease timestep
-     #       self.dtau = self.dtau/self.dtau_adj
-     #       print(f"\n    REPEATING TIMESTEP with dtau -> dtau/{self.dtau_adj} = {self.dtau}\n")
-     #       return
+        if repeat_now:
+            # repeat flag tells system to overwrite flux results for entire trinity timestep, will not be unflagged until a successful timestep is completed
+            self.repeat = True
+            # rewind iterations
+            self.y_hist = self.y_hist[:-(self.p_idx+1)]
+            self.p_idx = 0
+            self.newton_mode = False
+            # decrease timestep
+            self.dtau = self.dtau/self.dtau_adj
+            print(f"\n    REPEATING TIMESTEP with dtau -> dtau/{self.dtau_adj} = {self.dtau}\n")
+            return
 
         ### execute iteration logic
         if iterate:
@@ -1370,7 +1402,7 @@ class Trinity_Engine():
         #self.y_error = y_err
         self.chi_error = rms
 
-        out_string += f"{self.prev_p_id} {rms:.3e} {self.newton_mode}"
+        out_string = f"  (p_prev, iterate) = {self.prev_p_id} {self.newton_mode}"
         print(out_string)
 
         if not iterate:
