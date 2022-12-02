@@ -265,7 +265,7 @@ class Flux_coefficients():
         self.state   = x
         self.flux    = Y # this is normalized flux F,I
         self.RawFlux = Z # this is Gamma,Q
-        self.dRawFlux = dZ # this is d log(Gamma,Q)/d Lx
+        self.dRawFlux = dZ # this is d (Gamma,Q)/d Lx
         self.norm    = norm # normalizlation constant (R/a)/drho
 
         # plus,minus,zero : these are the A,B coefficients
@@ -282,7 +282,10 @@ class Flux_coefficients():
         xp = self.state.plus.profile
         Yp = self.flux.plus.profile
         Zp = self.RawFlux.plus.profile
-        dLogZp = self.dRawFlux.plus.profile
+        dZp = self.dRawFlux.plus.profile
+
+        with np.errstate(divide='ignore', invalid='ignore'):
+            dLogZp = np.nan_to_num( dZp / Zp )
 
         Cp = - norm * (x / xp**2) * Yp * dLogZp
         return Profile(Cp)
@@ -295,7 +298,10 @@ class Flux_coefficients():
         xm = self.state.minus.profile
         Ym = self.flux.minus.profile
         Zm = self.RawFlux.minus.profile
-        dLogZm = self.dRawFlux.minus.profile
+        dZm = self.dRawFlux.minus.profile
+
+        with np.errstate(divide='ignore', invalid='ignore'):
+            dLogZm = np.nan_to_num( dZm / Zm )
         
         Cm = - norm * (x / xm**2) * Ym * dLogZm
         return Profile(Cm)
@@ -312,11 +318,15 @@ class Flux_coefficients():
         
         Yp = self.flux.plus.profile
         Zp = self.RawFlux.plus.profile
-        dLogZp = self.dRawFlux.plus.profile
+        dZp = self.dRawFlux.plus.profile
 
         Ym = self.flux.minus.profile
         Zm = self.RawFlux.minus.profile
-        dLogZm = self.dRawFlux.minus.profile
+        dZm = self.dRawFlux.minus.profile
+
+        with np.errstate(divide='ignore', invalid='ignore'):
+            dLogZp = np.nan_to_num( dZp / Zp )
+            dLogZm = np.nan_to_num( dZm / Zm )
         
         cp = xp1 / xp**2 * Yp * dLogZp
         cm = xm1 / xm**2 * Ym * dLogZm
