@@ -377,9 +377,9 @@ class GX_Flux_Model():
         Qe_n   = np.zeros(len(idx))
         Qe_pi  = np.zeros(len(idx))
         Qe_pe  = np.zeros(len(idx))
-        dkn  = np.zeros( len(idx) )
-        dkti  = np.zeros( len(idx) )
-        dkte  = np.zeros( len(idx) )
+        dkn  = np.ones( len(idx) )
+        dkti  = np.ones( len(idx) )
+        dkte  = np.ones( len(idx) )
 
         try:
             Qi_prev = engine.Qi.profile
@@ -444,20 +444,24 @@ class GX_Flux_Model():
             Qi[j] = gx_data.qflux_i
             Qe[j] = gx_data.qflux_e
 
-            gx_data = read_gx(fn [j])
-            G_n[j] = gx_data.pflux
-            Qi_n[j] = gx_data.qflux_i
-            Qe_n[j] = gx_data.qflux_e
+            if engine.evolve_density:
+                gx_data = read_gx(fn [j])
+                G_n[j] = gx_data.pflux
+                Qi_n[j] = gx_data.qflux_i
+                Qe_n[j] = gx_data.qflux_e
 
-            gx_data = read_gx(fpi [j])
-            G_pi[j] = gx_data.pflux
-            Qi_pi[j] = gx_data.qflux_i
-            Qe_pi[j] = gx_data.qflux_e
+            if engine.evolve_temperature:
+                if not engine.fix_ions and not engine.adiabatic_species == "ion":
+                    gx_data = read_gx(fpi [j])
+                    G_pi[j] = gx_data.pflux
+                    Qi_pi[j] = gx_data.qflux_i
+                    Qe_pi[j] = gx_data.qflux_e
 
-            gx_data = read_gx(fpe [j])
-            G_pe[j] = gx_data.pflux
-            Qi_pe[j] = gx_data.qflux_i
-            Qe_pe[j] = gx_data.qflux_e
+                if not engine.fix_electrons and not engine.adiabatic_species == "electron":
+                    gx_data = read_gx(fpe [j])
+                    G_pe[j] = gx_data.pflux
+                    Qi_pe[j] = gx_data.qflux_i
+                    Qe_pe[j] = gx_data.qflux_e
 
             a_ref.append(gx_data.a_ref)
             B_ref.append(gx_data.B_ref)
@@ -628,7 +632,7 @@ def print_time():
 #  if so, it should be replaced by GX_Output class in GX_io.py
 def read_gx(f_nc):
     if f_nc == '':
-        return 1e-8, None
+        return 
     # read a GX netCDF output file, returns flux
     try:
         gx_data = gx_io.GX_Output(f_nc)
