@@ -401,13 +401,22 @@ class Trinity_Engine():
             self.Spi_center = Spi_center 
             self.Spe_center = Spe_center  
 
+            particle_norm = self.norms.particle_source_scale
+            pressure_norm = self.norms.pressure_source_scale
+
             # if any _tot source parameters are set, we will use a unit source height and rescale later in calc_sources
             if self.Sn_tot >= 0:
                 self.Sn_height = 1.
+                # rescale to Trinity units, assuming Sn_tot is in 10^20/m3
+                self.Sn_tot = self.Sn_tot*1e20*particle_norm
             if self.Spi_tot >= 0:
                 self.Spi_height = 1.
+                # rescale to Trinity units, assuming Spi_tot is in MW/m3
+                self.Spi_tot = self.Spi_tot*1e6*pressure_norm
             if self.Spe_tot >= 0:
                 self.Spe_height = 1.
+                # rescale to Trinity units, assuming Spe_tot is in MW/m3
+                self.Spe_tot = self.Spe_tot*1e6*pressure_norm
 
             ### sources
             # temp, Gaussian model. Later this should be adjustable
@@ -1000,27 +1009,28 @@ class Trinity_Engine():
 
     # use auxiliary sources, add fusion power, subtract Bremstrahlung
     def calc_sources(self):
-    
-        # load axuiliary source terms (these are profiles with unit height)
-        aux_source_n  = self.aux_source_n #[:-1]
-        aux_source_pi = self.aux_source_pi#[:-1]
-        aux_source_pe = self.aux_source_pe#[:-1]
 
-        area  = self.flux_norms.area.full.profile 
-        grho  = self.flux_norms.grho.full.profile
+        area = self.flux_norms.area.full.profile 
+        grho = self.flux_norms.grho.full.profile
         drho = self.drho
 
         def volume_integrate(integrand):
             integral = np.sum(integrand*area[:len(integrand)]/grho[:len(integrand)])*drho
             return integral
 
-        # scale the source profiles to get the desired total particle and heat sources
-        if self.Sn_tot >= 0:
-            aux_source_n  *= self.Sn_tot/volume_integrate(aux_source_n)
-        if self.Spi_tot >= 0:
-            aux_source_pi *= self.Spi_tot/volume_integrate(aux_source_pi)
-        if self.Spe_tot >= 0:
-            aux_source_pe *= self.Spe_tot/volume_integrate(aux_source_pe)
+        # load axuiliary source terms
+        # scale the source profiles to get the desired total particle and heat sources (first time only)
+        if self.t_idx == 0 and self.p_idx == 0:
+            if self.Sn_tot >= 0:
+                self.aux_source_n  *= self.Sn_tot/volume_integrate(self.aux_source_n)
+            if self.Spi_tot >= 0:
+                self.aux_source_pi *= self.Spi_tot/volume_integrate(self.aux_source_pi)
+            if self.Spe_tot >= 0:
+                self.aux_source_pe *= self.Spe_tot/volume_integrate(self.aux_source_pe)
+    
+        aux_source_n  = self.aux_source_n #[:-1]
+        aux_source_pi = self.aux_source_pi#[:-1]
+        aux_source_pe = self.aux_source_pe#[:-1]
         
         # load profiles
         n_profile_m3 = self.density.profile * 1e20
