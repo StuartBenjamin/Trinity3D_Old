@@ -407,15 +407,15 @@ class Trinity_Engine():
             # if any _tot source parameters are set, we will use a unit source height and rescale later in calc_sources
             if self.Sn_tot >= 0:
                 self.Sn_height = 1.
-                # rescale to Trinity units, assuming Sn_tot is in 10^20/m3
+                # rescale to Trinity units, assuming Sn_tot is in 10^20 particles
                 self.Sn_tot = self.Sn_tot*1e20*particle_norm
             if self.Spi_tot >= 0:
                 self.Spi_height = 1.
-                # rescale to Trinity units, assuming Spi_tot is in MW/m3
+                # rescale to Trinity units, assuming Spi_tot is in MW
                 self.Spi_tot = self.Spi_tot*1e6*pressure_norm
             if self.Spe_tot >= 0:
                 self.Spe_height = 1.
-                # rescale to Trinity units, assuming Spe_tot is in MW/m3
+                # rescale to Trinity units, assuming Spe_tot is in MW
                 self.Spe_tot = self.Spe_tot*1e6*pressure_norm
 
             ### sources
